@@ -120,3 +120,23 @@ def require_role(*allowed: UserRole):
         return user
 
     return _checker
+
+
+async def require_admin(user: CurrentUser) -> User:
+    """Dependency: garantiza que el usuario tenga rol ADMIN o BOTH.
+
+    Devuelve el ``User`` si pasa el check. Caso contrario, 403 con el
+    código canónico ``FORBIDDEN_NOT_ADMIN`` (mensaje en español) — el
+    frontend lo distingue de ``WORKSPACE_ACCESS_DENIED`` porque la
+    acción afecta al módulo admin.
+    """
+    if user.role not in (UserRole.ADMIN, UserRole.BOTH):
+        raise _envelope(
+            status=403,
+            code=ErrorCode.FORBIDDEN_NOT_ADMIN,
+            message="Esta accion es solo para administradores",
+        )
+    return user
+
+
+AdminUser = Annotated[User, Depends(require_admin)]

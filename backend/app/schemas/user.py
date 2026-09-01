@@ -19,5 +19,6 @@ class UserOut(BaseModel):
     last_name: str
     phone: str
     role: UserRole
+    is_active: bool
     email_verified_at: datetime | None
     created_at: datetime

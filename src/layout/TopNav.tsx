@@ -1,12 +1,12 @@
 import { useState } from 'react';
-import { Link, NavLink } from 'react-router-dom';
+import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { TopNavMobileDrawer } from './TopNavMobileDrawer';
 import { useAuth } from '../features/auth/useAuth';
 import { ADMIN_ROLES, UserRoles, type UserRole } from '../features/auth/types';
 import { readStoredPortal } from '../features/auth/authStorage';
 
 /*
- * p0b.1b — TopNav with auth-aware CTA + portal-aware Admin link.
+ * p0b.2 — TopNav with auth-aware CTA + portal-aware Admin link.
  *
  * Behavior:
  *   - When the user is signed out, the dual CTA is "Registrarse"
@@ -15,15 +15,21 @@ import { readStoredPortal } from '../features/auth/authStorage';
  *     #77, p0b.1b).
  *   - When the user is signed in:
  *       * If their role is ADMIN or BOTH AND `jcs.portal === 'admin'`,
- *         show a small "Admin" link right before the user avatar.
+ *         show a small "Panel admin" link right before the user avatar.
+ *       * If their role is BOTH AND `jcs.portal === 'user'`, show a
+ *         small "Ir a admin" link that flips the portal slot and sends
+ *         them to /admin (the AdminAuthGuard handles the role check).
  *       * Replace the dual CTA with a circular avatar (first letter
  *         of the user's first_name) + a dropdown containing
- *         "Cerrar sesion".
+ *         "Mi portal" (USER-only role) or "Portal admin" (admin portal
+ *         active), and "Cerrar sesion".
  *       * Show the user's name next to the avatar in a small label.
  *   - The dropdown closes on outside click via a backdrop overlay
  *     (intentionally simple — no Radix, no popper; this is the
  *     minimal surface for v0).
  */
+import { writeStoredPortal } from '../features/auth/authStorage';
+
 function isAdminPortalActive(
   role: UserRole | undefined,
   portal: ReturnType<typeof readStoredPortal>,
@@ -32,12 +38,24 @@ function isAdminPortalActive(
   return ADMIN_ROLES.includes(role) && portal === 'admin' && role !== UserRoles.USER;
 }
 
+function canSwitchToAdmin(role: UserRole | undefined): boolean {
+  return role === UserRoles.BOTH;
+}
+
 export function TopNav() {
   const [drawerOpen, setDrawerOpen] = useState<boolean>(false);
   const [menuOpen, setMenuOpen] = useState<boolean>(false);
+  const navigate = useNavigate();
   const { user, logout, loading } = useAuth();
   const portal = readStoredPortal();
   const showAdminLink = isAdminPortalActive(user?.role, portal);
+  const showSwitchToAdminLink = canSwitchToAdmin(user?.role) && portal === 'user';
+
+  const handleGoToAdmin = () => {
+    writeStoredPortal('admin');
+    setMenuOpen(false);
+    navigate('/admin');
+  };
 
   const displayName = user?.first_name ?? user?.email ?? 'trader';
   const initials = (user?.first_name ?? '?').trim().slice(0, 1).toUpperCase();
@@ -97,8 +115,18 @@ export function TopNav() {
                 to="/admin"
                 className="hidden md:inline-flex items-center gap-1 border border-primary/40 text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors text-xs"
               >
-                Admin
+                Panel admin
               </Link>
+            ) : null}
+
+            {showSwitchToAdminLink ? (
+              <button
+                type="button"
+                onClick={handleGoToAdmin}
+                className="hidden md:inline-flex items-center gap-1 border border-primary/40 text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors text-xs"
+              >
+                Ir a admin
+              </button>
             ) : null}
 
             {user !== null ? (

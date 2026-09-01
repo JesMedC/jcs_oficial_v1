@@ -1,4 +1,10 @@
 """Services layer — toda la lógica de negocio vive aquí (R3 Reliability)."""
+from app.services.admin_service import (
+    list_plans as admin_list_plans,
+    list_users as admin_list_users,
+    set_user_active,
+    update_plan_price,
+)
 from app.services.auth_service import (
     authenticate_user,
     issue_tokens_for_user,
@@ -41,4 +47,8 @@ __all__ = [
     "is_trial_active",
     "upgrade_subscription",
     "cancel_subscription",
+    "admin_list_users",
+    "set_user_active",
+    "admin_list_plans",
+    "update_plan_price",
 ]

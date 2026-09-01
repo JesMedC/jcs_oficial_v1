@@ -7,16 +7,16 @@ import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 
 import { ProtectedRoute } from '../features/auth/ProtectedRoute';
-import { AdminRoute } from '../features/auth/AdminRoute';
 
 /*
- * p0a.2 router config.
+ * p0b.2 router config.
  *
  * The public routes (home, pricing, features, about, login, register,
  * legal, contact, demo, 404) stay flat. The auth-gated routes
- * (portal-select, dashboard, admin/*) are nested under
- * ProtectedRoute / AdminRoute so the guards can call <Outlet />
- * for their children.
+ * (portal-select, dashboard, dashboard/upgrade) are nested under
+ * ProtectedRoute. The admin routes (admin, admin/users, admin/plans)
+ * share AdminLayout which mounts AdminAuthGuard — the role/portal
+ * check happens at the layout boundary, not in a wrapper route.
  */
 
 const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -50,8 +50,23 @@ const DashboardPage = lazy(() =>
 const UpgradePage = lazy(() =>
   import('../pages/UpgradePage').then((m) => ({ default: m.UpgradePage })),
 );
+
+// Admin pages — live in `pages/admin/` so they don't collide with the
+// public AdminDashboardPage placeholder that ships in p0a.2. The
+// old `pages/AdminDashboardPage.tsx` file is kept for backward compat
+// (re-export shim) but the router only references the admin module.
 const AdminDashboardPage = lazy(() =>
-  import('../pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+  import('../pages/admin/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+);
+const AdminUsersPage = lazy(() =>
+  import('../pages/admin/AdminUsersPage').then((m) => ({ default: m.AdminUsersPage })),
+);
+const AdminPlansPage = lazy(() =>
+  import('../pages/admin/AdminPlansPage').then((m) => ({ default: m.AdminPlansPage })),
+);
+
+const AdminLayout = lazy(() =>
+  import('../layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
 );
 
 export const routeChildren: RouteObject[] = [
@@ -75,8 +90,13 @@ export const routeChildren: RouteObject[] = [
     ],
   },
   {
-    element: <AdminRoute />,
-    children: [{ path: '/admin', element: <AdminDashboardPage /> }],
+    path: '/admin',
+    element: <AdminLayout />,
+    children: [
+      { index: true, element: <AdminDashboardPage /> },
+      { path: 'users', element: <AdminUsersPage /> },
+      { path: 'plans', element: <AdminPlansPage /> },
+    ],
   },
   { path: '*', element: <NotFoundPage /> },
 ];
