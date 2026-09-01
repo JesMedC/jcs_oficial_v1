@@ -79,6 +79,12 @@ class IdempotencyMiddleware(BaseHTTPMiddleware):
         )
 
         # Re-emitimos el body (ya consumido) en una Response nueva.
+        # Para 204 / 304 no debe haber body ni media_type (HTTP spec).
+        if response.status_code in (204, 304):
+            return Response(
+                status_code=response.status_code,
+                headers=dict(response.headers),
+            )
         return Response(
             content=resp_body,
             status_code=response.status_code,
