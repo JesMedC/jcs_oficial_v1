@@ -86,6 +86,40 @@ function PlansIcon() {
   );
 }
 
+function PaymentsIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M2.25 8.25h19.5M2.25 8.25V18a1.5 1.5 0 001.5 1.5h16.5a1.5 1.5 0 001.5-1.5V8.25M2.25 8.25V6.75A1.5 1.5 0 013.75 5.25h16.5a1.5 1.5 0 011.5 1.5v1.5"
+      />
+    </svg>
+  );
+}
+
+function AnalyticsIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l4-5 4 3 5-7" />
+    </svg>
+  );
+}
+
 function CollapseIcon({ collapsed }: { readonly collapsed: boolean }) {
   return (
     <svg
@@ -109,6 +143,8 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/admin', label: 'Dashboard', icon: <DashboardIcon />, end: true },
   { to: '/admin/users', label: 'Usuarios', icon: <UsersIcon /> },
   { to: '/admin/plans', label: 'Planes', icon: <PlansIcon /> },
+  { to: '/admin/payments', label: 'Pagos', icon: <PaymentsIcon /> },
+  { to: '/admin/analytics', label: 'Analitica', icon: <AnalyticsIcon /> },
 ];
 
 export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {

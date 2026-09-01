@@ -64,6 +64,12 @@ const AdminUsersPage = lazy(() =>
 const AdminPlansPage = lazy(() =>
   import('../pages/admin/AdminPlansPage').then((m) => ({ default: m.AdminPlansPage })),
 );
+const AdminPaymentsPage = lazy(() =>
+  import('../pages/admin/AdminPaymentsPage').then((m) => ({ default: m.AdminPaymentsPage })),
+);
+const AdminAnalyticsPage = lazy(() =>
+  import('../pages/admin/AdminAnalyticsPage').then((m) => ({ default: m.AdminAnalyticsPage })),
+);
 
 const AdminLayout = lazy(() =>
   import('../layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
@@ -96,6 +102,8 @@ export const routeChildren: RouteObject[] = [
       { index: true, element: <AdminDashboardPage /> },
       { path: 'users', element: <AdminUsersPage /> },
       { path: 'plans', element: <AdminPlansPage /> },
+      { path: 'payments', element: <AdminPaymentsPage /> },
+      { path: 'analytics', element: <AdminAnalyticsPage /> },
     ],
   },
   { path: '*', element: <NotFoundPage /> },
