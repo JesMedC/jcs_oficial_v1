@@ -1,5 +1,7 @@
 """SQLAlchemy 2.x typed models — exported via ``app.models``."""
 from app.models.audit_log import AuditLog
+from app.models.page_view import PageView
+from app.models.payment import Payment, PaymentStatus
 from app.models.plan_tier_price import PlanTierPrice
 from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription, SubscriptionStatus, SubscriptionTier
@@ -22,4 +24,7 @@ __all__ = [
     "Subscription",
     "SubscriptionTier",
     "SubscriptionStatus",
+    "Payment",
+    "PaymentStatus",
+    "PageView",
 ]
