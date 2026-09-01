@@ -1,0 +1,68 @@
+# docker-compose raíz — orquesta postgres + backend (+ frontend dev).
+# Levanta todo: `docker compose up -d`
+# Solo backend + db: `docker compose up -d postgres backend`
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: jcs-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: jcs
+      POSTGRES_PASSWORD: jcs
+      POSTGRES_DB: jcs
+    ports:
+      - "5433:5432"  # 5433 evita colision con Postgres locales en 5432
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U jcs -d jcs"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: jcs-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://jcs:jcs@postgres:5432/jcs
+      DATABASE_URL_SYNC: postgresql+psycopg2://jcs:jcs@postgres:5432/jcs
+      JWT_SECRET: ${JWT_SECRET:-change-me-in-production-min-32-chars-aaaa}
+      JWT_ALGORITHM: HS256
+      JWT_ACCESS_TTL_MIN: 15
+      JWT_REFRESH_TTL_DAYS: 14
+      CORS_ALLOW_ORIGINS: ${CORS_ALLOW_ORIGINS:-https://jadecapitalsuite.com,http://localhost:5173}
+      ENVIRONMENT: ${ENVIRONMENT:-development}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-console}
+      MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
+      MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:-}
+      MERCADOPAGO_WEBHOOK_URL: ${MERCADOPAGO_WEBHOOK_URL:-}
+    ports:
+      - "8000:8000"
+    volumes:
+      # Hot-reload friendly: monta el código desde el host.
+      - ./backend:/app
+    command: ["bash", "entrypoint.sh"]
+
+  frontend:
+    image: node:20-alpine
+    container_name: jcs-frontend
+    working_dir: /workspace
+    profiles: ["frontend"]  # opt-in: `docker compose --profile frontend up`
+    volumes:
+      - .:/workspace
+      - /workspace/node_modules
+    ports:
+      - "5173:5173"
+    command: ["sh", "-c", "corepack enable && pnpm install --frozen-lockfile && pnpm run dev"]
+
+volumes:
+  postgres_data:
+    driver: local

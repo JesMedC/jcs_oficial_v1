@@ -1,0 +1,4 @@
+# Prettier frontend-only — el backend usa ruff + mypy.
+backend/
+docker-compose.yml
+*.md

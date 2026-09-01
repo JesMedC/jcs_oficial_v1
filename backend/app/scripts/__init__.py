@@ -1,0 +1,1 @@
+"""Scripts CLI — seed y utilidades operativas."""

@@ -9,3 +9,14 @@ coverage
 .env.*.local
 .eslintcache
 .vitest-cache
+
+# Backend (Python) — caches + venv + local secrets
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.env
+backend/.coverage
+backend/*.egg-info/
