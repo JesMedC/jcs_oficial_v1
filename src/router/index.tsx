@@ -3,12 +3,14 @@ import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from '
 import { AppShell } from '../layout/AppShell';
 import { RouteFallback } from '../components/RouteFallback';
 import { AuthProvider } from '../features/auth/AuthProvider';
+import { PageviewTracker } from '../hooks/PageviewTracker';
 import { routeChildren } from './config';
 
 function RootShell() {
   return (
     <>
       <ScrollRestoration />
+      <PageviewTracker />
       <AppShell>
         <Suspense fallback={<RouteFallback />}>
           <Outlet />
