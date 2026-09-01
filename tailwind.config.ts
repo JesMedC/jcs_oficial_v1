@@ -57,18 +57,25 @@ const config: Config = {
           '0%': { backgroundPosition: '0% 50%' },
           '100%': { backgroundPosition: '200% 50%' },
         },
+        'auth-pulse': {
+          '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,255,255,0.5)' },
+          '50%': { transform: 'scale(1.05)', boxShadow: '0 0 0 12px rgba(0,255,255,0)' },
+        },
       },
       animation: {
         'aurora-drift': 'aurora-drift 18s ease-in-out infinite',
         'particle-drift': 'particle-drift 12s ease-in-out infinite alternate',
         'pulse-cyan': 'pulse-cyan 2.4s ease-in-out infinite',
         'shimmer-glass': 'shimmer-glass 8s linear infinite',
+        'auth-pulse': 'auth-pulse 1.2s ease-in-out infinite',
       },
       backgroundImage: {
         'aurora-static':
           'radial-gradient(60% 50% at 20% 30%, rgba(0,255,255,0.18), transparent 70%), radial-gradient(50% 40% at 80% 70%, rgba(77,163,255,0.12), transparent 70%)',
         'site-gradient':
           'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,255,255,0.10) 50%, rgba(255,255,255,0.03) 100%)',
+        'portal-selector':
+          'radial-gradient(60% 50% at 50% 30%, rgba(0,255,255,0.16), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(77,163,255,0.10), transparent 70%)',
       },
       boxShadow: {
         'glow-cyan': '0 0 40px rgba(0,255,255,0.30)',

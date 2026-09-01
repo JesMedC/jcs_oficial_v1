@@ -6,14 +6,17 @@
 import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 
+import { ProtectedRoute } from '../features/auth/ProtectedRoute';
+import { AdminRoute } from '../features/auth/AdminRoute';
+
 /*
- * p1c router config.
+ * p0a.2 router config.
  *
- * p1c swaps the 5 p1c-owned page lazy imports from `pages/_stub`
- * (HomePage, PricingPage, FeaturesPage, AboutPage, NotFoundPage) to
- * concrete modules. p1d (About/Contact/Demo), p1e (Login/Register
- * and the legal stubs) still resolve through `_stub` until those
- * slices ship.
+ * The public routes (home, pricing, features, about, login, register,
+ * legal, contact, demo, 404) stay flat. The auth-gated routes
+ * (portal-select, dashboard, admin/*) are nested under
+ * ProtectedRoute / AdminRoute so the guards can call <Outlet />
+ * for their children.
  */
 
 const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -30,13 +33,23 @@ const NotFoundPage = lazy(() =>
 
 const ContactPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.ContactPage })));
 const DemoPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.DemoPage })));
-const LoginPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.LoginPage })));
+const LoginPage = lazy(() => import('../pages/LoginPage').then((m) => ({ default: m.LoginPage })));
 const RegisterPage = lazy(() =>
-  import('../pages/_stub').then((m) => ({ default: m.RegisterPage })),
+  import('../pages/RegisterPage').then((m) => ({ default: m.RegisterPage })),
 );
 const PrivacyPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.PrivacyPage })));
 const TermsPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.TermsPage })));
 const CookiesPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.CookiesPage })));
+
+const PortalSelector = lazy(() =>
+  import('../features/auth/PortalSelector').then((m) => ({ default: m.PortalSelector })),
+);
+const DashboardPage = lazy(() =>
+  import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
+const AdminDashboardPage = lazy(() =>
+  import('../pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
+);
 
 export const routeChildren: RouteObject[] = [
   { path: '/', element: <HomePage /> },
@@ -50,5 +63,16 @@ export const routeChildren: RouteObject[] = [
   { path: '/privacy', element: <PrivacyPage /> },
   { path: '/terms', element: <TermsPage /> },
   { path: '/cookies', element: <CookiesPage /> },
+  {
+    element: <ProtectedRoute />,
+    children: [
+      { path: '/portal-select', element: <PortalSelector /> },
+      { path: '/dashboard', element: <DashboardPage /> },
+    ],
+  },
+  {
+    element: <AdminRoute />,
+    children: [{ path: '/admin', element: <AdminDashboardPage /> }],
+  },
   { path: '*', element: <NotFoundPage /> },
 ];

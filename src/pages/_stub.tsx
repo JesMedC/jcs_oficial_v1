@@ -6,12 +6,17 @@ import { SeoHead } from '../components/SeoHead';
  *
  * The router resolves the following routes through this file until
  * their owning slice ships:
- *   - p1d → AboutPage (was here until p1c; now removed), ContactPage, DemoPage
- *   - p1e → LoginPage, RegisterPage, PrivacyPage, TermsPage, CookiesPage
+ *   - p1d → ContactPage, DemoPage
+ *   - p1e → PrivacyPage, TermsPage, CookiesPage
  *
  * p1c removed HomePage, PricingPage, FeaturesPage, AboutPage and
  * NotFoundPage from this file: those pages now live in concrete
  * modules under `src/pages/`.
+ *
+ * p0a.2 removed LoginPage + RegisterPage from this file: those
+ * pages now live in `src/pages/LoginPage.tsx` and
+ * `src/pages/RegisterPage.tsx` and are wired to the real backend
+ * auth flow.
  */
 
 interface StubPageMeta {
@@ -77,34 +82,6 @@ export function DemoPage() {
         description:
           'Solicita un recorrido de 30 minutos por JadeCapitalSuite con un especialista de producto.',
         canonicalPath: '/demo',
-      }}
-    />
-  );
-}
-
-export function LoginPage() {
-  return (
-    <StubPage
-      label="Iniciar sesion"
-      landingSlice="p1e"
-      meta={{
-        title: 'Iniciar sesion',
-        description: 'Acceso a JadeCapitalSuite. Disponible en Fase 1.',
-        canonicalPath: '/login',
-      }}
-    />
-  );
-}
-
-export function RegisterPage() {
-  return (
-    <StubPage
-      label="Crear cuenta"
-      landingSlice="p1e"
-      meta={{
-        title: 'Crear cuenta',
-        description: 'Registro en JadeCapitalSuite. Disponible en Fase 1.',
-        canonicalPath: '/register',
       }}
     />
   );

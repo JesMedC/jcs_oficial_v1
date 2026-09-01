@@ -2,6 +2,7 @@ import { Suspense } from 'react';
 import { createBrowserRouter, Outlet, RouterProvider, ScrollRestoration } from 'react-router-dom';
 import { AppShell } from '../layout/AppShell';
 import { RouteFallback } from '../components/RouteFallback';
+import { AuthProvider } from '../features/auth/AuthProvider';
 import { routeChildren } from './config';
 
 function RootShell() {
@@ -17,9 +18,20 @@ function RootShell() {
   );
 }
 
+/*
+ * p0a.2 — AuthProvider is wrapped around RootShell so every route
+ * (public + protected) shares the same auth context. It MUST live
+ * inside the router tree (i.e. below <RouterProvider>) so its
+ * useNavigate call works; the data-router approach we use is
+ * functionally equivalent to putting it inside <BrowserRouter>.
+ */
 const router = createBrowserRouter([
   {
-    element: <RootShell />,
+    element: (
+      <AuthProvider>
+        <RootShell />
+      </AuthProvider>
+    ),
     children: routeChildren,
   },
 ]);

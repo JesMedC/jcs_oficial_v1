@@ -2,3 +2,4 @@
 backend/
 docker-compose.yml
 *.md
+pnpm-lock.yaml
