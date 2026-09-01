@@ -38,26 +38,27 @@ export function SeoHead({
       : CANONICAL_BASE + (canonicalPath.startsWith('/') ? canonicalPath : '/' + canonicalPath);
 
   return (
-    <Helmet>
-      <title>{fullTitle}</title>
-      <meta name="description" content={description} />
-      {noindex ? <meta name="robots" content="noindex, nofollow" /> : null}
-      {canonicalUrl !== undefined ? <link rel="canonical" href={canonicalUrl} /> : null}
+    <>
+      <Helmet>
+        <title>{fullTitle}</title>
+        <meta name="description" content={description} />
+        {noindex ? <meta name="robots" content="noindex, nofollow" /> : null}
+        {canonicalUrl !== undefined ? <link rel="canonical" href={canonicalUrl} /> : null}
 
-      <meta property="og:site_name" content={SITE_NAME} />
-      <meta property="og:locale" content="es_ES" />
-      <meta property="og:type" content={type} />
-      <meta property="og:title" content={fullTitle} />
-      <meta property="og:description" content={description} />
-      <meta property="og:image" content={image} />
-      {canonicalUrl !== undefined ? <meta property="og:url" content={canonicalUrl} /> : null}
+        <meta property="og:site_name" content={SITE_NAME} />
+        <meta property="og:locale" content="es_ES" />
+        <meta property="og:type" content={type} />
+        <meta property="og:title" content={fullTitle} />
+        <meta property="og:description" content={description} />
+        <meta property="og:image" content={image} />
+        {canonicalUrl !== undefined ? <meta property="og:url" content={canonicalUrl} /> : null}
 
-      <meta name="twitter:card" content="summary_large_image" />
-      <meta name="twitter:title" content={fullTitle} />
-      <meta name="twitter:description" content={description} />
-      <meta name="twitter:image" content={image} />
-
+        <meta name="twitter:card" content="summary_large_image" />
+        <meta name="twitter:title" content={fullTitle} />
+        <meta name="twitter:description" content={description} />
+        <meta name="twitter:image" content={image} />
+      </Helmet>
       {jsonLd !== undefined ? <JsonLd data={jsonLd} /> : null}
-    </Helmet>
+    </>
   );
 }
