@@ -1,9 +1,13 @@
 /*
- * p0a.2 — Register page.
+ * p0b.1b — Register page.
  *
- * Real page (replaces the p1e stub in `_stub.tsx`). Includes a
- * "14 dias gratis" badge + the RegisterForm + a side panel with
- * what the user gets in the trial.
+ * Real page (replaces the p1e stub in `_stub.tsx`). The trial copy
+ * was changed from "14 dias" to "7 dias" to match the backend
+ * STARTER trial (see mem #77 — p0b.1a created a 7-day trial
+ * subscription on register).
+ *
+ * Includes a "7 dias gratis" badge + the RegisterForm + a side panel
+ * with what the user gets in the trial.
  */
 import { Link } from 'react-router-dom';
 
@@ -16,14 +20,14 @@ export function RegisterPage() {
     <>
       <SeoHead
         title="Crear cuenta"
-        description="Crea tu cuenta en JadeCapitalSuite y prueba la plataforma 14 dias gratis sin tarjeta."
+        description="Crea tu cuenta en JadeCapitalSuite y prueba la plataforma 7 dias gratis sin tarjeta."
         canonicalPath="/register"
         noindex
       />
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-12 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
         <div>
           <span className="inline-block px-3 py-1 mb-4 text-xs font-display uppercase tracking-wide text-primary border border-primary/40 rounded-full">
-            14 dias gratis
+            7 dias gratis
           </span>
           <h1
             className="font-display uppercase tracking-wide text-primary text-3xl md:text-5xl"

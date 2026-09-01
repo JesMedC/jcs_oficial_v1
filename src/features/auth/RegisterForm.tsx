@@ -1,10 +1,16 @@
 /*
- * p0a.2 — register form.
+ * p0b.1b — register form.
  *
- * Uses RHF + zodResolver with `registerSchema`. Includes a honeypot
- * (`HoneypotField`) that must remain empty — any non-empty value
+ * Uses RHF + zodResolver with `registerSchema`. The new schema adds
+ * `first_name` + `last_name` + `phone` + `repeat_password` (and keeps
+ * `email` + `password` + the honeypot `website`). All validation is
+ * client-side; the server enforces the same constraints on
+ * `RegisterIn` and returns 422 + Spanish error envelope if the body
+ * ever bypasses the resolver.
+ *
+ * Honeypot (`HoneypotField`) must remain empty — any non-empty value
  * fails zod validation with `spam_detected` and the submit aborts
- * before any HTTP request fires.
+ * before any HTTP request fires (R2 Risk).
  *
  * Successful registration mirrors login: navigates to the portal
  * selector for BOTH role, dashboard for USER/ADMIN.
@@ -28,7 +34,15 @@ export function RegisterForm() {
   const methods = useForm<RegisterFormValues>({
     resolver: zodResolver(registerSchema),
     mode: 'onBlur',
-    defaultValues: { name: '', email: '', password: '', website: '' },
+    defaultValues: {
+      first_name: '',
+      last_name: '',
+      phone: '',
+      email: '',
+      password: '',
+      repeat_password: '',
+      website: '',
+    },
   });
 
   const {
@@ -45,7 +59,13 @@ export function RegisterForm() {
         if (values.website !== undefined && values.website.length > 0) {
           return;
         }
-        const me = await registerUser(values.email, values.password, values.name);
+        const me = await registerUser(
+          values.first_name,
+          values.last_name,
+          values.phone,
+          values.email,
+          values.password,
+        );
         const intended = tokenStore.getIntendedUrl();
         tokenStore.clearIntendedUrl();
         if (me.role === 'BOTH') {
@@ -69,67 +89,60 @@ export function RegisterForm() {
           className="flex flex-col gap-4"
           aria-busy={isSubmitting || isDebouncing}
         >
-          <div>
-            <label htmlFor="name" className="block text-text-secondary text-sm mb-1 font-body">
-              Nombre
-            </label>
-            <input
-              id="name"
-              type="text"
-              autoComplete="name"
-              aria-invalid={errors.name !== undefined}
-              aria-describedby={errors.name !== undefined ? 'name-error' : undefined}
-              {...register('name')}
-              className="w-full bg-surface-el/50 border border-primary/30 rounded-lg px-3 py-2 text-text-primary font-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field
+              id="first_name"
+              label="Nombre"
+              autoComplete="given-name"
+              error={errors.first_name?.message}
+              register={register('first_name')}
             />
-            {errors.name !== undefined ? (
-              <p id="name-error" className="text-loss text-xs mt-1 font-body">
-                {errors.name.message}
-              </p>
-            ) : null}
+            <Field
+              id="last_name"
+              label="Apellido"
+              autoComplete="family-name"
+              error={errors.last_name?.message}
+              register={register('last_name')}
+            />
           </div>
 
-          <div>
-            <label htmlFor="email" className="block text-text-secondary text-sm mb-1 font-body">
-              Email
-            </label>
-            <input
-              id="email"
-              type="email"
-              autoComplete="email"
-              aria-invalid={errors.email !== undefined}
-              aria-describedby={errors.email !== undefined ? 'email-error' : undefined}
-              {...register('email')}
-              className="w-full bg-surface-el/50 border border-primary/30 rounded-lg px-3 py-2 text-text-primary font-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
-            />
-            {errors.email !== undefined ? (
-              <p id="email-error" className="text-loss text-xs mt-1 font-body">
-                {errors.email.message}
-              </p>
-            ) : null}
-          </div>
+          <Field
+            id="phone"
+            label="Telefono"
+            type="tel"
+            autoComplete="tel"
+            placeholder="+54 11 1234 5678"
+            error={errors.phone?.message}
+            register={register('phone')}
+          />
 
-          <div>
-            <label htmlFor="password" className="block text-text-secondary text-sm mb-1 font-body">
-              Contrasena
-            </label>
-            <input
+          <Field
+            id="email"
+            label="Email"
+            type="email"
+            autoComplete="email"
+            error={errors.email?.message}
+            register={register('email')}
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Field
               id="password"
+              label="Contrasena"
               type="password"
               autoComplete="new-password"
-              aria-invalid={errors.password !== undefined}
-              aria-describedby={errors.password !== undefined ? 'password-error' : undefined}
-              {...register('password')}
-              className="w-full bg-surface-el/50 border border-primary/30 rounded-lg px-3 py-2 text-text-primary font-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+              error={errors.password?.message}
+              register={register('password')}
+              hint="Minimo 8 caracteres, al menos una letra y un digito."
             />
-            {errors.password !== undefined ? (
-              <p id="password-error" className="text-loss text-xs mt-1 font-body">
-                {errors.password.message}
-              </p>
-            ) : null}
-            <p className="text-text-muted text-xs mt-1 font-body">
-              Minimo 8 caracteres, al menos una letra y un digito.
-            </p>
+            <Field
+              id="repeat_password"
+              label="Repetir contrasena"
+              type="password"
+              autoComplete="new-password"
+              error={errors.repeat_password?.message}
+              register={register('repeat_password')}
+            />
           </div>
 
           <HoneypotField />
@@ -153,5 +166,52 @@ export function RegisterForm() {
         </form>
       </GlassCard>
     </FormProvider>
+  );
+}
+
+interface FieldProps {
+  readonly id: string;
+  readonly label: string;
+  readonly type?: string;
+  readonly autoComplete?: string;
+  readonly placeholder?: string;
+  readonly error: string | undefined;
+  readonly hint?: string;
+  readonly register: ReturnType<ReturnType<typeof useForm<RegisterFormValues>>['register']>;
+}
+
+function Field({
+  id,
+  label,
+  type = 'text',
+  autoComplete,
+  placeholder,
+  error,
+  hint,
+  register,
+}: FieldProps) {
+  return (
+    <div>
+      <label htmlFor={id} className="block text-text-secondary text-sm mb-1 font-body">
+        {label}
+      </label>
+      <input
+        id={id}
+        type={type}
+        autoComplete={autoComplete}
+        placeholder={placeholder}
+        aria-invalid={error !== undefined}
+        aria-describedby={error !== undefined ? `${id}-error` : undefined}
+        {...register}
+        className="w-full bg-surface-el/50 border border-primary/30 rounded-lg px-3 py-2 text-text-primary font-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40"
+      />
+      {error !== undefined ? (
+        <p id={`${id}-error`} className="text-loss text-xs mt-1 font-body">
+          {error}
+        </p>
+      ) : hint !== undefined ? (
+        <p className="text-text-muted text-xs mt-1 font-body">{hint}</p>
+      ) : null}
+    </div>
   );
 }

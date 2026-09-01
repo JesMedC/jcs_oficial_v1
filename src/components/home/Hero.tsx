@@ -36,7 +36,7 @@ export function Hero({ preview }: HeroProps) {
               to="/register"
               className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-6 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
             >
-              Comenzar prueba gratuita
+              Registrarse
             </Link>
             <Link
               to="/pricing"
@@ -47,7 +47,7 @@ export function Hero({ preview }: HeroProps) {
           </div>
           <ul className="flex flex-col gap-2 mt-4">
             <Bullet text="Sin tarjeta de credito" />
-            <Bullet text="Prueba 14 dias gratis" />
+            <Bullet text="Prueba 7 dias gratis" />
             <Bullet text="Cancela cuando quieras" />
           </ul>
         </div>

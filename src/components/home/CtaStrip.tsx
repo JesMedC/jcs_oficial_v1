@@ -1,8 +1,8 @@
 import { Link } from 'react-router-dom';
 
 /*
- * p1c — Home CTA strip (full-width band).
- * H2 Orbitron cyan + single cyan filled CTA to /demo.
+ * p0b.1b — Home CTA strip (full-width band).
+ * H2 Orbitron cyan + single cyan filled CTA to /register.
  */
 export function CtaStrip() {
   return (
@@ -15,10 +15,10 @@ export function CtaStrip() {
           Listo para tomar el control?
         </h2>
         <Link
-          to="/demo"
+          to="/register"
           className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-6 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
         >
-          Solicitar demo
+          Registrarse
         </Link>
       </div>
     </section>

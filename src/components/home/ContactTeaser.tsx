@@ -27,10 +27,10 @@ export function ContactTeaser() {
                 Contactar
               </Link>
               <Link
-                to="/demo"
+                to="/register"
                 className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
               >
-                Solicitar demo
+                Registrarse
               </Link>
             </div>
           </div>

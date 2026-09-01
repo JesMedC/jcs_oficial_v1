@@ -1,15 +1,19 @@
 /*
- * p1c — basic JSON-LD Offer builder for the 3 Starter/Pro/Elite tiers.
+ * p0b.1b — basic JSON-LD Offer builder for the 3 Starter/Plus/Elite tiers.
+ *
+ * Pricing structure (per mem #77, p0b.1b):
+ *   STARTER: $0 (7-day free trial — not a paid tier; on /pricing it's
+ *            presented as "GRATIS" / "7 dias gratis")
+ *   PLUS:    $9.99 / mes
+ *   ELITE:   $29.99 / mes
+ *
+ * p0c adds the real MercadoPago integration and may swap the "free
+ * trial" offer for an upgrade-promo Offer.
  *
  * Full Zod-strict builders (Organization, SoftwareApplication, Offer with
  * `inLanguage: 'es'`, validate-jsonld.mjs build-time check) land in p1f.
  * This file is intentionally minimal: it produces schema.org valid Offer
  * JSON-LD with `name` in English and `inLanguage: 'es'` per mem #68.
- *
- * Per mem #70, the pricing structure was OVERRIDDEN from the original
- * Free/Plus/Pro (4-tier) plan in mem #66/#67/#69 to Starter/Pro/Elite
- * (3-tier) per the Angular app reference. This file is the single source
- * of truth for the canonical tier list at the SEO/JSON-LD layer.
  */
 
 import type { JsonLdNode } from '../../components/JsonLd';
@@ -17,12 +21,14 @@ import type { JsonLdNode } from '../../components/JsonLd';
 export type BillingCycle = 'monthly' | 'annual';
 
 export interface PricingTierSeo {
-  readonly id: 'starter' | 'pro' | 'elite';
+  readonly id: 'STARTER' | 'PLUS' | 'ELITE';
   readonly name: string;
   readonly tagline: string;
   readonly monthlyPriceUsd: number;
   readonly annualPriceUsd: number;
+  readonly periodLabel: string;
   readonly features: ReadonlyArray<string>;
+  readonly isFreeTrial?: boolean;
 }
 
 /*
@@ -34,8 +40,21 @@ export interface PricingTierSeo {
 const STARTER_EN = {
   tagline: 'For traders getting started.',
   features: ['1 account', 'Unlimited trade logging', 'Basic reports', 'Email support'],
+  description: 'Plan Starter con 7 dias de prueba',
 };
-const PRO_EN = {
+
+/*
+ * Type helper so `canonicalEnCopy` returns a union that includes
+ * the optional `description` field — STARTER carries it (used as
+ * the Offer `description` for the free trial); Plus/Elite build
+ * their description on the fly from tagline + features.
+ */
+type CanonicalEnCopy = {
+  readonly tagline: string;
+  readonly features: ReadonlyArray<string>;
+  readonly description?: string;
+};
+const PLUS_EN = {
   tagline: 'For traders who want to grow.',
   features: [
     'Up to 5 accounts',
@@ -56,26 +75,36 @@ const ELITE_EN = {
   ],
 };
 
+/*
+ * p0b.1b — `monthlyPriceUsd`/`annualPriceUsd` use the same numbers
+ * because the backend PlanTierPrice table only seeds monthly prices
+ * for now. Annual billing is accepted by the schema but lands with a
+ * real discount once the annual MercadoPago plan is wired in p0c.
+ */
 export const PRICING_TIERS: ReadonlyArray<PricingTierSeo> = [
   {
-    id: 'starter',
+    id: 'STARTER',
     name: 'Starter',
     tagline: 'Para traders que comienzan.',
-    monthlyPriceUsd: 9.99,
-    annualPriceUsd: 7.99,
+    monthlyPriceUsd: 0,
+    annualPriceUsd: 0,
+    periodLabel: '7 dias gratis',
+    isFreeTrial: true,
     features: [
       '1 cuenta',
       'Registro ilimitado de operaciones',
       'Reportes basicos',
       'Soporte por email',
+      '7 dias gratis',
     ],
   },
   {
-    id: 'pro',
-    name: 'Pro',
+    id: 'PLUS',
+    name: 'Plus',
     tagline: 'Para traders que quieren crecer.',
-    monthlyPriceUsd: 29.99,
-    annualPriceUsd: 23.99,
+    monthlyPriceUsd: 9.99,
+    annualPriceUsd: 9.99,
+    periodLabel: 'mes',
     features: [
       'Hasta 5 cuentas',
       'Metricas avanzadas y filtros',
@@ -85,11 +114,12 @@ export const PRICING_TIERS: ReadonlyArray<PricingTierSeo> = [
     ],
   },
   {
-    id: 'elite',
+    id: 'ELITE',
     name: 'Elite',
     tagline: 'Para traders exigentes.',
-    monthlyPriceUsd: 99.99,
-    annualPriceUsd: 79.99,
+    monthlyPriceUsd: 29.99,
+    annualPriceUsd: 29.99,
+    periodLabel: 'mes',
     features: [
       'Cuentas ilimitadas',
       'Analisis avanzado de rendimiento',
@@ -105,9 +135,9 @@ export const PRICING_TIERS: ReadonlyArray<PricingTierSeo> = [
  * Each tier id maps to the English tagline + features that Schema.org uses
  * for global SEO discoverability; UI copy remains Spanish (PRICING_TIERS above).
  */
-function canonicalEnCopy(id: PricingTierSeo['id']) {
-  if (id === 'starter') return STARTER_EN;
-  if (id === 'pro') return PRO_EN;
+function canonicalEnCopy(id: PricingTierSeo['id']): CanonicalEnCopy {
+  if (id === 'STARTER') return STARTER_EN;
+  if (id === 'PLUS') return PLUS_EN;
   return ELITE_EN;
 }
 
@@ -117,10 +147,34 @@ function canonicalEnCopy(id: PricingTierSeo['id']) {
  * `name` and `description` use English copy because schema.org validators
  * require a single canonical identifier; `inLanguage: 'es'` signals that
  * the offering is presented in Spanish on the page (per mem #68).
+ *
+ * p0b.1b: STARTER is a free trial — `price` is `0` and the description
+ * advertises the 7-day trial explicitly. Plus/Elite are paid offers
+ * with the same monthly / annual cycle as before.
  */
 export function buildOffer(tier: PricingTierSeo, cycle: BillingCycle): JsonLdNode {
   const priceUsd = cycle === 'monthly' ? tier.monthlyPriceUsd : tier.annualPriceUsd;
   const canonical = canonicalEnCopy(tier.id);
+
+  if (tier.id === 'STARTER') {
+    return {
+      '@context': 'https://schema.org',
+      '@type': 'Offer',
+      name: 'Starter plan',
+      description: canonical.description ?? 'Starter plan with 7-day free trial',
+      inLanguage: 'es',
+      price: '0.00',
+      priceCurrency: 'USD',
+      category: 'Trading journal subscription',
+      eligibleQuantity: {
+        '@type': 'QuantitativeValue',
+        value: 1,
+        unitText: 'license',
+      },
+      availability: 'https://schema.org/InStock',
+    };
+  }
+
   const description = `${canonical.tagline} Includes: ${canonical.features.join(', ')}.`;
   return {
     '@context': 'https://schema.org',

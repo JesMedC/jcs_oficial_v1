@@ -2,11 +2,15 @@ import { useState } from 'react';
 import { GlassCard } from '../GlassCard';
 
 /*
- * p1c — Pricing FAQ accordion.
+ * p0b.1b — Pricing FAQ accordion.
  *
  * Local state for which question is open. Real Spanish answers are
- * filled in now (was a TODO placeholder). Copy lives in the `items`
- * array below as a single source of truth for both question + answer.
+ * filled in now (was a TODO placeholder). The first answer was
+ * updated to mention the 7-day free trial and the Starter plan
+ * rather than the old 14-day copy.
+ *
+ * Copy lives in the `items` array below as a single source of truth
+ * for both question + answer.
  */
 export function FaqAccordion() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
@@ -57,6 +61,10 @@ const items: ReadonlyArray<{ q: string; a: string }> = [
   {
     q: 'Que tipos de operaciones puedo registrar?',
     a: 'Podes registrar operaciones de Forex (pares de divisas con entrada, salida, stop loss y take profit), opciones binarias y digitales (CALL/PUT, strike, expiracion, stake y payout), criptomonedas (Bitcoin, Ethereum y demas), acciones, indices, futuros, commodities, CFDs y cuentas de prop firms. Cada mercado tiene sus campos especificos para reflejar su mecanica real.',
+  },
+  {
+    q: 'Cuales son los planes disponibles y que incluye la prueba gratuita?',
+    a: 'El plan Starter es 100% gratis durante 7 dias: incluye 1 cuenta, registro ilimitado de operaciones, reportes basicos y soporte por email, sin tarjeta. Cuando termina el trial, podes subir a Plus (5 cuentas, metricas avanzadas y soporte prioritario) o Elite (cuentas ilimitadas, backtesting, alertas y soporte VIP). Si no elegis un plan, tu cuenta queda en pausa y tus registros siguen guardados.',
   },
   {
     q: 'Puedo usar el plan en mas de un dispositivo?',

@@ -4,7 +4,7 @@ import { Link } from 'react-router-dom';
 const productLinks: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Características', to: '/features' },
   { label: 'Precios', to: '/pricing' },
-  { label: 'Demo', to: '/demo' },
+  { label: 'Registrarse', to: '/register' },
   { label: 'Estado del servicio', to: '#' },
 ];
 

@@ -35,8 +35,8 @@ export function AdminDashboardPage() {
           Portal de Administrador
         </h1>
         <p className="text-text-secondary font-body text-sm md:text-base mt-4 max-w-2xl">
-          Hola, {user?.name ?? 'admin'}. Vista general de usuarios activos, pagos y likes de pagina.
-          Modulo en construccion — Fase 0d.
+          Hola, {user?.first_name ?? 'admin'}. Vista general de usuarios activos, pagos y likes de
+          pagina. Modulo en construccion — Fase 0d.
         </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">

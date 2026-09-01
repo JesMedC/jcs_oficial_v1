@@ -1,10 +1,14 @@
 import { GlassCard } from '../GlassCard';
 
 /*
- * p1c — Pricing feature comparison table.
+ * p0b.1b — Pricing feature comparison table.
  *
- * 10 rows × 3 columns (Starter / Pro / Elite). Tick = cyan SVG, X = cyan
- * muted 40% opacity. Pro gets the visual emphasis as middle column.
+ * 10 rows × 3 columns (Starter / Plus / Elite). STARTER is now the
+ * highlighted left column (free 7-day trial, then downgrade). Plus
+ * and Elite get the upgrade CTAs in p0c via the dashboard.
+ *
+ * Tick = cyan SVG, X = cyan muted 40% opacity. Plus gets the visual
+ * emphasis as middle column.
  */
 export function ComparisonTable() {
   return (
@@ -20,15 +24,15 @@ export function ComparisonTable() {
             </th>
             <th
               scope="col"
-              className="text-center font-display uppercase tracking-wide text-text-secondary text-xs md:text-sm px-4 py-4"
+              className="text-center font-display uppercase tracking-wide text-primary text-xs md:text-sm px-4 py-4"
             >
               Starter
             </th>
             <th
               scope="col"
-              className="text-center font-display uppercase tracking-wide text-primary text-xs md:text-sm px-4 py-4"
+              className="text-center font-display uppercase tracking-wide text-text-secondary text-xs md:text-sm px-4 py-4"
             >
-              Pro
+              Plus
             </th>
             <th
               scope="col"
@@ -50,11 +54,11 @@ export function ComparisonTable() {
               >
                 {row.feature}
               </th>
-              <td className="text-center px-4 py-3">
+              <td className="text-center px-4 py-3 bg-primary/5">
                 <Cell value={row.starter} />
               </td>
-              <td className="text-center px-4 py-3 bg-primary/5">
-                <Cell value={row.pro} />
+              <td className="text-center px-4 py-3">
+                <Cell value={row.plus} />
               </td>
               <td className="text-center px-4 md:px-6 py-3">
                 <Cell value={row.elite} />
@@ -78,26 +82,38 @@ type CellValue = boolean | string;
 interface Row {
   readonly feature: string;
   readonly starter: CellValue;
-  readonly pro: CellValue;
+  readonly plus: CellValue;
   readonly elite: CellValue;
 }
 
+/*
+ * p0b.1b — STARTER row reflects the trial (7 dias gratis, then card
+ * oculto o downgrade). Pricing columns renamed Starter/Plus/Elite.
+ * Plus $9.99 / mes and Elite $29.99 / mes match the backend
+ * PlanTierPrice rows seeded by p0b.1a migrations.
+ */
 const rows: ReadonlyArray<Row> = [
-  { feature: 'Cuentas', starter: '1', pro: '5', elite: 'Ilimitadas' },
+  { feature: 'Cuentas', starter: '1', plus: '5', elite: 'Ilimitadas' },
+  {
+    feature: 'Periodo de prueba',
+    starter: '7 dias',
+    plus: 'X',
+    elite: 'X',
+  },
   {
     feature: 'Registro de operaciones',
     starter: 'Ilimitado',
-    pro: 'Ilimitado',
+    plus: 'Ilimitado',
     elite: 'Ilimitado',
   },
-  { feature: 'Reportes', starter: 'Basicos', pro: 'Personalizados', elite: 'Avanzado' },
-  { feature: 'Metricas avanzadas', starter: false, pro: true, elite: true },
-  { feature: 'Filtros', starter: false, pro: true, elite: true },
-  { feature: 'Exportacion CSV', starter: false, pro: true, elite: true },
-  { feature: 'Backtesting', starter: false, pro: false, elite: true },
-  { feature: 'Alertas personalizadas', starter: false, pro: false, elite: true },
-  { feature: 'Soporte', starter: 'Email', pro: 'Prioritario', elite: 'VIP' },
-  { feature: 'Acceso API', starter: false, pro: false, elite: true },
+  { feature: 'Reportes', starter: 'Basicos', plus: 'Personalizados', elite: 'Avanzado' },
+  { feature: 'Metricas avanzadas', starter: false, plus: true, elite: true },
+  { feature: 'Filtros', starter: false, plus: true, elite: true },
+  { feature: 'Exportacion CSV', starter: false, plus: true, elite: true },
+  { feature: 'Backtesting', starter: false, plus: false, elite: true },
+  { feature: 'Alertas personalizadas', starter: false, plus: false, elite: true },
+  { feature: 'Soporte', starter: 'Email', plus: 'Prioritario', elite: 'VIP' },
+  { feature: 'Acceso API', starter: false, plus: false, elite: true },
 ];
 
 function Tick() {

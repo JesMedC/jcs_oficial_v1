@@ -47,6 +47,9 @@ const PortalSelector = lazy(() =>
 const DashboardPage = lazy(() =>
   import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
 );
+const UpgradePage = lazy(() =>
+  import('../pages/UpgradePage').then((m) => ({ default: m.UpgradePage })),
+);
 const AdminDashboardPage = lazy(() =>
   import('../pages/AdminDashboardPage').then((m) => ({ default: m.AdminDashboardPage })),
 );
@@ -68,6 +71,7 @@ export const routeChildren: RouteObject[] = [
     children: [
       { path: '/portal-select', element: <PortalSelector /> },
       { path: '/dashboard', element: <DashboardPage /> },
+      { path: '/dashboard/upgrade', element: <UpgradePage /> },
     ],
   },
   {

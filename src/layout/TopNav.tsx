@@ -6,16 +6,19 @@ import { ADMIN_ROLES, UserRoles, type UserRole } from '../features/auth/types';
 import { readStoredPortal } from '../features/auth/authStorage';
 
 /*
- * p0a.2 — TopNav with auth-aware CTA + portal-aware Admin link.
+ * p0b.1b — TopNav with auth-aware CTA + portal-aware Admin link.
  *
  * Behavior:
- *   - When the user is signed out, render the same dual CTA as
- *     p1c: "Solicitar demo" (outline) + "Iniciar sesion" (filled).
+ *   - When the user is signed out, the dual CTA is "Registrarse"
+ *     (outline) + "Iniciar sesion" (filled). The previous "Solicitar
+ *     demo" link is gone per the registration-first pivot (see mem
+ *     #77, p0b.1b).
  *   - When the user is signed in:
  *       * If their role is ADMIN or BOTH AND `jcs.portal === 'admin'`,
  *         show a small "Admin" link right before the user avatar.
  *       * Replace the dual CTA with a circular avatar (first letter
- *         of the user's name) + a dropdown containing "Cerrar sesion".
+ *         of the user's first_name) + a dropdown containing
+ *         "Cerrar sesion".
  *       * Show the user's name next to the avatar in a small label.
  *   - The dropdown closes on outside click via a backdrop overlay
  *     (intentionally simple — no Radix, no popper; this is the
@@ -36,7 +39,8 @@ export function TopNav() {
   const portal = readStoredPortal();
   const showAdminLink = isAdminPortalActive(user?.role, portal);
 
-  const initials = (user?.name ?? '?').trim().slice(0, 1).toUpperCase();
+  const displayName = user?.first_name ?? user?.email ?? 'trader';
+  const initials = (user?.first_name ?? '?').trim().slice(0, 1).toUpperCase();
 
   return (
     <>
@@ -74,10 +78,10 @@ export function TopNav() {
             {user === null && !loading ? (
               <>
                 <Link
-                  to="/demo"
+                  to="/register"
                   className="hidden md:inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
                 >
-                  Solicitar demo
+                  Registrarse
                 </Link>
                 <Link
                   to="/login"
@@ -105,10 +109,10 @@ export function TopNav() {
                   className="inline-flex items-center gap-2"
                   aria-haspopup="menu"
                   aria-expanded={menuOpen}
-                  aria-label={`Menu de ${user.name}`}
+                  aria-label={`Menu de ${displayName}`}
                 >
                   <span className="hidden md:inline text-text-secondary font-body text-sm max-w-[140px] truncate">
-                    {user.name}
+                    {displayName}
                   </span>
                   <span className="inline-flex items-center justify-center w-9 h-9 rounded-full bg-primary/15 border border-primary/40 text-primary font-display uppercase text-sm">
                     {initials}
@@ -185,5 +189,4 @@ const navItems: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Caracteristicas', to: '/features' },
   { label: 'Precios', to: '/pricing' },
   { label: 'Nosotros', to: '/about' },
-  { label: 'Demo', to: '/demo' },
 ];

@@ -17,7 +17,7 @@ export function LoginPage() {
     <>
       <SeoHead
         title="Iniciar sesion"
-        description="Accede a tu portal de JadeCapitalSuite. Sesion segura con JWT + PBKDF2 y 14 dias gratis."
+        description="Accede a tu portal de JadeCapitalSuite. Sesion segura con JWT + PBKDF2 y 7 dias gratis."
         canonicalPath="/login"
         noindex
       />
@@ -40,7 +40,7 @@ export function LoginPage() {
             <ul className="text-text-secondary font-body text-xs md:text-sm mt-3 space-y-2 list-disc list-inside">
               <li>Contrasenas hasheadas con PBKDF2 + sal por usuario.</li>
               <li>Tokens de acceso JWT firmados (HS256) y rotacion automatica.</li>
-              <li>14 dias gratis sin tarjeta. Cancela cuando quieras.</li>
+              <li>7 dias gratis sin tarjeta. Cancela cuando quieras.</li>
             </ul>
           </GlassCard>
 

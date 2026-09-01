@@ -1,16 +1,20 @@
 /*
- * p0a.2 — AuthProvider context.
+ * p0b.1b — AuthProvider context.
  *
  * Responsibilities:
  *   1. Hold the canonical `user: AuthMeOut | null` state.
- *   2. On mount, call `meApi()` using the stored access token. If
+ *   2. Derivce `subscription: SubscriptionOut | null` from
+ *      `user.current_subscription`. Components subscribe to the
+ *      derived value so the dashboard and the upgrade page see the
+ *      same subscription atomically without duplicate state.
+ *   3. On mount, call `meApi()` using the stored access token. If
  *      the call returns 401, the axios interceptor attempts ONE
  *      refresh; on success, `meApi()` is retried. If the refresh
  *      also fails, the user is treated as logged out and any
  *      intended URL is preserved for after re-auth.
- *   3. Expose `login`, `register`, `logout`, `refresh`, `setPortal`
+ *   4. Expose `login`, `register`, `logout`, `refresh`, `setPortal`
  *      actions that the forms and route guards call.
- *   4. Persist tokens in sessionStorage (per mem #70 / R2: no
+ *   5. Persist tokens in sessionStorage (per mem #70 / R2: no
  *      secrets in localStorage; sessionStorage clears when the tab
  *      closes which is acceptable for v0). The `jcs.portal` slot
  *      tracks which portal a BOTH-role user last entered.
@@ -31,18 +35,25 @@ import { useNavigate } from 'react-router-dom';
 
 import { loginApi, logoutApi, meApi, refreshApi, registerApi } from './api';
 import { tokenStore } from '../../lib/api/client';
-import type { AuthMeOut, ErrorEnvelope, TokenOut } from './types';
+import type { AuthMeOut, ErrorEnvelope, SubscriptionOut, TokenOut } from './types';
 import { clearStoredPortal, readStoredPortal, writeStoredPortal, type Portal } from './authStorage';
 
 export type { Portal } from './authStorage';
 
 export interface AuthContextValue {
   readonly user: AuthMeOut | null;
+  readonly subscription: SubscriptionOut | null;
   readonly loading: boolean;
   readonly error: ErrorEnvelope | null;
   readonly portal: Portal | null;
   readonly login: (email: string, password: string) => Promise<AuthMeOut>;
-  readonly register: (email: string, password: string, name: string) => Promise<AuthMeOut>;
+  readonly register: (
+    first_name: string,
+    last_name: string,
+    phone: string,
+    email: string,
+    password: string,
+  ) => Promise<AuthMeOut>;
   readonly logout: () => Promise<void>;
   readonly refresh: () => Promise<AuthMeOut | null>;
   readonly setPortal: (portal: Portal) => void;
@@ -130,9 +141,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
   );
 
   const register = useCallback(
-    async (email: string, password: string, name: string) => {
+    async (
+      first_name: string,
+      last_name: string,
+      phone: string,
+      email: string,
+      password: string,
+    ) => {
       setError(null);
-      const tokens = await registerApi({ email, password, name });
+      const tokens = await registerApi({ first_name, last_name, phone, email, password });
       persistTokens(tokens);
       const me = await loadCurrentUser();
       if (me === null) {
@@ -174,9 +191,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
 
   const clearError = useCallback(() => setError(null), []);
 
+  const subscription = useMemo<SubscriptionOut | null>(
+    () => (user === null ? null : user.current_subscription),
+    [user],
+  );
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
+      subscription,
       loading,
       error,
       portal,
@@ -187,7 +210,19 @@ export function AuthProvider({ children }: AuthProviderProps) {
       setPortal,
       clearError,
     }),
-    [user, loading, error, portal, login, register, logout, refresh, setPortal, clearError],
+    [
+      user,
+      subscription,
+      loading,
+      error,
+      portal,
+      login,
+      register,
+      logout,
+      refresh,
+      setPortal,
+      clearError,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -7,10 +7,9 @@ interface TopNavMobileDrawerProps {
 
 const navItems: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Inicio', to: '/' },
-  { label: 'Características', to: '/' },
-  { label: 'Precios', to: '/' },
-  { label: 'Nosotros', to: '/' },
-  { label: 'Demo', to: '/' },
+  { label: 'Características', to: '/features' },
+  { label: 'Precios', to: '/pricing' },
+  { label: 'Nosotros', to: '/about' },
 ];
 
 export function TopNavMobileDrawer({ open, onClose }: TopNavMobileDrawerProps) {
@@ -61,11 +60,11 @@ export function TopNavMobileDrawer({ open, onClose }: TopNavMobileDrawerProps) {
         </nav>
         <div className="flex flex-col gap-3 mt-auto">
           <a
-            href="/demo"
+            href="/register"
             onClick={onClose}
             className="inline-flex justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors"
           >
-            Solicitar demo
+            Registrarse
           </a>
           <a
             href="/login"

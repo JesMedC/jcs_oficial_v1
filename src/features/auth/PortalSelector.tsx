@@ -58,7 +58,7 @@ export function PortalSelector() {
           A donde queres entrar?
         </h1>
         <p className="text-text-secondary text-center font-body text-sm md:text-base mb-10">
-          Hola, {user.name}. Tu cuenta tiene acceso a ambos portales.
+          Hola, {user.first_name}. Tu cuenta tiene acceso a ambos portales.
         </p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           {PORTAL_OPTIONS.map((option) => (
