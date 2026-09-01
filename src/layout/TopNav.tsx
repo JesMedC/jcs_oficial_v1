@@ -2,12 +2,19 @@ import { useState } from 'react';
 import { Link, NavLink } from 'react-router-dom';
 import { TopNavMobileDrawer } from './TopNavMobileDrawer';
 
+/*
+ * p1c — TopNav.
+ *
+ * Per mem #70 the active link renders in Orbitron with a cyan
+ * underline glow (`after:shadow-[0_0_8px_rgba(0,255,255,0.8)]`).
+ * Hrefs now point at the concrete routes the p1c pages live on.
+ */
 const navItems: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Inicio', to: '/' },
-  { label: 'Características', to: '/' },
-  { label: 'Precios', to: '/' },
-  { label: 'Nosotros', to: '/' },
-  { label: 'Demo', to: '/' },
+  { label: 'Caracteristicas', to: '/features' },
+  { label: 'Precios', to: '/pricing' },
+  { label: 'Nosotros', to: '/about' },
+  { label: 'Demo', to: '/demo' },
 ];
 
 export function TopNav() {
@@ -56,13 +63,13 @@ export function TopNav() {
               to="/login"
               className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
             >
-              Iniciar sesión
+              Iniciar sesion
             </Link>
             <button
               type="button"
               onClick={() => setDrawerOpen(true)}
               className="md:hidden inline-flex items-center justify-center w-10 h-10 rounded-md border border-primary/40 text-primary hover:bg-primary/10 transition-colors"
-              aria-label="Abrir menú"
+              aria-label="Abrir menu"
               aria-expanded={drawerOpen}
             >
               <span className="block w-5 h-0.5 bg-current relative before:content-[''] before:absolute before:left-0 before:-top-1.5 before:w-5 before:h-0.5 before:bg-current after:content-[''] after:absolute after:left-0 after:top-1.5 after:w-5 after:h-0.5 after:bg-current" />

@@ -4,15 +4,14 @@ import { SeoHead } from '../components/SeoHead';
 /*
  * p1b placeholder stubs.
  *
- * The router in this slice imports each lazy page from THIS file rather than
- * from individual page modules. When later slices land, the router will be
- * updated to point at real page files:
- *   - p1c → HomePage, PricingPage, FeaturesPage, NotFoundPage
- *   - p1d → AboutPage, ContactPage, DemoPage
+ * The router resolves the following routes through this file until
+ * their owning slice ships:
+ *   - p1d → AboutPage (was here until p1c; now removed), ContactPage, DemoPage
  *   - p1e → LoginPage, RegisterPage, PrivacyPage, TermsPage, CookiesPage
  *
- * Until those files exist, every route renders one of these stubs so the
- * shell, navigation and SEO contract can be exercised end to end.
+ * p1c removed HomePage, PricingPage, FeaturesPage, AboutPage and
+ * NotFoundPage from this file: those pages now live in concrete
+ * modules under `src/pages/`.
  */
 
 interface StubPageMeta {
@@ -40,7 +39,7 @@ function StubPage({ meta, label, landingSlice }: StubPageProps) {
           {label}
         </h1>
         <p className="text-text-secondary mt-4 text-base md:text-lg">
-          Próximamente — slice {landingSlice}.
+          Proximamente - slice {landingSlice}.
         </p>
         <Link
           to="/"
@@ -53,66 +52,6 @@ function StubPage({ meta, label, landingSlice }: StubPageProps) {
   );
 }
 
-export function HomePage() {
-  return (
-    <StubPage
-      label="Inicio"
-      landingSlice="p1c"
-      meta={{
-        title: 'Inicio',
-        description:
-          'JadeCapitalSuite es el sistema operativo del trader: centralizá cuentas, operaciones, riesgo, journal y estrategia.',
-        canonicalPath: '/',
-      }}
-    />
-  );
-}
-
-export function PricingPage() {
-  return (
-    <StubPage
-      label="Precios"
-      landingSlice="p1c"
-      meta={{
-        title: 'Precios',
-        description:
-          'Planes simples para traders individuales y equipos. Free, Plus y Pro con centralización de cuentas y riesgo.',
-        canonicalPath: '/pricing',
-      }}
-    />
-  );
-}
-
-export function FeaturesPage() {
-  return (
-    <StubPage
-      label="Características"
-      landingSlice="p1c"
-      meta={{
-        title: 'Características',
-        description:
-          'Todo lo que necesitás, en un solo lugar: operations terminal, journal, P&L calendar, risk center y AI copilot.',
-        canonicalPath: '/features',
-      }}
-    />
-  );
-}
-
-export function AboutPage() {
-  return (
-    <StubPage
-      label="Nosotros"
-      landingSlice="p1d"
-      meta={{
-        title: 'Nosotros',
-        description:
-          'Tecnología Jade: el equipo detrás de JadeCapitalSuite. Construido por traders para traders en LATAM.',
-        canonicalPath: '/about',
-      }}
-    />
-  );
-}
-
 export function ContactPage() {
   return (
     <StubPage
@@ -121,7 +60,7 @@ export function ContactPage() {
       meta={{
         title: 'Contacto',
         description:
-          'Hablemos. Contacto comercial, partnerships y prensa en contact@jadecapitalsuite.com.',
+          'Hablemos. Contacto comercial, partnerships y prensa en hola@jadecapitalsuite.com.',
         canonicalPath: '/contact',
       }}
     />
@@ -136,7 +75,7 @@ export function DemoPage() {
       meta={{
         title: 'Solicitar demo',
         description:
-          'Solicitá un recorrido de 30 minutos por JadeCapitalSuite con un especialista de producto.',
+          'Solicita un recorrido de 30 minutos por JadeCapitalSuite con un especialista de producto.',
         canonicalPath: '/demo',
       }}
     />
@@ -146,10 +85,10 @@ export function DemoPage() {
 export function LoginPage() {
   return (
     <StubPage
-      label="Iniciar sesión"
+      label="Iniciar sesion"
       landingSlice="p1e"
       meta={{
-        title: 'Iniciar sesión',
+        title: 'Iniciar sesion',
         description: 'Acceso a JadeCapitalSuite. Disponible en Fase 1.',
         canonicalPath: '/login',
       }}
@@ -177,9 +116,9 @@ export function PrivacyPage() {
       label="Privacidad"
       landingSlice="p1e"
       meta={{
-        title: 'Política de privacidad',
+        title: 'Politica de privacidad',
         description:
-          'Cómo JadeCapitalSuite trata datos personales. Contacto legal@jadecapitalsuite.com.',
+          'Como JadeCapitalSuite trata datos personales. Contacto hola@jadecapitalsuite.com.',
         canonicalPath: '/privacy',
       }}
     />
@@ -189,12 +128,12 @@ export function PrivacyPage() {
 export function TermsPage() {
   return (
     <StubPage
-      label="Términos"
+      label="Terminos"
       landingSlice="p1e"
       meta={{
-        title: 'Términos y condiciones',
+        title: 'Terminos y condiciones',
         description:
-          'Términos y condiciones de uso de JadeCapitalSuite. Contacto legal@jadecapitalsuite.com.',
+          'Terminos y condiciones de uso de JadeCapitalSuite. Contacto hola@jadecapitalsuite.com.',
         canonicalPath: '/terms',
       }}
     />
@@ -207,23 +146,9 @@ export function CookiesPage() {
       label="Cookies"
       landingSlice="p1e"
       meta={{
-        title: 'Política de cookies',
-        description: 'Cómo usamos cookies en JadeCapitalSuite.',
+        title: 'Politica de cookies',
+        description: 'Como usamos cookies en JadeCapitalSuite.',
         canonicalPath: '/cookies',
-      }}
-    />
-  );
-}
-
-export function NotFoundPage() {
-  return (
-    <StubPage
-      label="404 — Esta ruta no existe"
-      landingSlice="—"
-      meta={{
-        title: '404',
-        description: 'La ruta que buscás no existe en JadeCapitalSuite.',
-        canonicalPath: '/404',
       }}
     />
   );

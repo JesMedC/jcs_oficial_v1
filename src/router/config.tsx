@@ -7,21 +7,27 @@ import { lazy } from 'react';
 import type { RouteObject } from 'react-router-dom';
 
 /*
- * p1b router config.
+ * p1c router config.
  *
- * All page components are imported from `pages/_stub.tsx` until the real
- * page files land in p1c (Home/Pricing/Features/NotFound), p1d
- * (About/Contact/Demo) and p1e (Login/Register/Privacy/Terms/Cookies).
- * When those slices ship, this file will be updated to point at the
- * concrete page modules.
+ * p1c swaps the 5 p1c-owned page lazy imports from `pages/_stub`
+ * (HomePage, PricingPage, FeaturesPage, AboutPage, NotFoundPage) to
+ * concrete modules. p1d (About/Contact/Demo), p1e (Login/Register
+ * and the legal stubs) still resolve through `_stub` until those
+ * slices ship.
  */
 
-const HomePage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.HomePage })));
-const PricingPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.PricingPage })));
-const FeaturesPage = lazy(() =>
-  import('../pages/_stub').then((m) => ({ default: m.FeaturesPage })),
+const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
+const PricingPage = lazy(() =>
+  import('../pages/PricingPage').then((m) => ({ default: m.PricingPage })),
 );
-const AboutPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.AboutPage })));
+const FeaturesPage = lazy(() =>
+  import('../pages/FeaturesPage').then((m) => ({ default: m.FeaturesPage })),
+);
+const AboutPage = lazy(() => import('../pages/AboutPage').then((m) => ({ default: m.AboutPage })));
+const NotFoundPage = lazy(() =>
+  import('../pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+);
+
 const ContactPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.ContactPage })));
 const DemoPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.DemoPage })));
 const LoginPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.LoginPage })));
@@ -31,9 +37,6 @@ const RegisterPage = lazy(() =>
 const PrivacyPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.PrivacyPage })));
 const TermsPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.TermsPage })));
 const CookiesPage = lazy(() => import('../pages/_stub').then((m) => ({ default: m.CookiesPage })));
-const NotFoundPage = lazy(() =>
-  import('../pages/_stub').then((m) => ({ default: m.NotFoundPage })),
-);
 
 export const routeChildren: RouteObject[] = [
   { path: '/', element: <HomePage /> },
