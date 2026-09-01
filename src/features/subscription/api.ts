@@ -1,5 +1,5 @@
 /*
- * p0b.1b — subscription feature API surface.
+ * p0c — subscription feature API surface.
  *
  * The actual HTTP calls live in `features/auth/api.ts` because the
  * auth context already owns `current_subscription` (returned by
@@ -16,10 +16,20 @@ export async function getMySubscription(): Promise<
   return getMySubscriptionApi();
 }
 
+export interface UpgradeSubscriptionBackUrls {
+  readonly success: string;
+  readonly failure: string;
+  readonly pending: string;
+}
+
 export async function upgradeSubscription(
   tier: 'PLUS' | 'ELITE',
+  backUrls?: UpgradeSubscriptionBackUrls,
 ): Promise<Awaited<ReturnType<typeof upgradeSubscriptionApi>>> {
-  return upgradeSubscriptionApi({ tier });
+  return upgradeSubscriptionApi({
+    tier,
+    ...(backUrls ?? {}),
+  });
 }
 
 export async function cancelSubscription(): Promise<

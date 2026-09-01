@@ -71,6 +71,13 @@ const AdminAnalyticsPage = lazy(() =>
   import('../pages/admin/AdminAnalyticsPage').then((m) => ({ default: m.AdminAnalyticsPage })),
 );
 
+const PaymentSuccessPage = lazy(() =>
+  import('../pages/PaymentSuccessPage').then((m) => ({ default: m.PaymentSuccessPage })),
+);
+const PaymentFailurePage = lazy(() =>
+  import('../pages/PaymentFailurePage').then((m) => ({ default: m.PaymentFailurePage })),
+);
+
 const AdminLayout = lazy(() =>
   import('../layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
 );
@@ -87,6 +94,9 @@ export const routeChildren: RouteObject[] = [
   { path: '/privacy', element: <PrivacyPage /> },
   { path: '/terms', element: <TermsPage /> },
   { path: '/cookies', element: <CookiesPage /> },
+  // p0c — callbacks publicos de MercadoPago (sin ProtectedRoute).
+  { path: '/payment/success', element: <PaymentSuccessPage /> },
+  { path: '/payment/failure', element: <PaymentFailurePage /> },
   {
     element: <ProtectedRoute />,
     children: [

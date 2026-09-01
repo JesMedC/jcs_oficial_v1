@@ -10,16 +10,16 @@ import { UpgradeCard } from '../features/subscription/UpgradeCard';
 import type { ErrorEnvelope, UpgradeTier } from '../features/auth/types';
 
 /*
- * p0b.1b — UpgradePage.
+ * p0c — UpgradePage.
  *
  * /dashboard/upgrade presents the two paid tiers (Plus / Elite).
  * Each card fires POST /api/v1/subscriptions/upgrade with the chosen
- * tier; the response contains a `checkout_url` we redirect the user
- * to (placeholder MercadoPago URL until p0c wires the real SDK).
+ * tier + las back_urls (success/failure/pending) que apuntan a
+ * /payment/{success,failure}. La respuesta contiene un ``checkout_url``
+ * real de MercadoPago al que redirigimos al usuario.
  *
- * Loading: cyan spinner via RouteFallback while the API call is in
- * flight. Errors: backend envelope `message` rendered via the shared
- * ErrorBanner.
+ * Loading: cyan spinner via RouteFallback mientras la API está en
+ * vuelo. Errors: envelope ``message`` renderizado via ErrorBanner.
  */
 const TIERS: ReadonlyArray<{
   readonly id: UpgradeTier;
@@ -53,6 +53,18 @@ const TIERS: ReadonlyArray<{
   },
 ];
 
+function buildBackUrls(): { success: string; failure: string; pending: string } {
+  if (typeof window === 'undefined') {
+    return { success: '', failure: '', pending: '' };
+  }
+  const base = window.location.origin;
+  return {
+    success: `${base}/payment/success`,
+    failure: `${base}/payment/failure`,
+    pending: `${base}/payment/success`,
+  };
+}
+
 export function UpgradePage() {
   const { loading: authLoading } = useAuth();
   const [pending, setPending] = useState<UpgradeTier | null>(null);
@@ -62,7 +74,8 @@ export function UpgradePage() {
     setError(null);
     setPending(tier);
     try {
-      const res = await upgradeSubscription(tier);
+      const urls = buildBackUrls();
+      const res = await upgradeSubscription(tier, urls);
       if (typeof window !== 'undefined' && res.checkout_url !== '') {
         window.location.href = res.checkout_url;
         return;

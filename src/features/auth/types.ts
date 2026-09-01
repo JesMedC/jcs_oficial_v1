@@ -125,6 +125,9 @@ export type UpgradeTier = Exclude<SubscriptionTier, 'STARTER'>;
 
 export interface UpgradeIn {
   readonly tier: UpgradeTier;
+  readonly success_url?: string;
+  readonly failure_url?: string;
+  readonly pending_url?: string;
 }
 
 export interface UpgradeOut {

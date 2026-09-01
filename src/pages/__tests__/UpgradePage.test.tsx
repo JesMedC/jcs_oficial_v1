@@ -81,7 +81,14 @@ describe('UpgradePage', () => {
     await user.click(screen.getByRole('button', { name: 'Elegir Plus' }));
 
     await waitFor(() => {
-      expect(upgradeSpy).toHaveBeenCalledWith('PLUS');
+      expect(upgradeSpy).toHaveBeenCalledWith(
+        'PLUS',
+        expect.objectContaining({
+          success: expect.any(String),
+          failure: expect.any(String),
+          pending: expect.any(String),
+        }),
+      );
     });
     await waitFor(() => {
       expect(window.location.href).toBe(
