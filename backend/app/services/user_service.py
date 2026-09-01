@@ -7,7 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from app.models import User, Workspace, WorkspaceMember, WorkspaceMemberRole
+from app.models import (
+    Subscription,
+    User,
+    Workspace,
+    WorkspaceMember,
+    WorkspaceMemberRole,
+)
 
 
 async def get_user_by_email(db: AsyncSession, email: str) -> User | None:
@@ -33,3 +39,25 @@ async def get_user_workspaces(
     for membership, workspace in rows:
         result.append((workspace, membership.role))
     return result
+
+
+async def get_user_with_subscription(
+    db: AsyncSession, user_id: uuid.UUID
+) -> tuple[User, Subscription | None]:
+    """Carga user + la última subscription (si existe).
+
+    Usado por ``GET /api/v1/auth/me`` para devolver el
+    ``current_subscription`` junto al user.
+    """
+    user = await db.get(User, user_id)
+    if user is None:
+        return None, None  # type: ignore[return-value]
+
+    sub_stmt = (
+        select(Subscription)
+        .where(Subscription.user_id == user_id)
+        .order_by(Subscription.created_at.desc())
+        .limit(1)
+    )
+    subscription = await db.scalar(sub_stmt)
+    return user, subscription

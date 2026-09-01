@@ -3,7 +3,12 @@
 Ningún importe desde ``app.api``. Esta capa es la ÚNICA autorizada a:
 - crear usuarios,
 - emitir/revocar refresh tokens,
-- escribir ``AuditLog`` para acciones de auth.
+- escribir ``AuditLog`` para acciones de auth,
+- crear la subscripción de trial (STARTER / 7 días).
+
+p0b.1a: ``register_user`` ahora toma ``first_name``, ``last_name`` y
+``phone``. Después de crear el Workspace default, llama a
+``subscription_service.create_trial`` para materializar el trial.
 """
 from __future__ import annotations
 
@@ -28,6 +33,7 @@ from app.core.security.password import (
 )
 from app.models import AuditLog, RefreshToken, User, UserRole, WorkspaceMemberRole
 from app.schemas.envelope import ErrorCode
+from app.services.subscription_service import create_trial
 from app.services.workspace_service import create_default_workspace_for_user
 
 
@@ -99,10 +105,16 @@ async def register_user(
     *,
     email: str,
     password: str,
-    name: str,
+    first_name: str,
+    last_name: str,
+    phone: str,
     correlation_id: str | None = None,
 ) -> User:
-    """Crea el usuario + su workspace default + audit log. NO emite tokens."""
+    """Crea el usuario + su workspace default + subscripción de trial + audit log.
+
+    p0b.1a: ya no emite tokens. ``issue_tokens_for_user`` se invoca desde
+    la capa de routing para poder mapear errores uniformemente.
+    """
     # Normalizamos email a minúsculas (canonical).
     email_normalized = email.strip().lower()
 
@@ -119,7 +131,9 @@ async def register_user(
     user = User(
         email=email_normalized,
         password_hash=hash_password(password),
-        name=name.strip(),
+        first_name=first_name.strip(),
+        last_name=last_name.strip(),
+        phone=phone.strip(),
         role=UserRole.USER,
     )
     db.add(user)
@@ -129,7 +143,10 @@ async def register_user(
         await db.rollback()
         raise AuthError(ErrorCode.AUTH_EMAIL_TAKEN, "El email ya esta registrado") from exc
 
-    await create_default_workspace_for_user(db, user)
+    workspace = await create_default_workspace_for_user(db, user)
+    await create_trial(
+        db, user=user, workspace=workspace, correlation_id=correlation_id
+    )
 
     await _emit_audit(
         db,
@@ -137,7 +154,13 @@ async def register_user(
         action="user.register",
         entity_type="User",
         entity_id=str(user.id),
-        new={"email": user.email, "name": user.name, "role": user.role.value},
+        new={
+            "email": user.email,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "phone": user.phone,
+            "role": user.role.value,
+        },
         correlation_id=correlation_id,
     )
     await db.commit()

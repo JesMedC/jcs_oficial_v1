@@ -15,7 +15,9 @@ class UserOut(BaseModel):
 
     id: uuid.UUID
     email: JcsEmail
-    name: str
+    first_name: str
+    last_name: str
+    phone: str
     role: UserRole
     email_verified_at: datetime | None
     created_at: datetime

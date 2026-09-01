@@ -23,8 +23,11 @@ async def create_default_workspace_for_user(
     Llamado por ``auth_service.register_user`` justo después del flush del
     usuario. Asume que ``user.id`` ya está asignado.
     """
+    display_name = (
+        f"{user.first_name} {user.last_name}".strip() or user.email.split("@")[0]
+    )
     workspace = Workspace(
-        name=f"Workspace de {user.name}",
+        name=f"Workspace de {display_name}",
         owner_user_id=user.id,
         plan_tier=WorkspacePlanTier.NONE,
     )

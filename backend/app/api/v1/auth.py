@@ -18,7 +18,6 @@ from app.core.security.cookies import (
     set_refresh_cookie,
 )
 from app.schemas.auth import (
-    AuthMeOut,
     LoginIn,
     LogoutIn,
     MessageOut,
@@ -88,7 +87,9 @@ async def register(
             db,
             email=payload.email,
             password=payload.password,
-            name=payload.name,
+            first_name=payload.first_name,
+            last_name=payload.last_name,
+            phone=payload.phone,
             correlation_id=_correlation_id(request),
         )
         access, refresh, expires_in = await issue_tokens_for_user(db, user)

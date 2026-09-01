@@ -3,6 +3,9 @@
 ``BOTH`` se usa para staff interno que puede entrar tanto al portal
 público como al panel admin — la lógica de selector de portal vive en el
 frontend; el backend sólo expone el rol correcto.
+
+p0b.1a: ``name`` se partió en ``first_name`` + ``last_name`` y se añadió
+``phone``. Migración 0002.
 """
 from __future__ import annotations
 
@@ -19,6 +22,7 @@ from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.refresh_token import RefreshToken
+    from app.models.subscription import Subscription
     from app.models.workspace_member import WorkspaceMember
 
 
@@ -33,7 +37,9 @@ class User(Base, TimestampMixin):
 
     email: Mapped[str] = mapped_column(String(254), unique=True, index=True, nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
-    name: Mapped[str] = mapped_column(String(80), nullable=False)
+    first_name: Mapped[str] = mapped_column(String(80), nullable=False)
+    last_name: Mapped[str] = mapped_column(String(80), nullable=False, default="")
+    phone: Mapped[str] = mapped_column(String(20), nullable=False, default="")
     role: Mapped[UserRole] = mapped_column(
         Enum(UserRole, name="user_role", values_callable=lambda enum: [m.value for m in enum]),
         default=UserRole.USER,
@@ -52,6 +58,9 @@ class User(Base, TimestampMixin):
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
     memberships: Mapped[list["WorkspaceMember"]] = relationship(
+        back_populates="user", cascade="all, delete-orphan", lazy="selectin"
+    )
+    subscriptions: Mapped[list["Subscription"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"
     )
 

@@ -1,11 +1,13 @@
-"""``GET /api/v1/auth/me`` — usuario actual + workspaces."""
+"""``GET /api/v1/auth/me`` — usuario actual + workspaces + suscripción."""
 from __future__ import annotations
 
 from fastapi import APIRouter
 
 from app.api.deps import CurrentUser, DbSession
 from app.schemas.auth import AuthMeOut
+from app.schemas.subscription import SubscriptionOut
 from app.schemas.workspace import WorkspaceOut
+from app.services.subscription_service import get_user_active_subscription
 from app.services.user_service import get_user_workspaces
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -24,10 +26,19 @@ async def me(user: CurrentUser, db: DbSession) -> AuthMeOut:
         )
         for ws, role in workspaces
     ]
+
+    sub = await get_user_active_subscription(db, user.id)
+    sub_out: SubscriptionOut | None = None
+    if sub is not None:
+        sub_out = SubscriptionOut.model_validate(sub)
+
     return AuthMeOut(
         user_id=user.id,
         email=user.email,
-        name=user.name,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        phone=user.phone,
         role=user.role,
         workspaces=workspace_outs,
+        current_subscription=sub_out,
     )

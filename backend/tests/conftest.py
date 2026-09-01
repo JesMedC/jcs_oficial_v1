@@ -78,7 +78,9 @@ async def registered_user(db_session: AsyncSession) -> dict[str, str]:
     user = User(
         email="fixture@jadecapital.local",
         password_hash=hash_password("Fixture1234"),
-        name="Fixture User",
+        first_name="Fixture",
+        last_name="User",
+        phone="+34600000000",
         role=UserRole.USER,
     )
     db_session.add(user)
@@ -86,7 +88,9 @@ async def registered_user(db_session: AsyncSession) -> dict[str, str]:
     return {
         "email": user.email,
         "password": "Fixture1234",
-        "name": user.name,
+        "first_name": user.first_name,
+        "last_name": user.last_name,
+        "phone": user.phone,
         "user_id": str(user.id),
     }
 
@@ -94,3 +98,23 @@ async def registered_user(db_session: AsyncSession) -> dict[str, str]:
 @pytest.fixture
 def correlation_id() -> str:
     return str(uuid.uuid4())
+
+
+# --- p0b.1a: factories for the new register payload fields ---
+
+@pytest.fixture
+def unique_email() -> str:
+    """Email único por test (uuid-based) para evitar colisiones entre tests."""
+    return f"u{uuid.uuid4().hex[:10]}@jadecapital.local"
+
+
+@pytest.fixture
+def valid_register_payload(unique_email: str) -> dict[str, str]:
+    """Default payload válido para POST /auth/register (p0b.1a)."""
+    return {
+        "email": unique_email,
+        "password": "Test1234!",
+        "first_name": "Test",
+        "last_name": "User",
+        "phone": "+34612345678",
+    }
