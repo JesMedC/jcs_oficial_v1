@@ -1,0 +1,135 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * CSS variables mirror the cyan design tokens from tailwind.config.ts.
+ * Var names keep the "jade-" prefix for compatibility with later slices
+ * (p1b+) that consume these names directly. VALUES are cyan per mem #70
+ * (jarvis-hrz visual override), NOT jade.
+ */
+:root {
+  --color-jade-bg: #080d12;
+  --color-jade-surface: #0d141b;
+  --color-jade-surface-el: #111b24;
+  --color-jade-border: #1c2a35;
+  --color-jade: #00ffff;
+  --color-jade-dk: #00b8b8;
+  --color-jade-profit: #35d07f;
+  --color-jade-loss: #ff5c5c;
+  --color-jade-warning: #f3b94e;
+  --color-jade-info: #4da3ff;
+  --color-jade-text-pri: #e9f1f7;
+  --color-jade-text-sec: #8fa1b2;
+  --color-jade-text-mut: #607080;
+  --shadow-jade-glass: 0 8px 32px 0 rgba(8, 13, 18, 0.45);
+  --shadow-jade-elevated: 0 12px 48px 0 rgba(8, 13, 18, 0.6);
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background: var(--color-jade-bg);
+  color: var(--color-jade-text-pri);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  position: relative;
+  isolation: isolate;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/*
+ * Raw @keyframes — duplicated from tailwind.config.ts so the animations
+ * can be applied via raw CSS (e.g. inline styles or non-Tailwind class
+ * pipelines) without relying on Tailwind's emitted utility classes.
+ */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(-10%, -5%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10%, 5%, 0) scale(1.05);
+  }
+}
+
+@keyframes particle-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(40px, -30px, 0);
+  }
+}
+
+@keyframes pulse-cyan {
+  0%,
+  100% {
+    opacity: 0.6;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer-glass {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+/* Reduced motion: collapse all animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Selection */
+::selection {
+  background: rgba(0, 255, 255, 0.35);
+  color: #ffffff;
+}
+
+/* Focus visible ring (cyan) */
+:focus-visible {
+  outline: 2px solid var(--color-jade);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Hairline divider */
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-jade-border);
+}
