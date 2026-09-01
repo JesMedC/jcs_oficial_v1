@@ -2,16 +2,16 @@ import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
 const productLinks: ReadonlyArray<{ label: string; to: string }> = [
-  { label: 'Características', to: '/' },
-  { label: 'Precios', to: '/' },
-  { label: 'Demo', to: '/' },
-  { label: 'Estado del servicio', to: '/' },
+  { label: 'Características', to: '/features' },
+  { label: 'Precios', to: '/pricing' },
+  { label: 'Demo', to: '/demo' },
+  { label: 'Estado del servicio', to: '#' },
 ];
 
 const companyLinks: ReadonlyArray<{ label: string; to: string }> = [
-  { label: 'Nosotros', to: '/' },
-  { label: 'Contacto', to: '/' },
-  { label: 'Manifiesto', to: '/' },
+  { label: 'Nosotros', to: '/about' },
+  { label: 'Contacto', to: '/contact' },
+  { label: 'Manifiesto', to: '#' },
 ];
 
 const legalLinks: ReadonlyArray<{ label: string; to: string }> = [

@@ -4,26 +4,25 @@ import { GlassCard } from '../GlassCard';
 /*
  * p1c — Pricing FAQ accordion.
  *
- * Local state for which question is open. The Angular reference
- * snapshot only captured question titles, not answers. Real answer
- * copy is filled in p1f; for now we render a TODO placeholder so
- * the layout is exercisable end-to-end.
+ * Local state for which question is open. Real Spanish answers are
+ * filled in now (was a TODO placeholder). Copy lives in the `items`
+ * array below as a single source of truth for both question + answer.
  */
 export function FaqAccordion() {
   const [openIndex, setOpenIndex] = useState<number | null>(0);
   return (
     <div className="flex flex-col gap-3 max-w-3xl mx-auto">
-      {questions.map((q, i) => {
+      {items.map((item, i) => {
         const isOpen = openIndex === i;
         return (
-          <GlassCard key={q} variant="default" className="p-0 overflow-hidden" as="div">
+          <GlassCard key={item.q} variant="default" className="p-0 overflow-hidden" as="div">
             <button
               type="button"
               onClick={() => setOpenIndex(isOpen ? null : i)}
               aria-expanded={isOpen}
               className="w-full flex items-center justify-between gap-4 px-5 py-4 text-left font-body text-text-primary hover:text-primary transition-colors"
             >
-              <span className="font-body text-sm md:text-base">{q}</span>
+              <span className="font-body text-sm md:text-base">{item.q}</span>
               <span
                 aria-hidden="true"
                 className={`text-primary transition-transform ${isOpen ? 'rotate-45' : ''}`}
@@ -44,11 +43,7 @@ export function FaqAccordion() {
             </button>
             {isOpen ? (
               <div className="px-5 pb-5 -mt-1 text-text-secondary font-body text-sm">
-                {/* TODO(p1f): replace placeholder answer with the real answer copy. */}
-                <span>
-                  Respuesta en preparacion. Escrbenos a hola@jadecapitalsuite.com y te respondemos
-                  personalmente.
-                </span>
+                <span>{item.a}</span>
               </div>
             ) : null}
           </GlassCard>
@@ -58,9 +53,21 @@ export function FaqAccordion() {
   );
 }
 
-const questions: ReadonlyArray<string> = [
-  'Que tipos de operaciones puedo registrar?',
-  'Puedo usar el plan en mas de un dispositivo?',
-  'Mis datos estan seguros?',
-  'Puedo cancelar mi suscripcion cuando quiera?',
+const items: ReadonlyArray<{ q: string; a: string }> = [
+  {
+    q: 'Que tipos de operaciones puedo registrar?',
+    a: 'Podes registrar operaciones de Forex (pares de divisas con entrada, salida, stop loss y take profit), opciones binarias y digitales (CALL/PUT, strike, expiracion, stake y payout), criptomonedas (Bitcoin, Ethereum y demas), acciones, indices, futuros, commodities, CFDs y cuentas de prop firms. Cada mercado tiene sus campos especificos para reflejar su mecanica real.',
+  },
+  {
+    q: 'Puedo usar el plan en mas de un dispositivo?',
+    a: 'Si. Tu cuenta se sincroniza automaticamente entre todos tus dispositivos. Podes usar la plataforma en simultaneo desde el escritorio, tablet o celular, y todos tus registros, journal y metricas quedan siempre actualizados y disponibles.',
+  },
+  {
+    q: 'Mis datos estan seguros?',
+    a: 'Tus credenciales se guardan con hashing PBKDF2 y sal aleatoria. La comunicacion viaja sobre HTTPS con JWT firmado HS256 (15 minutos) y refresh tokens rotativos (14 dias). Auditoria continua sobre acciones sensibles y backups automaticos para que nada se pierda.',
+  },
+  {
+    q: 'Puedo cancelar mi suscripcion cuando quiera?',
+    a: 'Si, sin contratos ni permanencia. Podes cancelar desde Configuracion cuando quieras. Si elegiste plan anual, mantenemos el acceso hasta el fin del periodo pagado. No hacemos reembolsos parciales; una vez finalizado el periodo, la suscripcion no se renueva automaticamente.',
+  },
 ];
