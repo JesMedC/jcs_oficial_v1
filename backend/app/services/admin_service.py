@@ -31,6 +31,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.errors import CannotDeactivateSelfError, InvalidPriceError
 from app.models import (
     AuditLog,
+    Payment,
+    PaymentStatus,
     PlanTierPrice,
     Subscription,
     SubscriptionStatus,
@@ -147,6 +149,25 @@ async def list_plans(db: AsyncSession) -> list[PlanTierPrice]:
         PlanTierPrice.effective_from.desc(),
     )
     return list((await db.execute(stmt)).scalars().all())
+
+
+async def list_all_payments(
+    db: AsyncSession,
+    *,
+    skip: int = 0,
+    limit: int = 50,
+    status_filter: PaymentStatus | None = None,
+) -> tuple[list[Payment], int]:
+    """Lista paginada de pagos para el dashboard admin.
+
+    Re-export de ``payment_service.get_all_payments`` para mantener la
+    simetría con ``list_users`` / ``list_plans``.
+    """
+    from app.services.payment_service import get_all_payments
+
+    return await get_all_payments(
+        db, skip=skip, limit=limit, status_filter=status_filter
+    )
 
 
 # ---------- mutations ----------
@@ -273,6 +294,7 @@ __all__ = [
     "set_user_active",
     "list_plans",
     "update_plan_price",
+    "list_all_payments",
     "CannotDeactivateSelfError",
     "InvalidPriceError",
 ]

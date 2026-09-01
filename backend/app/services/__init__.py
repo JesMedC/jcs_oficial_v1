@@ -1,9 +1,15 @@
 """Services layer — toda la lógica de negocio vive aquí (R3 Reliability)."""
 from app.services.admin_service import (
+    list_all_payments,
     list_plans as admin_list_plans,
     list_users as admin_list_users,
     set_user_active,
     update_plan_price,
+)
+from app.services.analytics_service import (
+    get_analytics_summary,
+    get_top_pages,
+    record_pageview,
 )
 from app.services.auth_service import (
     authenticate_user,
@@ -11,6 +17,12 @@ from app.services.auth_service import (
     logout_user,
     register_user,
     rotate_refresh_token,
+)
+from app.services.payment_service import (
+    get_all_payments,
+    get_user_payments,
+    record_payment,
+    update_payment_status,
 )
 from app.services.subscription_service import (
     cancel_subscription,
@@ -51,4 +63,12 @@ __all__ = [
     "set_user_active",
     "admin_list_plans",
     "update_plan_price",
+    "record_payment",
+    "update_payment_status",
+    "get_user_payments",
+    "get_all_payments",
+    "list_all_payments",
+    "record_pageview",
+    "get_top_pages",
+    "get_analytics_summary",
 ]
