@@ -1,4 +1,4 @@
-"""Admin API router — p0b.2.
+"""Admin API router — p0b.2 + p0c.
 
 Endpoints bajo ``/api/v1/admin``:
 
@@ -6,6 +6,9 @@ Endpoints bajo ``/api/v1/admin``:
 - ``PATCH /users/{user_id}`` — toggle ``is_active``
 - ``GET  /plans`` — historial completo de precios
 - ``PATCH /plans/{tier}`` — crea un precio nuevo, desactiva el anterior
+- ``GET  /payments`` — lista paginada de pagos (p0c)
+- ``GET  /analytics/top-pages`` — top páginas (p0c)
+- ``GET  /analytics/summary`` — KPIs agregados (p0c)
 
 Todas las rutas usan ``require_admin`` (``AdminUser`` dependency). Las
 mutaciones pasan por ``app.services.admin_service`` (R3). Los errores
@@ -20,7 +23,7 @@ from fastapi import APIRouter, HTTPException, Query, Request, status
 
 from app.api.deps import AdminUser, DbSession
 from app.core.errors import CannotDeactivateSelfError, InvalidPriceError
-from app.models import UserRole
+from app.models import PaymentStatus, UserRole
 from app.models.subscription import SubscriptionTier
 from app.schemas.admin import (
     AdminUserListOut,
@@ -30,13 +33,20 @@ from app.schemas.admin import (
     UserWithSubscriptionOut,
 )
 from app.schemas.envelope import ErrorCode
+from app.schemas.page_view import AnalyticsSummaryOut, TopPageOut
+from app.schemas.payment import PaymentListOut, PaymentOut
 from app.schemas.user import UserOut
 from app.services.admin_service import (
     latest_subscription_for,
+    list_all_payments,
     list_plans,
     list_users,
     set_user_active,
     update_plan_price,
+)
+from app.services.analytics_service import (
+    get_analytics_summary,
+    get_top_pages,
 )
 
 router = APIRouter(prefix="/admin", tags=["admin"])
@@ -172,3 +182,47 @@ async def update_plan_price_route(
     except (CannotDeactivateSelfError, InvalidPriceError, LookupError) as exc:
         _raise_admin_error(exc)
     return PlanTierPriceOut.model_validate(new_row)
+
+
+@router.get("/payments", response_model=PaymentListOut)
+async def admin_list_payments_route(
+    _admin: AdminUser,
+    db: DbSession,
+    status_filter: Annotated[
+        PaymentStatus | None,
+        Query(alias="status", description="PENDING|APPROVED|REJECTED|CANCELLED|REFUNDED"),
+    ] = None,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=200)] = 50,
+) -> PaymentListOut:
+    """Lista paginada de pagos (todos los usuarios) con filtro por status."""
+    items, total = await list_all_payments(
+        db, skip=skip, limit=limit, status_filter=status_filter
+    )
+    return PaymentListOut(
+        items=[PaymentOut.model_validate(p) for p in items],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
+
+
+@router.get("/analytics/top-pages", response_model=list[TopPageOut])
+async def admin_top_pages_route(
+    _admin: AdminUser,
+    db: DbSession,
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> list[TopPageOut]:
+    """Páginas más visitadas del periodo."""
+    return await get_top_pages(db, days=days, limit=limit)
+
+
+@router.get("/analytics/summary", response_model=AnalyticsSummaryOut)
+async def admin_analytics_summary_route(
+    _admin: AdminUser,
+    db: DbSession,
+    days: Annotated[int, Query(ge=1, le=365)] = 30,
+) -> AnalyticsSummaryOut:
+    """KPIs agregados del periodo."""
+    return await get_analytics_summary(db, days=days)

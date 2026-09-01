@@ -7,6 +7,11 @@ p0b.1a:
 
 Los tests usan ``aiosqlite`` en memoria; el seed de MercadoPago real
 se stubea en p0c.
+
+p0c:
+- ``POST /upgrade`` ya NO devuelve placeholder — si MP no está
+  configurado, devuelve 422 ``MP_NOT_CONFIGURED``. El happy path con
+  MP mockeado vive en ``test_subscription_upgrade_mp_sdk.py``.
 """
 from __future__ import annotations
 
@@ -73,22 +78,30 @@ async def test_get_my_subscription_returns_trial(client, unique_email: str) -> N
 
 
 async def test_get_my_subscription_404_when_none(client) -> None:
-    """Sin subscripción activa → 404 con envelope SUBSCRIPTION_NOT_FOUND."""
-    # Usamos el endpoint /me (que no requiere sub) para obtener tokens
-    # de un usuario sin subscripciones. No es posible vía /register porque
-    # el register crea el trial. En su lugar validamos el contrato del 404
-    # stub vía un client sin token (que dará 401, distinto del caso real).
-    # Aquí simplemente validamos que el endpoint requiere autenticación.
+    """Sin subscripción activa → 404 con envelope SUBSCRIPTION_NOT_FOUND.
+
+    Aquí validamos que el endpoint requiere autenticación. El caso 404
+    requiere un usuario sin sub, no posible vía /register porque crea
+    el trial automáticamente.
+    """
     resp = await client.get("/api/v1/subscriptions/me")
     assert resp.status_code == 401
     assert resp.json()["code"] == "AUTH_TOKEN_MISSING"
 
 
 @pytest.mark.parametrize("target_tier", ["PLUS", "ELITE"])
-async def test_upgrade_to_plus_or_elite(
-    client, unique_email: str, target_tier: str
+async def test_upgrade_without_mp_token_returns_422(
+    client, unique_email: str, target_tier: str, monkeypatch
 ) -> None:
-    """POST /subscriptions/upgrade devuelve checkout_url placeholder."""
+    """POST /upgrade sin MERCADOPAGO_ACCESS_TOKEN → 422 MP_NOT_CONFIGURED.
+
+    p0c: el backend rechaza explícitamente en lugar de devolver una URL
+    placeholder. El happy path con MP mockeado vive en
+    ``test_subscription_upgrade_mp_sdk.py``.
+    """
+    # Nos aseguramos de que el SDK no esté configurado.
+    monkeypatch.setenv("MERCADOPAGO_ACCESS_TOKEN", "")
+
     reg = await _register(client, _payload(unique_email))
     access = reg["access_token"]
 
@@ -97,12 +110,12 @@ async def test_upgrade_to_plus_or_elite(
         json={"tier": target_tier},
         headers={"Authorization": f"Bearer {access}"},
     )
-    assert resp.status_code == 200, resp.text
+    assert resp.status_code == 422, resp.text
     body = resp.json()
-    assert body["checkout_url"].startswith(
-        "https://www.mercadopago.com/checkout/v1/redirect"
-    )
-    assert "PLACEHOLDER_" in body["mp_preference_id"]
+    assert body["code"] == "MP_NOT_CONFIGURED"
+    # Nunca debe devolver una URL placeholder.
+    assert "PLACEHOLDER" not in resp.text
+    assert "mercadopago.com/checkout/v1/redirect" not in resp.text
 
 
 async def test_upgrade_invalid_tier_rejected(client, unique_email: str) -> None:

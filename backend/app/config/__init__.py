@@ -55,10 +55,17 @@ class Settings(BaseSettings):
     log_level: str = "INFO"
     log_format: Literal["json", "console"] = "console"
 
-    # MercadoPago (stub para p0b — vacío en p0a.1)
+    # MercadoPago — p0c activa la integración real.
     mercadopago_access_token: str = ""
     mercadopago_public_key: str = ""
     mercadopago_webhook_url: str = ""
+    # p0c: secret para verificar la firma del webhook. Si está vacío, el
+    # backend acepta todos los webhooks (modo dev — NO exponer a internet).
+    mercadopago_webhook_secret: str = ""
+
+    # Frontend — p0c lo usa ``upgrade_subscription`` para construir las
+    # back_urls por defecto cuando el cliente no las pasa.
+    frontend_base_url: str = "http://localhost:5173"
 
     @property
     def is_production(self) -> bool:

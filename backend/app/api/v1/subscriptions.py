@@ -1,6 +1,11 @@
 """Subscriptions endpoints — GET /me, POST /upgrade, POST /cancel.
 
 Todas las mutaciones pasan por ``subscription_service`` (R3).
+
+p0c: ``POST /upgrade`` ahora acepta ``success_url`` / ``failure_url`` /
+``pending_url`` opcionales. Si no las pasa, el servicio las construye
+desde ``Settings.frontend_base_url``. La integración con MercadoPago
+es real — ver ``subscription_service.upgrade_subscription``.
 """
 from __future__ import annotations
 
@@ -67,11 +72,12 @@ async def upgrade(
     db: DbSession,
     request: Request,
 ) -> UpgradeOut:
-    """Stub: devuelve ``{checkout_url, mp_preference_id}``.
+    """Inicia un upgrade — crea preference en MercadoPago y devuelve
+    ``checkout_url`` + ``mp_preference_id``.
 
-    La integración real con MercadoPago se cablea en p0c.
+    Si el SDK de MercadoPago no está configurado, devuelve
+    ``MP_NOT_CONFIGURED`` (422) en lugar de un placeholder URL.
     """
-    # El usuario debe tener al menos un workspace para la subs.
     workspaces = await get_user_workspaces(db, user.id)
     if not workspaces:
         raise HTTPException(
@@ -90,6 +96,9 @@ async def upgrade(
             user=user,
             workspace=workspace,
             target_tier=SubscriptionTier(payload.tier),
+            success_url=payload.success_url,
+            failure_url=payload.failure_url,
+            pending_url=payload.pending_url,
             correlation_id=_correlation_id(request),
         )
     except SubscriptionError as exc:

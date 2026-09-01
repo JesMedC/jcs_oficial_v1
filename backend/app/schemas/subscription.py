@@ -9,7 +9,7 @@ import uuid
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, model_validator
 
 from app.models.subscription import SubscriptionStatus, SubscriptionTier
 
@@ -41,19 +41,36 @@ class UpgradeIn(BaseModel):
     Restringimos a ``PLUS`` y ``ELITE`` porque el trial Starter es lo que
     se crea en el register; subir a Starter no tendría efecto.
     ``STARTER`` se rechaza con 422 (VALIDATION_ERROR).
+
+    p0c: ahora el cliente puede pasar ``success_url`` / ``failure_url`` /
+    ``pending_url`` — son las ``back_urls`` que MercadoPago usará para
+    redirigir al usuario tras el checkout. Si no las pasa, el backend
+    las construye desde ``Settings.frontend_base_url``.
     """
 
     model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
 
     tier: UpgradeTier
+    success_url: AnyHttpUrl | None = None
+    failure_url: AnyHttpUrl | None = None
+    pending_url: AnyHttpUrl | None = None
+
+    @model_validator(mode="after")
+    def _at_least_no_urls(self) -> "UpgradeIn":
+        # Nada que validar explícitamente — Pydantic ya rechaza los
+        # strings no-URL via ``AnyHttpUrl``. El hook existe para que el
+        # validador tenga un único lugar donde extender reglas (ej.
+        # exigir que los 3 estén o ninguno).
+        return self
 
 
 class UpgradeOut(BaseModel):
     """Body de respuesta — checkout_url + preference_id de MercadoPago.
 
-    Mientras la integración real no esté cableada (p0c), el endpoint
-    devuelve placeholders para que el frontend pueda construir la UX
-    end-to-end sin tocar el backend de nuevo.
+    p0c: ``checkout_url`` apunta al ``init_point`` (prod) o
+    ``sandbox_init_point`` (dev) de la preference recién creada.
+    ``mp_preference_id`` es el ID que MercadoPago nos devolvió — el
+    frontend lo usa para armar ``/payment/success?ref=<pref_id>``.
     """
 
     checkout_url: str
