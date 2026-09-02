@@ -11,7 +11,7 @@
  * layer. Selection closes the menu by toggling the `<details>` open
  * flag off (we move focus back to the trigger).
  */
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import { useAuth } from '../../features/auth/useAuth';
 import { useActiveWorkspace } from '../../stores/useActiveWorkspace';
@@ -36,9 +36,12 @@ export function WorkspaceSelector({ isCollapsed }: WorkspaceSelectorProps) {
 
   // Auth provider currently exposes `user.workspaces` typed loosely,
   // so cast through unknown. When Auth's User type gains a typed
-  // workspaces field this cast goes away.
-  const workspaces: ReadonlyArray<WorkspaceSummary> =
-    (user?.workspaces as ReadonlyArray<WorkspaceSummary> | undefined) ?? [];
+  // workspaces field this cast goes away. useMemo stabilizes the
+  // reference so the useEffect below does not re-fire every render.
+  const workspaces = useMemo<ReadonlyArray<WorkspaceSummary>>(
+    () => (user?.workspaces as ReadonlyArray<WorkspaceSummary> | undefined) ?? [],
+    [user?.workspaces],
+  );
 
   // Sync persisted selection into the auth list on mount so we land
   // on a valid workspace (or fall back to the first one available).

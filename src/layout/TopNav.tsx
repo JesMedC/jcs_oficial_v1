@@ -77,7 +77,7 @@ export function TopNav() {
               data-testid="topnav-brand"
               className="font-display uppercase tracking-[0.2em] text-primary text-sm md:text-base flex items-center gap-2 shrink-0"
             >
-              <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_rgba(0,255,255,0.6)]" />
+              <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_rgba(46,220,140,0.6)]" />
               JadeCapitalSuite
             </span>
           ) : (
@@ -86,7 +86,7 @@ export function TopNav() {
               data-testid="topnav-brand"
               className="font-display uppercase tracking-[0.2em] text-primary text-sm md:text-base flex items-center gap-2 shrink-0"
             >
-              <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_rgba(0,255,255,0.6)]" />
+              <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_rgba(46,220,140,0.6)]" />
               JadeCapitalSuite
             </Link>
           )}
@@ -105,7 +105,7 @@ export function TopNav() {
                     [
                       'relative font-body text-sm transition-colors',
                       isActive
-                        ? 'font-display tracking-wide text-primary after:content-[""] after:absolute after:left-0 after:right-0 after:-bottom-1 after:h-0.5 after:bg-primary after:shadow-[0_0_8px_rgba(0,255,255,0.8)]'
+                        ? 'font-display tracking-wide text-primary after:content-[""] after:absolute after:left-0 after:right-0 after:-bottom-1 after:h-0.5 after:bg-primary after:shadow-[0_0_8px_rgba(46,220,140,0.8)]'
                         : 'text-text-primary hover:text-primary',
                     ].join(' ')
                   }
@@ -127,7 +127,7 @@ export function TopNav() {
                 </Link>
                 <Link
                   to="/login"
-                  className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+                  className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(46,220,140,0.5)] transition-shadow text-sm"
                 >
                   Iniciar sesion
                 </Link>

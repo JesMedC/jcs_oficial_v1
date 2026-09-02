@@ -7,7 +7,7 @@
  * hands the parsed payload to useCreateTrade.mutate(...) which does
  * the POST + invalidation dance.
  */
-import { useEffect } from 'react';
+import { useEffect, useMemo } from 'react';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
@@ -30,7 +30,9 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     },
   });
 
-  const accounts = accountsData?.items ?? [];
+  // useMemo stabilizes the array reference across renders so the
+  // useEffect below does not re-fire when the query result is the same.
+  const accounts = useMemo(() => accountsData?.items ?? [], [accountsData?.items]);
   const firstAccount = accounts[0];
 
   // RHF's discriminated-union errors type is widened; the per-branch field
@@ -61,11 +63,11 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
   });
 
   const selectedType = watch('type');
+  const watchedAccountId = watch('account_id');
 
   // When the user switches account, mirror the account type.
   useEffect(() => {
-    const accountId = watch('account_id');
-    const account = accounts.find((a) => a.id === accountId);
+    const account = accounts.find((a) => a.id === watchedAccountId);
     if (account && account.type !== selectedType) {
       setValue('type', account.type);
       if (account.type === 'BINARY') {
@@ -80,7 +82,7 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         setValue('lot_size', '0.1');
       }
     }
-  }, [watch('account_id'), accounts, setValue, selectedType, watch]);
+  }, [watchedAccountId, accounts, setValue, selectedType]);
 
   if (accounts.length === 0) {
     return (

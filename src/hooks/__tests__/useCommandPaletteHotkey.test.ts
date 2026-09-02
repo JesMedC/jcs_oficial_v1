@@ -5,6 +5,7 @@
  * inside an <input> is NOT intercepted (the user must be able to type
  * 'k' inside a form field).
  */
+/* eslint-disable no-undef -- DOM lib types (KeyboardEventInit, KeyboardEvent) used below; TS resolves them at compile time. */
 import { describe, expect, it, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
 

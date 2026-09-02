@@ -27,7 +27,7 @@
  * Per mem #68, UI copy is Spanish. Per mem #70, visual language
  * matches the jade + Orbitron + glassmorphism used elsewhere.
  */
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -36,7 +36,6 @@ import { GlassCard } from '../../components/GlassCard';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
-import { fundAccountApi, getAccountById, withdrawAccountApi } from '../../features/accounts/api';
 import { useAccount } from '../../features/accounts/hooks';
 import {
   ACCOUNT_TYPE_BADGE,
@@ -138,7 +137,7 @@ export function CuentasDetailPage() {
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">
           <h1
             className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
+            style={{ textShadow: '0 0 20px rgba(46,220,140,0.4)' }}
           >
             Cuenta no encontrada
           </h1>
@@ -176,7 +175,7 @@ export function CuentasDetailPage() {
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <h1
             className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
+            style={{ textShadow: '0 0 20px rgba(46,220,140,0.4)' }}
           >
             {account.name}
           </h1>
@@ -327,7 +326,7 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
         </span>
         <span
           className="font-display text-primary text-3xl tracking-wide"
-          style={{ textShadow: '0 0 16px rgba(0,255,255,0.3)' }}
+          style={{ textShadow: '0 0 16px rgba(46,220,140,0.3)' }}
         >
           {formatUsd(account.balance_usd)}
         </span>
@@ -336,7 +335,7 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
         <button
           type="button"
           onClick={onFund}
-          className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+          className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(46,220,140,0.5)] transition-shadow text-sm"
         >
           Fondear
         </button>
