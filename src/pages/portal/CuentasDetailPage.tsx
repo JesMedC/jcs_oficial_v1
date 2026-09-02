@@ -168,7 +168,7 @@ export function CuentasDetailPage() {
         <SeoHead title="Cuenta no encontrada" noindex />
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">
           <h1
-            className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
+            className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
             style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
           >
             Cuenta no encontrada
@@ -206,7 +206,7 @@ export function CuentasDetailPage() {
 
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <h1
-            className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
+            className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
             style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
           >
             {account.name}
@@ -367,14 +367,14 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
         <button
           type="button"
           onClick={onFund}
-          className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-5 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+          className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
         >
           Fondear
         </button>
         <button
           type="button"
           onClick={onWithdraw}
-          className="inline-flex items-center justify-center border border-primary/40 text-primary font-display uppercase tracking-wide px-5 py-3 rounded-lg hover:bg-primary/10 transition-colors text-sm"
+          className="inline-flex items-center justify-center border border-primary/40 text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors text-sm"
         >
           Retirar
         </button>
@@ -418,7 +418,7 @@ function ZonaPeligroTab({ account, onDelete }: ZonaPeligroTabProps) {
       <button
         type="button"
         onClick={onDelete}
-        className="mt-6 inline-flex items-center justify-center bg-loss text-bg font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(255,92,92,0.5)] transition-shadow text-sm"
+        className="mt-6 inline-flex items-center justify-center bg-loss text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(255,92,92,0.5)] transition-shadow text-sm"
       >
         Eliminar cuenta "{account.name}"
       </button>

@@ -90,7 +90,7 @@ export function TopNavMobileDrawer({ open, onClose }: TopNavMobileDrawerProps) {
               type="button"
               onClick={handleLogout}
               data-testid="topnav-mobile-logout"
-              className="inline-flex justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors"
+              className="inline-flex justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary hover:text-bg transition-colors"
             >
               Cerrar sesion
             </button>
@@ -113,14 +113,14 @@ export function TopNavMobileDrawer({ open, onClose }: TopNavMobileDrawerProps) {
               <a
                 href="/register"
                 onClick={onClose}
-                className="inline-flex justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors"
+                className="inline-flex justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary hover:text-bg transition-colors"
               >
                 Registrarse
               </a>
               <a
                 href="/login"
                 onClick={onClose}
-                className="inline-flex justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow"
+                className="inline-flex justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow"
               >
                 Iniciar sesión
               </a>

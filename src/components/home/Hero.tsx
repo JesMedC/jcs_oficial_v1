@@ -22,7 +22,7 @@ export function Hero({ preview }: HeroProps) {
       <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-12 md:pb-20 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
         <div className="flex flex-col gap-6">
           <h1
-            className="font-display uppercase tracking-wide text-primary text-4xl md:text-5xl lg:text-6xl"
+            className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl lg:text-5xl"
             style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
           >
             Convierte cada operacion en una decision mas inteligente
@@ -34,13 +34,13 @@ export function Hero({ preview }: HeroProps) {
           <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-2">
             <Link
               to="/register"
-              className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-6 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+              className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
             >
               Registrarse
             </Link>
             <Link
               to="/pricing"
-              className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-6 py-3 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+              className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
             >
               Ver planes
             </Link>

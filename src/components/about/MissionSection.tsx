@@ -14,7 +14,7 @@ export function MissionSection() {
             <ChartLine />
           </div>
           <div className="flex flex-col gap-4">
-            <h2 className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl">
+            <h2 className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl">
               Nosotros
             </h2>
             <p className="text-text-secondary font-body text-base md:text-lg leading-relaxed">

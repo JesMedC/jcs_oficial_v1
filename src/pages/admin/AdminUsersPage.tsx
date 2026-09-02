@@ -136,7 +136,7 @@ export function AdminUsersPage() {
       />
       <div className="max-w-7xl mx-auto">
         <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl mb-6"
+          className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl mb-6"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
         >
           Usuarios
@@ -195,7 +195,7 @@ export function AdminUsersPage() {
             </label>
             <button
               type="submit"
-              className="bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+              className="bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
             >
               Buscar
             </button>

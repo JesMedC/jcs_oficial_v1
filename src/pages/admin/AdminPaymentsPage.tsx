@@ -85,7 +85,7 @@ export function AdminPaymentsPage() {
       />
       <div className="max-w-6xl mx-auto">
         <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl mb-2"
+          className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl mb-2"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
         >
           Pagos

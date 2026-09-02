@@ -91,7 +91,7 @@ export function PricingTier({ tier, cycle }: PricingTierProps) {
         <Link
           to={ctaTo}
           className={[
-            'mt-4 inline-flex justify-center font-display uppercase tracking-wide px-4 py-2.5 rounded-lg text-sm transition-all',
+            'mt-4 inline-flex justify-center font-display uppercase tracking-wide px-3 py-2 rounded-lg text-sm transition-all',
             featured
               ? 'bg-primary text-bg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)]'
               : 'border-2 border-primary text-primary hover:bg-primary hover:text-bg',

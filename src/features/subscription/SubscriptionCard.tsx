@@ -73,7 +73,7 @@ export function SubscriptionCard({ subscription }: SubscriptionCardProps) {
           </p>
           <Link
             to="/portal/upgrade"
-            className="self-start inline-flex bg-primary text-bg font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+            className="self-start inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
           >
             Activar suscripcion
           </Link>
@@ -123,7 +123,7 @@ export function SubscriptionCard({ subscription }: SubscriptionCardProps) {
         <div className="flex flex-wrap gap-3 mt-2">
           <Link
             to={cta.to}
-            className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+            className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
           >
             {cta.label}
           </Link>

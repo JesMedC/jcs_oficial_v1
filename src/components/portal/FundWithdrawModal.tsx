@@ -112,7 +112,7 @@ export function FundWithdrawModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="inline-flex items-center justify-center border border-primary/30 text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary/10 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center border border-primary/30 text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
@@ -120,7 +120,7 @@ export function FundWithdrawModal({
             type="submit"
             form="fund-withdraw-form"
             disabled={!valid || submitting}
-            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? submittingLabel : submitLabel}
           </button>

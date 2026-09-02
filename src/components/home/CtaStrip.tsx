@@ -16,7 +16,7 @@ export function CtaStrip() {
         </h2>
         <Link
           to="/register"
-          className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-6 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+          className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
         >
           Registrarse
         </Link>

@@ -40,7 +40,7 @@ function StubPage({ meta, label, landingSlice }: StubPageProps) {
         canonicalPath={meta.canonicalPath}
       />
       <div className="container mx-auto max-w-3xl py-20 px-4">
-        <h1 className="font-display uppercase tracking-wide text-primary text-4xl md:text-5xl">
+        <h1 className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl">
           {label}
         </h1>
         <p className="text-text-secondary mt-4 text-base md:text-lg">

@@ -62,7 +62,7 @@ export function DashboardPage() {
       />
       <div className="max-w-4xl mx-auto px-4 md:px-8 py-12 md:py-16">
         <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
+          className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
         >
           Hola, {user?.first_name ?? 'trader'}
@@ -93,21 +93,21 @@ export function DashboardPage() {
             <button
               type="button"
               onClick={() => void handleCancel()}
-              className="inline-flex items-center justify-center border border-loss/40 text-loss font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-loss/10 transition-colors text-sm"
+              className="inline-flex items-center justify-center border border-loss/40 text-loss font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-loss/10 transition-colors text-sm"
             >
               Cancelar suscripcion
             </button>
           ) : null}
           <Link
             to="/portal/upgrade"
-            className="inline-flex items-center justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+            className="inline-flex items-center justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
           >
             Ver planes
           </Link>
           <button
             type="button"
             onClick={() => void logout()}
-            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
           >
             Cerrar sesion
           </button>

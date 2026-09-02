@@ -19,7 +19,7 @@ export function NotFoundPage() {
       <section className="max-w-3xl mx-auto px-4 py-20 md:py-32 text-center">
         <p className="font-mono text-text-muted text-sm">404</p>
         <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-5xl mt-2"
+          className="font-display uppercase tracking-wide text-primary text-2xl md:text-4xl mt-2"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
         >
           Esta ruta no existe
@@ -29,7 +29,7 @@ export function NotFoundPage() {
         </p>
         <Link
           to="/"
-          className="inline-flex mt-8 bg-primary text-bg font-display uppercase tracking-wide px-6 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+          className="inline-flex mt-8 bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
         >
           Volver al inicio
         </Link>

@@ -43,7 +43,7 @@ export function PaymentFailurePage() {
               </svg>
             </div>
           </div>
-          <h1 className="font-display uppercase tracking-wide text-loss text-3xl md:text-4xl">
+          <h1 className="font-display uppercase tracking-wide text-loss text-2xl md:text-3xl">
             Pago no completado
           </h1>
           <p className="text-text-secondary font-body text-base mt-4">

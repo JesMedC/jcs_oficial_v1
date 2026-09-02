@@ -79,7 +79,7 @@ export function AdminAccessDenied() {
         </p>
         <a
           href="/dashboard"
-          className="inline-block mt-6 bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+          className="inline-block mt-6 bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
         >
           Volver a mi portal
         </a>

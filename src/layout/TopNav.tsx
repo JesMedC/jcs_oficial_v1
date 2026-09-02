@@ -108,13 +108,13 @@ export function TopNav() {
               <div data-testid="topnav-public-cta" className="flex items-center gap-2 md:gap-3">
                 <Link
                   to="/register"
-                  className="hidden md:inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+                  className="hidden md:inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
                 >
                   Registrarse
                 </Link>
                 <Link
                   to="/login"
-                  className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+                  className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
                 >
                   Iniciar sesion
                 </Link>
@@ -133,7 +133,7 @@ export function TopNav() {
                   type="button"
                   onClick={handleLogout}
                   data-testid="topnav-logout"
-                  className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+                  className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
                 >
                   Cerrar sesion
                 </button>

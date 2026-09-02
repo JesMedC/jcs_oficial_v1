@@ -52,7 +52,7 @@ export function PortalSelector() {
     <div className="portal-selector-bg min-h-[80vh] flex items-center justify-center px-4 py-16">
       <div className="max-w-3xl w-full">
         <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl text-center mb-3"
+          className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl text-center mb-3"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
         >
           A donde queres entrar?

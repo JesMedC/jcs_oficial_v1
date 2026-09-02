@@ -22,13 +22,13 @@ export function ContactTeaser() {
             <div className="flex flex-wrap gap-3 mt-1">
               <Link
                 to="/contact"
-                className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+                className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
               >
                 Contactar
               </Link>
               <Link
                 to="/register"
-                className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+                className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
               >
                 Registrarse
               </Link>

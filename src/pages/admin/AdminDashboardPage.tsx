@@ -190,7 +190,7 @@ export function AdminDashboardPage() {
       />
       <div className="max-w-6xl mx-auto">
         <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl mb-2"
+          className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl mb-2"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
         >
           Panel de administracion
@@ -234,13 +234,13 @@ export function AdminDashboardPage() {
         <div className="mt-8 flex flex-wrap gap-3">
           <Link
             to="/admin/users"
-            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
           >
             Ver usuarios
           </Link>
           <Link
             to="/admin/plans"
-            className="inline-flex items-center justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+            className="inline-flex items-center justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
           >
             Ver planes
           </Link>

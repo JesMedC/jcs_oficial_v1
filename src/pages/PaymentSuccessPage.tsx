@@ -85,7 +85,7 @@ export function PaymentSuccessPage() {
             </div>
           </div>
           <h1
-            className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
+            className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
             style={{ textShadow: '0 0 20px rgba(0,255,255,0.5)' }}
           >
             Pago exitoso

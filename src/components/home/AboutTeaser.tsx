@@ -27,7 +27,7 @@ export function AboutTeaser() {
           <div className="flex md:justify-end">
             <Link
               to="/about"
-              className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+              className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
             >
               Conoce al equipo
             </Link>

@@ -102,7 +102,7 @@ export function PlanRow({ tier, plan, loading, saving, onSave }: PlanRowProps) {
           <button
             type="button"
             onClick={handleEdit}
-            className="self-start border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-xs"
+            className="self-start border-2 border-primary text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary hover:text-bg transition-colors text-xs"
           >
             Editar precio
           </button>

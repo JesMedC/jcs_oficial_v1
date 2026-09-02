@@ -112,7 +112,7 @@ export function LoginForm() {
         <button
           type="submit"
           disabled={!isValid || isSubmitting || isDebouncing}
-          className="bg-primary text-bg font-display uppercase tracking-wide px-4 py-3 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+          className="bg-primary text-bg font-display uppercase tracking-wide px-3 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? 'Ingresando...' : 'Iniciar sesion'}
         </button>

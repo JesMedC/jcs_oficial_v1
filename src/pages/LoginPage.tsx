@@ -24,7 +24,7 @@ export function LoginPage() {
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-12 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
         <div>
           <h1
-            className="font-display uppercase tracking-wide text-primary text-3xl md:text-5xl"
+            className="font-display uppercase tracking-wide text-primary text-2xl md:text-4xl"
             style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
           >
             Bienvenido de nuevo
