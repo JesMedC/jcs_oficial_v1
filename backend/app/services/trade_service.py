@@ -69,6 +69,22 @@ _ONE = Decimal("1")
 _HUNDRED = Decimal("100")
 _CENTS = Decimal("0.01")
 
+# Mínimo absoluto de ``balance_usd`` para poder abrir un trade sobre
+# una cuenta. Regla 2 de las "7 business rules sobre balance de
+# cuenta": una cuenta en cero o sub-1 USD solo puede ser fondeada, no
+# puede abrir posición. Definido acá (no en ``trading_account_service``)
+# porque la regla dispara desde ``open_trade`` y mantener la constante
+# adyacente al chequeo hace explícita su razón de ser.
+MIN_BALANCE_TO_TRADE = Decimal("1.00")
+
+# Cantidad que descuenta un trade FOREX al abrirse (margen reservado
+# en la cuenta). Coincide con la fórmula que ya usa ``risk_amount``
+# pero acá se usa para el saldo, no para el riesgo: ``lot * entry *
+# 100`` modela el "valor nocional simplificado" del contrato estándar
+# OTC. La misma fórmula vive en ``open_trade`` y se reutiliza al
+# cerrar para devolver el margen + el P&L neto.
+_FOREX_NOTIONAL_FACTOR = _HUNDRED
+
 
 class TradeError(Exception):
     """Error de trade traducible a ``ErrorEnvelope``.
@@ -292,14 +308,25 @@ async def open_trade(
     BINARY (``payout_pct`` 70-100).
 
     Para FOREX computamos ``risk_amount_usd`` y ``risk_pct`` en el
-    open. NO mutamos ``balance_usd`` de la cuenta — eso pasa en
-    ``close_trade``.
+    open. Mutamos ``balance_usd`` de la cuenta al abrir: BINARY deduce
+    ``investment_usd`` y FOREX deduce el nocional ``lot * entry * 100``
+    (margen reservado). Al cerrar, el balance se actualiza con el
+    retorno del margen + el P&L neto (``close_trade``).
 
     Devuelve el Trade con ``status=OPEN``.
 
     p0f.1 (multi-tenant): el ``workspace_id`` se infiere del JWT del
     usuario, igual que en ``create_trading_account``. La cuenta debe
     pertenecer al MISMO workspace (chequeo de coherencia multi-tenant).
+
+    Reglas 2 y 3 de "balance de cuenta":
+
+    - ``balance_usd >= MIN_BALANCE_TO_TRADE`` (1.00 USD). Si no, se
+      rechaza con ``INSUFFICIENT_BALANCE`` (422). La cuenta con menos
+      de 1 USD solo puede ser fondeada (vía ``POST /fund``).
+    - El monto a descontar (``investment_usd`` o nocional FOREX) debe
+      caber en el saldo actual. Si no, ``INSUFFICIENT_BALANCE`` (422)
+      con detalle de saldo disponible vs. requerido.
     """
     # Shape check FOREX/BINARY antes de tocar DB. Mismo envelope que
     # Pydantic 422 (VALIDATION_ERROR) — el cliente lo mapea igual.
@@ -345,7 +372,11 @@ async def open_trade(
             status=404,
         )
 
-    # ---- FOREX: computar risk_amount + risk_pct ----
+    # ---- FOREX: computar risk_amount + risk_pct (PRE-deducción) ----
+    # ``risk_pct`` se calcula contra el saldo PRE-open (semántica
+    # estándar: "riesgo como % del capital antes de tomar la posición").
+    # Si lo computáramos post-deducción, el número cambiaría por la
+    # reserva del nocional — confuso para el journal del trader.
     risk_amount_usd: Decimal | None = None
     risk_pct: Decimal | None = None
     if type == TradeType.FOREX:
@@ -427,11 +458,59 @@ async def open_trade(
             status=404,
         ) from exc
 
+    # ---- Deducción del margen al abrir (POST-flush) ----
+    # Va acá (no antes del flush) por dos razones:
+    # 1. Atomicidad: si el INSERT del trade falla por FK rota, el
+    #    rollback deshace tanto el trade como la deducción. Si
+    #    dedujéramos antes, un fallo de FK requeriría un refund manual.
+    # 2. El ``risk_pct`` ya fue computado contra el saldo pre-open.
+    # BINARY: ``investment_usd``. FOREX: nocional ``lot * entry * 100``.
+    if type == TradeType.BINARY:
+        deduct_amount = Decimal(str(investment_usd))
+    else:  # FOREX — ``_validate_open_payload`` ya garantizó presence
+        deduct_amount = (
+            Decimal(str(lot_size))
+            * Decimal(str(entry_price))
+            * _FOREX_NOTIONAL_FACTOR
+        ).quantize(_CENTS)
+
+    # ---- Regla 2: ``balance_usd >= MIN_BALANCE_TO_TRADE`` ----
+    # Una cuenta en 0 (recién creada) o sub-1 USD NO puede abrir
+    # trade — sólo fondear. La regla vive acá y no en ``fund_account``
+    # porque es el ``open_trade`` el que la dispara como pre-condición.
+    if account.balance_usd < MIN_BALANCE_TO_TRADE:
+        raise TradeError(
+            code="INSUFFICIENT_BALANCE",
+            message=(
+                f"saldo insuficiente para abrir trade: "
+                f"disponible ${account.balance_usd}, "
+                f"minimo ${MIN_BALANCE_TO_TRADE}. "
+                f"Fondea la cuenta primero."
+            ),
+            status=422,
+        )
+    # El monto del trade debe caber en el saldo disponible.
+    if deduct_amount > account.balance_usd:
+        raise TradeError(
+            code="INSUFFICIENT_BALANCE",
+            message=(
+                f"saldo insuficiente para abrir trade: "
+                f"requerido ${deduct_amount}, "
+                f"disponible ${account.balance_usd}"
+            ),
+            status=422,
+        )
+
+    previous_balance = account.balance_usd
+    account.balance_usd = previous_balance - deduct_amount
+
     # Snapshot para audit (sin enviar Decimal raw — str() para JSON).
     new_snapshot: dict[str, Any] = {
         "type": type.value,
         "instrument": instrument,
         "status": TradeStatus.OPEN.value,
+        "balance_delta_usd": str(-deduct_amount),
+        "new_balance_usd": str(account.balance_usd),
     }
     if pair is not None:
         new_snapshot["pair"] = pair
@@ -483,9 +562,23 @@ async def close_trade(
     - Actualiza ``status``, ``closed_at``, ``pnl_usd``, ``r_multiple``
       (FOREX), ``exit_price`` (FOREX), ``post_trade_notes``,
       ``followed_plan``, ``mistakes``.
-    - ``account.balance_usd += pnl_usd`` (positivo o negativo).
-    - Audit ``trade.close`` con ``{pnl, new_balance}`` y previous
-      ``{balance}``.
+    - ``account.balance_usd`` se muta siguiendo el modelo de "margen
+      reservado al abrir": al cerrar se devuelve el margen (BINARY:
+      ``investment_usd``; FOREX: ``lot * entry * 100``) y se suma el
+      P&L neto del trade. Equivalente a: ``balance_before_open``
+      cambia por ``pnl_usd`` (regla 6 + 7).
+    - Audit ``trade.close`` con ``{pnl, new_balance, margin_returned}``
+      y previous ``{balance}``.
+
+    Regla 6 (BINARY): ``pnl_usd`` =
+
+      - ``WIN``   → ``investment * payout_pct / 100`` (sólo la ganancia)
+      - ``BREAK`` → ``0`` (el broker devuelve la inversión integramente)
+      - ``LOSS``  → ``-investment`` (el usuario pierde el capital)
+
+    Al cerrar, ``balance_usd += investment + pnl_usd`` (BINARY) o
+    ``balance_usd += notional + pnl_usd`` (FOREX). El resultado neto
+    sobre el saldo previo al open es exactamente ``+pnl_usd``.
     """
     # Cargamos el trade + su cuenta en un solo round-trip (selectinload)
     # para evitar el lazy-load del relationship cuando mutamos
@@ -554,7 +647,7 @@ async def close_trade(
         if outcome is None:
             raise TradeError(
                 code="VALIDATION_ERROR",
-                message="BINARY close requiere outcome (WIN | LOSS)",
+                message="BINARY close requiere outcome (WIN | LOSS | BREAK)",
                 status=422,
             )
         if (
@@ -569,10 +662,16 @@ async def close_trade(
                 ),
                 status=422,
             )
+        # ``pnl_usd`` = P&L NETO del trade (delta sobre el capital
+        # previo al open). El ``+ investment`` se agrega al mutar el
+        # balance más abajo para devolver el margen reservado.
         if outcome == "WIN":
             pnl_raw = (
                 trade.investment_usd * trade.payout_pct / _HUNDRED
             )
+        elif outcome == "BREAK":
+            # El broker devuelve la inversión integra — P&L neto cero.
+            pnl_raw = _ZERO
         else:  # LOSS
             pnl_raw = -trade.investment_usd
         pnl_usd = pnl_raw.quantize(Decimal("0.01"))
@@ -606,9 +705,23 @@ async def close_trade(
     if mistakes is not None:
         trade.mistakes = mistakes
 
-    # Mutamos el saldo de la cuenta (aditiva). Cargamos la cuenta
-    # vía relationship para que SQLAlchemy haga el UPDATE.
-    trade.account.balance_usd = previous_balance + pnl_usd
+    # Mutamos el saldo de la cuenta (aditiva). Modelo "margen reservado":
+    # al cerrar devolvemos el margen que se descontó al abrir y sumamos
+    # el P&L neto del trade. Resultado: el cambio neto sobre el saldo
+    # previo al open es ``+pnl_usd`` (regla 6 + 7 de las 7 business
+    # rules). Mantenemos aditividad (no resta doble) por la misma razón
+    # que ``fund_account`` / ``withdraw_account``: cero pérdida de
+    # precisión ante concurrencia.
+    if trade.type == TradeType.FOREX:
+        notional = (
+            Decimal(str(trade.lot_size))
+            * Decimal(str(trade.entry_price))
+            * _FOREX_NOTIONAL_FACTOR
+        ).quantize(_CENTS)
+        margin_returned = notional
+    else:  # BINARY
+        margin_returned = Decimal(str(trade.investment_usd)).quantize(_CENTS)
+    trade.account.balance_usd = previous_balance + margin_returned + pnl_usd
     new_balance = trade.account.balance_usd
 
     await _emit_audit(
@@ -622,6 +735,7 @@ async def close_trade(
         },
         new={
             "pnl_usd": str(pnl_usd),
+            "margin_returned_usd": str(margin_returned),
             "new_balance": str(new_balance),
             "status": new_status.value,
         },

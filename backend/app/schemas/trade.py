@@ -161,7 +161,12 @@ class TradeCloseIn(BaseModel):
     El body lleva sólo el campo que aplique:
 
     - FOREX → ``exit_price`` (Decimal > 0)
-    - BINARY → ``outcome`` (Literal "WIN" | "LOSS")
+    - BINARY → ``outcome`` (Literal "WIN" | "LOSS" | "BREAK")
+
+    ``BREAK`` (p0e.4 hardening) representa el cierre "sin ganancia ni
+    pérdida" del broker OTC (ej. precio de cierre igual al de apertura
+    por un spike): el service retorna al balance exactamente la
+    ``investment_usd`` reservada al abrir, dejando ``pnl_usd = 0``.
 
     El service layer se encarga de rechazar el campo que no aplica
     (Pydantic lo deja opcional acá porque no sabe el type antes).
@@ -172,7 +177,7 @@ class TradeCloseIn(BaseModel):
     exit_price: Decimal | None = Field(
         default=None, gt=Decimal("0"), max_digits=20, decimal_places=8
     )
-    outcome: Literal["WIN", "LOSS"] | None = None
+    outcome: Literal["WIN", "LOSS", "BREAK"] | None = None
 
     post_trade_notes: str | None = Field(default=None, max_length=4000)
     followed_plan: bool | None = None

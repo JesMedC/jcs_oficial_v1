@@ -131,11 +131,20 @@ def _binary_open_payload(account_id: str) -> dict:
 async def test_open_forex_trade_returns_201_and_open_status(
     client, valid_register_payload
 ) -> None:
-    """POST /trades FOREX → 201, status=OPEN, balance de la cuenta intacto."""
+    """POST /trades FOREX → 201, status=OPEN, balance reducido por nocional.
+
+    p0e.4 hardening (7 business rules): al abrir un trade FOREX se
+    descuenta el nocional ``lot * entry * 100`` (= 11.00 USD para el
+    payload por defecto) del balance de la cuenta. El saldo queda
+    "reservado" como margen y se devuelve al cerrar (modelo
+    "margin reserved at open" — ver ``close_trade``).
+    """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
     account = await _create_account(client, headers, type="FOREX", name="Forex")
     account_id = account["id"]
+    # Regla 2: account con balance ≥ 1 USD para poder abrir.
+    await _fund_account(client, headers, account_id, "1000.00")
     payload = _forex_open_payload(account_id)
 
     resp = await client.post("/api/v1/trades", headers=headers, json=payload)
@@ -157,28 +166,30 @@ async def test_open_forex_trade_returns_201_and_open_status(
     assert Decimal(body["stop_loss"]) == Decimal("1.09500000")
     assert Decimal(body["take_profit"]) == Decimal("1.11000000")
 
-    # Risk computado.
+    # Risk computado contra el saldo PRE-open (semántica: "riesgo
+    # como % del capital antes de la posición").
     # risk_amount = |1.1000 − 1.0950| × 0.10 × 100 = 0.05
     assert Decimal(body["risk_amount_usd"]) == Decimal("0.05")
-    # risk_pct: balance=0 → None.
-    assert body["risk_pct"] is None
+    # risk_pct = (0.05 / 1000) × 100 = 0.005, quantize 0.01 → 0.00
+    # (ROUND_HALF_EVEN: 0.005 → 0.00).
+    assert Decimal(body["risk_pct"]) == Decimal("0.00")
 
     # BINARY-specific vacío.
     assert body["investment_usd"] is None
     assert body["payout_pct"] is None
     assert body["expiration_seconds"] is None
 
-    # El balance NO se muta al abrir (queda en 0). ``pnl_usd`` es
-    # NULL hasta que se cierra el trade.
+    # ``pnl_usd`` es NULL hasta que se cierra el trade.
     assert body["pnl_usd"] is None
 
-    # Re-fetch account → balance intacto.
+    # Re-fetch account → balance reducido por el nocional.
+    # notional = 0.10 × 1.1000 × 100 = 11.00 → balance 989.00.
     acc_resp = await client.get(
         f"/api/v1/accounts", headers=headers
     )
     assert acc_resp.status_code == 200
     fetched = next(a for a in acc_resp.json()["items"] if a["id"] == account_id)
-    assert Decimal(fetched["balance_usd"]) == Decimal("0.00")
+    assert Decimal(fetched["balance_usd"]) == Decimal("989.00")
 
     # Audit log emitido con action "trade.open".
     audit_q = await client.get("/api/v1/accounts", headers=headers)
@@ -191,10 +202,17 @@ async def test_open_forex_trade_returns_201_and_open_status(
 async def test_open_binary_trade_returns_201(
     client, valid_register_payload
 ) -> None:
-    """POST /trades BINARY → 201, status=OPEN."""
+    """POST /trades BINARY → 201, status=OPEN, balance reducido por inversión.
+
+    p0e.4 hardening (7 business rules): al abrir un trade BINARY se
+    descuenta ``investment_usd`` (= 100.00 USD) del balance de la
+    cuenta. Se devuelve al cerrar (ver ``test_close_binary_*``).
+    """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
     account = await _create_account(client, headers, type="BINARY", name="Binaria")
+    # Regla 2: account con balance ≥ 1 USD para poder abrir.
+    await _fund_account(client, headers, account["id"], "200.00")
     payload = _binary_open_payload(account["id"])
 
     resp = await client.post("/api/v1/trades", headers=headers, json=payload)
@@ -231,6 +249,9 @@ async def test_list_trades_returns_created(
     bin_account = await _create_account(
         client, headers, type="BINARY", name="Binary"
     )
+    # Regla 2: ambas cuentas necesitan balance ≥ 1 USD para abrir.
+    await _fund_account(client, headers, forex_account["id"], "500.00")
+    await _fund_account(client, headers, bin_account["id"], "200.00")
 
     # 1 FOREX + 1 BINARY.
     r1 = await client.post(
@@ -584,6 +605,8 @@ async def test_close_other_users_trade_returns_404(
     account_a = await _create_account(
         client, headers_a, type="BINARY"
     )
+    # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
+    await _fund_account(client, headers_a, account_a["id"], "200.00")
     open_resp = await client.post(
         "/api/v1/trades", headers=headers_a,
         json=_binary_open_payload(account_a["id"]),
@@ -677,6 +700,10 @@ async def test_list_trades_filter_by_account_id(
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
     forex_acc = await _create_account(client, headers, type="FOREX")
     bin_acc = await _create_account(client, headers, type="BINARY")
+    # Regla 2: ambas cuentas necesitan balance ≥ 1 USD. FOREX abre
+    # 2 trades con nocional 11 c/u (total 22), BINARY abre 1 con
+    # investment 100 → fondeamos con margen.
+    await _fund_account(client, headers, forex_acc["id"], "500.00")
     await _fund_account(client, headers, bin_acc["id"], "500.00")
 
     # 2 FOREX en forex_acc, 1 BINARY en bin_acc.
@@ -796,6 +823,8 @@ async def test_open_trade_infers_workspace_id(
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
     account = await _create_account(client, headers, type="BINARY")
+    # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
+    await _fund_account(client, headers, account["id"], "200.00")
 
     me = await client.get("/api/v1/auth/me", headers=headers)
     expected_ws = me.json()["workspaces"][0]["id"]
@@ -897,6 +926,8 @@ class TestRiskSummary:
         reg = await _register(client, valid_register_payload)
         headers = {"Authorization": f"Bearer {reg['access_token']}"}
         account = await _create_account(client, headers, type="FOREX")
+        # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
+        await _fund_account(client, headers, account["id"], "500.00")
 
         open_resp = await client.post(
             "/api/v1/trades", headers=headers,
@@ -935,6 +966,8 @@ class TestRiskSummary:
         reg = await _register(client, valid_register_payload)
         headers = {"Authorization": f"Bearer {reg['access_token']}"}
         account = await _create_account(client, headers, type="BINARY")
+        # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
+        await _fund_account(client, headers, account["id"], "100.00")
 
         # Inversión custom de $10 (default es 100). Cast al dict del
         # helper para no tocar la firma.
@@ -977,6 +1010,8 @@ class TestRiskSummary:
         reg = await _register(client, valid_register_payload)
         headers = {"Authorization": f"Bearer {reg['access_token']}"}
         account = await _create_account(client, headers, type="BINARY")
+        # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
+        await _fund_account(client, headers, account["id"], "200.00")
 
         for _ in range(2):
             payload = _binary_open_payload(account["id"])
@@ -1007,6 +1042,8 @@ class TestRiskSummary:
         reg = await _register(client, valid_register_payload)
         headers = {"Authorization": f"Bearer {reg['access_token']}"}
         account = await _create_account(client, headers, type="BINARY")
+        # Regla 2: 6 trades con investment 100 c/u = 600 USD mínimo.
+        await _fund_account(client, headers, account["id"], "1000.00")
 
         for _ in range(6):
             open_resp = await client.post(
@@ -1075,6 +1112,8 @@ class TestRiskSummary:
         account_b = await _create_account(
             client, headers_b, type="BINARY"
         )
+        # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
+        await _fund_account(client, headers_b, account_b["id"], "200.00")
         open_b = await client.post(
             "/api/v1/trades", headers=headers_b,
             json=_binary_open_payload(account_b["id"]),
@@ -1707,3 +1746,321 @@ class TestMetrics:
         body_b = resp_b.json()
         assert body_b["total_trades"] == 1
         assert Decimal(body_b["gross_profit_usd"]) == Decimal("500.00")
+
+
+# ============================================================
+# p0e.4 hardening — 7 business rules sobre balance de cuenta
+# (Gap B/C/D/E)
+#
+# Tests de no-regresión que pinean las reglas introducidas por el
+# hardening:
+#
+#  - Gap B: ``open_trade`` rechaza si ``balance_usd < 1 USD``.
+#  - Gap C: ``open_trade`` descuenta el monto (BINARY investment /
+#    FOREX nocional) del balance al abrir.
+#  - Gap D: ``close_trade`` BINARY con outcome="BREAK" devuelve
+#    la inversión íntegra (pnl_usd=0, status=CLOSED_BREAK, balance
+#    retorna al nivel pre-open).
+#  - Gap E (FOREX): al cerrar se devuelve el nocional + pnl_usd
+#    (modelo "margen reservado al abrir"). El cambio neto sobre el
+#    saldo pre-open es exactamente ``+pnl_usd``.
+# ============================================================
+
+
+async def test_open_binary_trade_rejects_balance_below_one_usd(
+    client, valid_register_payload
+) -> None:
+    """Regla 2: balance_usd < 1 USD → 422 INSUFFICIENT_BALANCE.
+
+    Una cuenta recién creada (balance=0) o con saldo sub-1 USD sólo
+    puede ser fondeada vía ``POST /fund``. El ``open_trade`` debe
+    rechazar incluso antes de intentar deducir.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="BINARY")
+
+    # Balance=0 (cuenta recién creada).
+    payload = _binary_open_payload(account["id"])
+    resp = await client.post("/api/v1/trades", headers=headers, json=payload)
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["code"] == "INSUFFICIENT_BALANCE"
+    assert "minimo" in body["message"].lower() or "1.00" in body["message"]
+
+    # Fondeamos $0.99 — sigue siendo sub-1 USD, también rechaza.
+    await _fund_account(client, headers, account["id"], "0.99")
+    resp2 = await client.post("/api/v1/trades", headers=headers, json=payload)
+    assert resp2.status_code == 422, resp2.text
+    assert resp2.json()["code"] == "INSUFFICIENT_BALANCE"
+
+    # Sanity: con exactamente 1 USD alcanza (aunque la inversión 100 no
+    # entre — eso lo testea ``test_open_trade_rejects_when_insufficient_for_investment``).
+    await _fund_account(client, headers, account["id"], "1.00")
+    # Re-fetch balance.
+    acc_resp = await client.get("/api/v1/accounts", headers=headers)
+    acc = next(a for a in acc_resp.json()["items"] if a["id"] == account["id"])
+    assert Decimal(acc["balance_usd"]) == Decimal("1.99")
+
+
+async def test_open_forex_trade_rejects_balance_below_one_usd(
+    client, valid_register_payload
+) -> None:
+    """Regla 2 (FOREX): balance_usd < 1 USD → 422 INSUFFICIENT_BALANCE.
+
+    Mismo umbral que BINARY: la regla es por TIPO de cuenta tener
+    capital mínimo, no por tipo de trade.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="FOREX")
+
+    payload = _forex_open_payload(account["id"])
+    resp = await client.post("/api/v1/trades", headers=headers, json=payload)
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "INSUFFICIENT_BALANCE"
+
+
+async def test_open_binary_trade_deducts_investment_from_balance(
+    client, valid_register_payload, db_session
+) -> None:
+    """Regla 3 + 5 (BINARY): abrir deduce ``investment_usd`` del balance.
+
+    setup: balance=500, investment=100.
+    Esperado: balance post-open = 400 (500 − 100). La inversión se
+    devuelve al cerrar (modelo margen — ver ``close_*``).
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="BINARY")
+    await _fund_account(client, headers, account["id"], "500.00")
+
+    open_resp = await client.post(
+        "/api/v1/trades", headers=headers,
+        json=_binary_open_payload(account["id"]),
+    )
+    assert open_resp.status_code == 201, open_resp.text
+
+    acc_resp = await client.get("/api/v1/accounts", headers=headers)
+    acc = next(
+        a for a in acc_resp.json()["items"] if a["id"] == account["id"]
+    )
+    assert Decimal(acc["balance_usd"]) == Decimal("400.00")
+
+    # Sanity contra la DB directa.
+    db_acc = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account["id"])
+            )
+        )
+    ).scalar_one()
+    assert db_acc.balance_usd == Decimal("400.00")
+
+
+async def test_open_forex_trade_deducts_notional_from_balance(
+    client, valid_register_payload, db_session
+) -> None:
+    """Regla 3 + 5 (FOREX): abrir deduce ``lot * entry * 100`` (nocional).
+
+    setup: lot=0.10, entry=1.10 → notional = 11.00.
+    Esperado: balance 1000 − 11 = 989. El nocional se devuelve al
+    cerrar (sumando al P&L neto).
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="FOREX")
+    await _fund_account(client, headers, account["id"], "1000.00")
+
+    open_resp = await client.post(
+        "/api/v1/trades", headers=headers,
+        json=_forex_open_payload(account["id"]),
+    )
+    assert open_resp.status_code == 201, open_resp.text
+
+    db_acc = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account["id"])
+            )
+        )
+    ).scalar_one()
+    # 1000 − (0.10 × 1.1000 × 100) = 1000 − 11 = 989.
+    assert db_acc.balance_usd == Decimal("989.00")
+
+
+async def test_open_trade_rejects_when_insufficient_for_investment(
+    client, valid_register_payload
+) -> None:
+    """Regla 3 (caso BINARY): balance ≥ 1 USD pero < investment → 422.
+
+    Fondeamos 1 USD apenas por encima del mínimo. Investment = 100
+    excede el saldo disponible → INSUFFICIENT_BALANCE con detalle
+    "requerido vs disponible".
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="BINARY")
+    await _fund_account(client, headers, account["id"], "1.00")
+
+    payload = _binary_open_payload(account["id"])
+    payload["investment_usd"] = "100.00"
+
+    resp = await client.post("/api/v1/trades", headers=headers, json=payload)
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["code"] == "INSUFFICIENT_BALANCE"
+    # El mensaje debe distinguir entre "minimo $1" y "no alcanza".
+    assert "requerido" in body["message"].lower()
+
+    # Sanity: el balance no se modió (no se llegó a deducir).
+    acc_resp = await client.get("/api/v1/accounts", headers=headers)
+    acc = next(
+        a for a in acc_resp.json()["items"] if a["id"] == account["id"]
+    )
+    assert Decimal(acc["balance_usd"]) == Decimal("1.00")
+
+
+async def test_close_binary_break_returns_investment_no_pnl(
+    client, valid_register_payload, db_session
+) -> None:
+    """Regla 6 (BREAK): el broker devuelve la inversión íntegra, pnl=0.
+
+    setup: balance=500, investment=100.
+    Open:  balance 500 − 100 = 400.
+    Close BREAK: balance 400 + 100 (margin) + 0 (pnl) = 500.
+    Esperado: status=CLOSED_BREAK, pnl_usd=0.00, balance vuelve a 500.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="BINARY")
+    await _fund_account(client, headers, account["id"], "500.00")
+
+    open_resp = await client.post(
+        "/api/v1/trades", headers=headers,
+        json=_binary_open_payload(account["id"]),
+    )
+    assert open_resp.status_code == 201, open_resp.text
+    trade_id = open_resp.json()["id"]
+
+    close_resp = await client.post(
+        f"/api/v1/trades/{trade_id}/close",
+        headers=headers, json={"outcome": "BREAK"},
+    )
+    assert close_resp.status_code == 200, close_resp.text
+    body = close_resp.json()
+    assert body["status"] == "CLOSED_BREAK"
+    assert Decimal(body["pnl_usd"]) == Decimal("0.00")
+
+    # Balance retorna a 500 (open -100 + close +100).
+    db_acc = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account["id"])
+            )
+        )
+    ).scalar_one()
+    assert db_acc.balance_usd == Decimal("500.00")
+
+    # Audit ``trade.close`` incluye ``margin_returned_usd = 100``.
+    audit_rows = list(
+        (await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "trade.close",
+                AuditLog.entity_id == trade_id,
+            )
+        )).scalars().all()
+    )
+    assert len(audit_rows) == 1
+    audit = audit_rows[0]
+    assert Decimal(audit.new_value["margin_returned_usd"]) == Decimal("100.00")
+    assert Decimal(audit.new_value["pnl_usd"]) == Decimal("0.00")
+
+
+async def test_close_forex_returns_notional_plus_pnl_margin_model(
+    client, valid_register_payload, db_session
+) -> None:
+    """Regla 7 (FOREX): al cerrar se devuelve nocional + pnl_usd.
+
+    El modelo "margen reservado al abrir" garantiza que el cambio
+    NETO sobre el saldo PRE-open es exactamente ``+pnl_usd``. Para
+    que esto funcione, el close debe devolver el nocional reservado
+    y sumar (no restar) el pnl_usd.
+
+    setup: lot=0.10, entry=1.10 → notional = 11.00.
+            exit=1.1100 (WIN LONG), pnl = 0.10.
+    Open:  balance 1000 − 11 = 989.
+    Close: balance 989 + 11 (margin) + 0.10 (pnl) = 1000.10.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="FOREX")
+    await _fund_account(client, headers, account["id"], "1000.00")
+
+    open_resp = await client.post(
+        "/api/v1/trades", headers=headers,
+        json=_forex_open_payload(account["id"]),
+    )
+    assert open_resp.status_code == 201, open_resp.text
+    trade_id = open_resp.json()["id"]
+
+    close_resp = await client.post(
+        f"/api/v1/trades/{trade_id}/close",
+        headers=headers, json={"exit_price": "1.11000000"},
+    )
+    assert close_resp.status_code == 200, close_resp.text
+    body = close_resp.json()
+    assert body["status"] == "CLOSED_WIN"
+    assert Decimal(body["pnl_usd"]) == Decimal("0.10")
+
+    db_acc = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account["id"])
+            )
+        )
+    ).scalar_one()
+    # 989 + 11 (notional) + 0.10 (pnl) = 1000.10 — vuelve al nivel
+    # pre-open más el pnl neto (= cambio neto desde before_open = +0.10).
+    assert db_acc.balance_usd == Decimal("1000.10")
+
+    # Audit incluye ``margin_returned_usd = 11.00``.
+    audit_rows = list(
+        (await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "trade.close",
+                AuditLog.entity_id == trade_id,
+            )
+        )).scalars().all()
+    )
+    assert len(audit_rows) == 1
+    assert Decimal(audit_rows[0].new_value["margin_returned_usd"]) == Decimal("11.00")
+
+
+async def test_open_binary_with_exactly_one_usd_balance_succeeds(
+    client, valid_register_payload, db_session
+) -> None:
+    """Regla 2 (cota): exactamente 1 USD de balance + investment 1 USD → 201.
+
+    El umbral es inclusivo (``>= 1.00``). El investment igual al
+    saldo exacto deja el balance en 0 al abrir — permitido.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="BINARY")
+    await _fund_account(client, headers, account["id"], "1.00")
+
+    payload = _binary_open_payload(account["id"])
+    payload["investment_usd"] = "1.00"
+
+    resp = await client.post("/api/v1/trades", headers=headers, json=payload)
+    assert resp.status_code == 201, resp.text
+
+    db_acc = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account["id"])
+            )
+        )
+    ).scalar_one()
+    assert db_acc.balance_usd == Decimal("0.00")
