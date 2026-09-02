@@ -1,5 +1,5 @@
 /*
- * p0d.3 — Portal CuentasPage (real).
+ * p0d.3 / p0e.3 — Portal CuentasPage (real).
  *
  * Replaces the p0d.2 placeholder. Lists the user's trading accounts
  * (GET /accounts) and lets them create new ones via a form
@@ -14,10 +14,15 @@
  *   - List section in a GlassCard with overflow-x-auto and a <table>;
  *     empty state shows the "create the first one" hint
  *
+ * p0e.3: every cell wraps a <Link> to ``/portal/cuentas/{id}`` so the
+ * whole row navigates to the new detail panel. The row also gets a
+ * subtle cyan hover tint (``bg-primary/5``) to signal it's clickable.
+ *
  * Per mem #68, copy is Spanish. Per mem #70 the primary token is
  * cyan #00FFFF and the Orbitron display font is used for headings.
  */
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 
 import { SeoHead } from '../../components/SeoHead';
 import { GlassCard } from '../../components/GlassCard';
@@ -233,21 +238,53 @@ export function CuentasPage() {
                   accounts.map((acc) => {
                     const badge = ACCOUNT_TYPE_BADGE[acc.type];
                     return (
-                      <tr key={acc.id} className="border-t border-primary/10">
-                        <td className="px-4 py-3 text-text-primary font-body">{acc.broker_name}</td>
+                      <tr
+                        key={acc.id}
+                        className="border-t border-primary/10 hover:bg-primary/5 transition-colors"
+                      >
                         <td className="px-4 py-3">
-                          <span
-                            className={`inline-block border rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide ${badge.className}`}
+                          <Link
+                            to={`/portal/cuentas/${acc.id}`}
+                            className="block text-primary font-body hover:underline"
                           >
-                            {badge.label}
-                          </span>
+                            {acc.broker_name}
+                          </Link>
                         </td>
-                        <td className="px-4 py-3 text-text-primary font-body">{acc.name}</td>
-                        <td className="px-4 py-3 text-text-primary font-body">
-                          {formatBalance(acc.balance_usd)}
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/portal/cuentas/${acc.id}`}
+                            className="block hover:bg-primary/5 -mx-4 -my-3 px-4 py-3 rounded"
+                          >
+                            <span
+                              className={`inline-block border rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide ${badge.className}`}
+                            >
+                              {badge.label}
+                            </span>
+                          </Link>
                         </td>
-                        <td className="px-4 py-3 text-text-muted font-body text-xs">
-                          {formatDate(acc.created_at)}
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/portal/cuentas/${acc.id}`}
+                            className="block text-text-primary font-body hover:text-primary"
+                          >
+                            {acc.name}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/portal/cuentas/${acc.id}`}
+                            className="block text-text-primary font-body hover:text-primary"
+                          >
+                            {formatBalance(acc.balance_usd)}
+                          </Link>
+                        </td>
+                        <td className="px-4 py-3">
+                          <Link
+                            to={`/portal/cuentas/${acc.id}`}
+                            className="block text-text-muted font-body text-xs hover:text-primary"
+                          >
+                            {formatDate(acc.created_at)}
+                          </Link>
                         </td>
                       </tr>
                     );

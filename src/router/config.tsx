@@ -9,7 +9,7 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../features/auth/ProtectedRoute';
 
 /*
- * p0b.2 router config (extended in p0d.2, again in p0e.1).
+ * p0b.2 router config (extended in p0d.2, p0e.1, p0e.3).
  *
  * The public routes (home, pricing, features, about, login, register,
  * legal, contact, demo, 404) stay flat. The auth-gated routes
@@ -32,6 +32,12 @@ import { ProtectedRoute } from '../features/auth/ProtectedRoute';
  * diario, playbook, configuracion. /portal/movimientos still
  * resolves via a Navigate redirect so any legacy bookmark or in-app
  * link keeps working.
+ *
+ * p0e.3: ``/portal/cuentas/:accountId`` (CuentasDetailPage) nested
+ * under the existing ``/portal`` parent so it inherits PortalShell.
+ * Uses the inline ``lazy`` form (instead of a top-level
+ * ``lazy(...)`` constant) to keep the detail route co-located with
+ * its sibling entry and avoid growing the import block at the top.
  */
 
 const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -144,6 +150,15 @@ export const routeChildren: RouteObject[] = [
           { index: true, element: <Navigate to="/portal/dashboard" replace /> },
           { path: 'dashboard', element: <PortalDashboardPage /> },
           { path: 'cuentas', element: <PortalCuentasPage /> },
+          {
+            // p0e.3 — Cuentas detail panel (tabs + modals). Inherits
+            // PortalShell because it lives inside the same parent.
+            path: 'cuentas/:accountId',
+            lazy: async () => {
+              const m = await import('../pages/portal/CuentasDetailPage');
+              return { Component: m.CuentasDetailPage };
+            },
+          },
           { path: 'operaciones', element: <PortalOperacionesPage /> },
           { path: 'diario', element: <PortalDiarioPage /> },
           { path: 'playbook', element: <PortalPlaybookPage /> },
