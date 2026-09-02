@@ -7,6 +7,8 @@
  *   3. Submit del formulario llama createAccountApi con la shape
  *      correcta y antepone la nueva cuenta al listado.
  *   4. Error de la API → ErrorBanner muestra el mensaje del envelope.
+ *   5. FASE 2A: cada fila expone 3 botones de acción (Fondear /
+ *      Retirar / Eliminar) con data-testid por cuenta.
  *
  * Patrón: vitest + testing-library + userEvent + MemoryRouter +
  * HelmetProvider + mock del módulo accounts/api (igual que
@@ -193,5 +195,34 @@ describe('CuentasPage', () => {
         screen.getByText('No pudimos cargar las cuentas. Intenta de nuevo.'),
       ).toBeInTheDocument();
     });
+  });
+
+  it('FASE 2A: cada fila expone los 3 botones de acción (Fondear / Retirar / Eliminar)', async () => {
+    mockedList.mockResolvedValueOnce({
+      items: buildAccounts(),
+      total: 2,
+      skip: 0,
+      limit: 50,
+    });
+    renderPage();
+
+    // Wait for both rows to render before asserting on per-account buttons.
+    await waitFor(() => {
+      expect(screen.getByText('Pocket Option')).toBeInTheDocument();
+      expect(screen.getByText('IC Markets')).toBeInTheDocument();
+    });
+
+    // Two rows × three buttons = 6 buttons with these test IDs.
+    expect(screen.getByTestId('fund-acc-1')).toBeInTheDocument();
+    expect(screen.getByTestId('withdraw-acc-1')).toBeInTheDocument();
+    expect(screen.getByTestId('delete-acc-1')).toBeInTheDocument();
+    expect(screen.getByTestId('fund-acc-2')).toBeInTheDocument();
+    expect(screen.getByTestId('withdraw-acc-2')).toBeInTheDocument();
+    expect(screen.getByTestId('delete-acc-2')).toBeInTheDocument();
+
+    // Spanish button copy.
+    expect(screen.getAllByRole('button', { name: 'Fondear' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Retirar' })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: 'Eliminar' })).toHaveLength(2);
   });
 });

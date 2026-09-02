@@ -7,9 +7,13 @@
  *         create the ['accounts'] query is invalidated, the same way
  *         useCreateTrade invalidates after a new trade.
  *
- * Replaces the p0d.2 placeholder. Lists the user's trading accounts
- * (GET /accounts) and lets them create new ones via a form
- * (POST /accounts — server initializes balance_usd to 0).
+ * FASE 2A — Per-row action buttons (Fondear / Retirar / Eliminar).
+ * The list was previously a read-only nav: clicking any cell navigated
+ * to /portal/cuentas/{id}. The user reported they could not deposit or
+ * withdraw from the listing, so the table now exposes three buttons per
+ * row that open the existing FundWithdrawModal (mode='fund'|'withdraw')
+ * and DeleteAccountDialog. After a successful mutation we invalidate
+ * ['accounts'] so the table re-renders with the new balance.
  *
  * Render shape:
  *   - SeoHead "Mis cuentas" (noindex — portal surfaces don't rank)
@@ -18,7 +22,9 @@
  *   - Create form in a GlassCard (broker_name text, type select with
  *     BINARY/FOREX, name text) — submit disabled while in-flight
  *   - List section in a GlassCard with overflow-x-auto and a <table>;
- *     empty state shows the "create the first one" hint
+ *     each row carries three action buttons (Fondear / Retirar /
+ *     Eliminar) that open the corresponding modal. Empty state shows
+ *     the "create the first one" hint.
  *
  * p0e.3: every cell wraps a <Link> to ``/portal/cuentas/{id}`` so the
  * whole row navigates to the new detail panel. The row also gets a
@@ -34,10 +40,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { SeoHead } from '../../components/SeoHead';
 import { GlassCard } from '../../components/GlassCard';
 import { ErrorBanner } from '../../components/ErrorBanner';
+import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
+import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
 import { createAccountApi } from '../../features/accounts/api';
 import { useAccounts } from '../../features/accounts/hooks';
 import {
   ACCOUNT_TYPE_BADGE,
+  type AccountOut,
   type AccountTypeLiteral,
   type CreateAccountPayload,
 } from '../../features/accounts/types';
@@ -80,6 +89,39 @@ export function CuentasPage() {
   const [creating, setCreating] = useState<boolean>(false);
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const queryClient = useQueryClient();
+
+  // FASE 2A — Per-row action modal state. Each modal carries the
+  // account it's targeting (null while closed so we don't render an
+  // unkeyed dialog).
+  const [fundModal, setFundModal] = useState<{ open: boolean; account: AccountOut | null }>({
+    open: false,
+    account: null,
+  });
+  const [withdrawModal, setWithdrawModal] = useState<{
+    open: boolean;
+    account: AccountOut | null;
+  }>({ open: false, account: null });
+  const [deleteModal, setDeleteModal] = useState<{ open: boolean; account: AccountOut | null }>({
+    open: false,
+    account: null,
+  });
+
+  // After a successful fund/withdraw the backend returns the updated
+  // account; we invalidate so the table re-renders with the new balance.
+  const handleMoneySuccess = (_updated: AccountOut) => {
+    void queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    setFundModal({ open: false, account: null });
+    setWithdrawModal({ open: false, account: null });
+  };
+
+  const closeFundModal = () => setFundModal({ open: false, account: null });
+  const closeWithdrawModal = () => setWithdrawModal({ open: false, account: null });
+  const closeDeleteModal = () => setDeleteModal({ open: false, account: null });
+
+  const handleDeleted = () => {
+    void queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    setDeleteModal({ open: false, account: null });
+  };
 
   const displayedError = error ?? queryError;
 
@@ -208,19 +250,22 @@ export function CuentasPage() {
                   <th scope="col" className="px-4 py-3">
                     Creada
                   </th>
+                  <th scope="col" className="px-4 py-3 text-right">
+                    Acciones
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {loading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-6 text-center text-text-muted font-body">
+                    <td colSpan={6} className="px-4 py-6 text-center text-text-muted font-body">
                       Cargando cuentas...
                     </td>
                   </tr>
                 ) : accounts.length === 0 ? (
                   <tr>
                     <td
-                      colSpan={5}
+                      colSpan={6}
                       className="px-4 py-6 text-center text-text-muted font-body"
                     >
                       No tenés cuentas todavía. Creá la primera con el formulario.
@@ -278,6 +323,41 @@ export function CuentasPage() {
                             {formatDate(acc.created_at)}
                           </Link>
                         </td>
+                        {/* FASE 2A — Per-row action buttons. Stop
+                            propagation so clicking the button doesn't
+                            bubble up through the row and trigger the
+                            detail navigation wrapped around the cells. */}
+                        <td className="px-4 py-3">
+                          <div
+                            className="flex justify-end gap-2"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <button
+                              type="button"
+                              data-testid={`fund-${acc.id}`}
+                              onClick={() => setFundModal({ open: true, account: acc })}
+                              className="px-2 py-1 rounded border border-profit/40 text-profit text-xs font-display uppercase tracking-wide hover:bg-profit/10 transition-colors"
+                            >
+                              Fondear
+                            </button>
+                            <button
+                              type="button"
+                              data-testid={`withdraw-${acc.id}`}
+                              onClick={() => setWithdrawModal({ open: true, account: acc })}
+                              className="px-2 py-1 rounded border border-warning/40 text-warning text-xs font-display uppercase tracking-wide hover:bg-warning/10 transition-colors"
+                            >
+                              Retirar
+                            </button>
+                            <button
+                              type="button"
+                              data-testid={`delete-${acc.id}`}
+                              onClick={() => setDeleteModal({ open: true, account: acc })}
+                              className="px-2 py-1 rounded border border-loss/40 text-loss text-xs font-display uppercase tracking-wide hover:bg-loss/10 transition-colors"
+                            >
+                              Eliminar
+                            </button>
+                          </div>
+                        </td>
                       </tr>
                     );
                   })
@@ -287,6 +367,35 @@ export function CuentasPage() {
           </GlassCard>
         </section>
       </div>
+
+      {fundModal.account ? (
+        <FundWithdrawModal
+          open={fundModal.open}
+          mode="fund"
+          account={fundModal.account}
+          onClose={closeFundModal}
+          onSuccess={handleMoneySuccess}
+        />
+      ) : null}
+
+      {withdrawModal.account ? (
+        <FundWithdrawModal
+          open={withdrawModal.open}
+          mode="withdraw"
+          account={withdrawModal.account}
+          onClose={closeWithdrawModal}
+          onSuccess={handleMoneySuccess}
+        />
+      ) : null}
+
+      {deleteModal.account ? (
+        <DeleteAccountDialog
+          open={deleteModal.open}
+          account={deleteModal.account}
+          onClose={closeDeleteModal}
+          onDeleted={handleDeleted}
+        />
+      ) : null}
     </>
   );
 }
