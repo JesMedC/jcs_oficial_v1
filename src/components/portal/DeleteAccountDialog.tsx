@@ -87,10 +87,12 @@ export function DeleteAccountDialog({
           <button
             type="submit"
             form="delete-account-form"
+            data-testid="delete-confirm"
             disabled={!matches || submitting}
+            aria-label={`Eliminar cuenta ${account.name}`}
             className="inline-flex items-center justify-center bg-loss text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(255,92,92,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            {submitting ? 'Eliminando...' : `Eliminar cuenta "${account.name}"`}
+            {submitting ? 'Eliminando...' : 'Eliminar cuenta'}
           </button>
         </>
       }
