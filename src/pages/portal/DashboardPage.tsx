@@ -1,19 +1,27 @@
 /*
- * p0b.1b — Dashboard page (authenticated landing zone).
+ * p0d.2 — Portal DashboardPage.
  *
- * Renders a personalized greeting (`Hola, {first_name}`) plus the
- * SubscriptionCard that surfaces the current subscription status,
- * renewal date, remaining trial days, and a contextual CTA. The real
- * trade journal / metrics UI lands in p0e+.
+ * Migrated from src/pages/DashboardPage.tsx (now deleted). Same
+ * greeting + SubscriptionCard + Próximamente panel, but with two
+ * path updates that follow the /portal/* rebrand:
+ *
+ *   - canonicalPath: /dashboard        → /portal/dashboard
+ *   - SubscriptionCard CTA target:     /dashboard/upgrade → /portal/upgrade
+ *     (the CTA itself is rendered inside SubscriptionCard which now
+ *      links to /portal/upgrade; this page still keeps the "Ver planes"
+ *      Link for users who want the breakdown)
+ *
+ * Lives inside the PortalShell so the greeting is the only content
+ * of the main area; the sidebar handles nav.
  */
 import { Link } from 'react-router-dom';
 
-import { useAuth } from '../features/auth/useAuth';
-import { SeoHead } from '../components/SeoHead';
-import { GlassCard } from '../components/GlassCard';
-import { SubscriptionCard } from '../features/subscription/SubscriptionCard';
-import { cancelSubscription } from '../features/subscription/api';
-import type { ErrorEnvelope } from '../features/auth/types';
+import { useAuth } from '../../features/auth/useAuth';
+import { SeoHead } from '../../components/SeoHead';
+import { GlassCard } from '../../components/GlassCard';
+import { SubscriptionCard } from '../../features/subscription/SubscriptionCard';
+import { cancelSubscription } from '../../features/subscription/api';
+import type { ErrorEnvelope } from '../../features/auth/types';
 
 export function DashboardPage() {
   const { user, subscription, logout } = useAuth();
@@ -49,7 +57,7 @@ export function DashboardPage() {
       <SeoHead
         title="Dashboard"
         description="Tu portal de usuario en JadeCapitalSuite. Modulo en construccion — Fase 0e."
-        canonicalPath="/dashboard"
+        canonicalPath="/portal/dashboard"
         noindex
       />
       <div className="max-w-4xl mx-auto px-4 md:px-8 py-12 md:py-16">
@@ -91,7 +99,7 @@ export function DashboardPage() {
             </button>
           ) : null}
           <Link
-            to="/dashboard/upgrade"
+            to="/portal/upgrade"
             className="inline-flex items-center justify-center border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
           >
             Ver planes

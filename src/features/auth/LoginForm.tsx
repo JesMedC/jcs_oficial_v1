@@ -50,7 +50,7 @@ export function LoginForm() {
         return;
       }
       const state = location.state as LoginFormState | null;
-      const target = intended ?? state?.intendedUrl ?? '/dashboard';
+      const target = intended ?? state?.intendedUrl ?? '/portal/dashboard';
       navigate(target, { replace: true });
     },
     errorMessageFor: (env) => env.message,

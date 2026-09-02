@@ -4,19 +4,27 @@
  * lazy chunks are fetched dynamically. */
 
 import { lazy } from 'react';
-import type { RouteObject } from 'react-router-dom';
+import { Navigate, type RouteObject } from 'react-router-dom';
 
 import { ProtectedRoute } from '../features/auth/ProtectedRoute';
 
 /*
- * p0b.2 router config.
+ * p0b.2 router config (extended in p0d.2).
  *
  * The public routes (home, pricing, features, about, login, register,
  * legal, contact, demo, 404) stay flat. The auth-gated routes
- * (portal-select, dashboard, dashboard/upgrade) are nested under
- * ProtectedRoute. The admin routes (admin, admin/users, admin/plans)
- * share AdminLayout which mounts AdminAuthGuard — the role/portal
- * check happens at the layout boundary, not in a wrapper route.
+ * (portal-select, /portal/*, /portal/upgrade, and the legacy
+ * /dashboard* redirects) are nested under ProtectedRoute. The admin
+ * routes (admin, admin/users, admin/plans) share AdminLayout which
+ * mounts AdminAuthGuard — the role/portal check happens at the
+ * layout boundary, not in a wrapper route.
+ *
+ * p0d.2: the user portal moved under /portal/*. The shell wrapper
+ * (PortalShell) renders PortalSidebar on the left and an <Outlet />
+ * for the routed page; /portal/upgrade is intentionally kept outside
+ * the shell so the checkout flow stays distraction-free. The legacy
+ * /dashboard and /dashboard/upgrade paths still resolve as Navigate
+ * redirects so existing bookmarks and links keep working.
  */
 
 const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -44,8 +52,20 @@ const CookiesPage = lazy(() => import('../pages/_stub').then((m) => ({ default: 
 const PortalSelector = lazy(() =>
   import('../features/auth/PortalSelector').then((m) => ({ default: m.PortalSelector })),
 );
-const DashboardPage = lazy(() =>
-  import('../pages/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+const PortalShell = lazy(() =>
+  import('../components/portal/PortalShell').then((m) => ({ default: m.PortalShell })),
+);
+const PortalDashboardPage = lazy(() =>
+  import('../pages/portal/DashboardPage').then((m) => ({ default: m.DashboardPage })),
+);
+const PortalCuentasPage = lazy(() =>
+  import('../pages/portal/CuentasPage').then((m) => ({ default: m.CuentasPage })),
+);
+const PortalMovimientosPage = lazy(() =>
+  import('../pages/portal/MovimientosPage').then((m) => ({ default: m.MovimientosPage })),
+);
+const PortalConfiguracionPage = lazy(() =>
+  import('../pages/portal/ConfiguracionPage').then((m) => ({ default: m.ConfiguracionPage })),
 );
 const UpgradePage = lazy(() =>
   import('../pages/UpgradePage').then((m) => ({ default: m.UpgradePage })),
@@ -101,8 +121,28 @@ export const routeChildren: RouteObject[] = [
     element: <ProtectedRoute />,
     children: [
       { path: '/portal-select', element: <PortalSelector /> },
-      { path: '/dashboard', element: <DashboardPage /> },
-      { path: '/dashboard/upgrade', element: <UpgradePage /> },
+      // p0d.2 — user portal shell with vertical sidebar.
+      {
+        path: '/portal',
+        element: <PortalShell />,
+        children: [
+          { index: true, element: <Navigate to="/portal/dashboard" replace /> },
+          { path: 'dashboard', element: <PortalDashboardPage /> },
+          { path: 'cuentas', element: <PortalCuentasPage /> },
+          { path: 'movimientos', element: <PortalMovimientosPage /> },
+          { path: 'configuracion', element: <PortalConfiguracionPage /> },
+        ],
+      },
+      // /portal/upgrade lives outside the shell so the checkout flow
+      // stays distraction-free (no sidebar noise during payment).
+      { path: '/portal/upgrade', element: <UpgradePage /> },
+      // Legacy redirects — old /dashboard URLs still resolve so any
+      // bookmark, deep-link, or in-app reference that hasn't been
+      // updated keeps working. The codebase grep for the literal
+      // path with closing quote is expected to match ONLY these two
+      // entries (plus the AdminAuthGuard fallback).
+      { path: '/dashboard', element: <Navigate to="/portal/dashboard" replace /> },
+      { path: '/dashboard/upgrade', element: <Navigate to="/portal/upgrade" replace /> },
     ],
   },
   {

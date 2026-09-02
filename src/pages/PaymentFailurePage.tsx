@@ -3,8 +3,8 @@
  *
  * Ruta pública ``/payment/failure?payment_id=...`` — MercadoPago redirige
  * acá cuando el pago fue rechazado o cancelado. Muestra el motivo y
- * ofrece "Reintentar pago" (lleva a /dashboard/upgrade) + "Volver al
- * portal" (lleva a /dashboard).
+ * ofrece "Reintentar pago" (lleva a /portal/upgrade) + "Volver al
+ * portal" (lleva a /portal/dashboard).
  *
  * Per mem #70: cyan + Orbitron. Per mem #68: copy 100% en español.
  */
@@ -54,13 +54,13 @@ export function PaymentFailurePage() {
           ) : null}
           <div className="mt-8 flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              to="/dashboard/upgrade"
+              to="/portal/upgrade"
               className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl font-display uppercase tracking-wide text-xs border border-primary/50 text-primary hover:bg-primary/15 transition-colors"
             >
               Reintentar pago
             </Link>
             <Link
-              to="/dashboard"
+              to="/portal/dashboard"
               className="inline-flex items-center justify-center px-5 py-2.5 rounded-xl font-display uppercase tracking-wide text-xs border border-primary/20 text-text-secondary hover:bg-primary/10 transition-colors"
             >
               Volver al portal

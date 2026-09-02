@@ -1,5 +1,10 @@
 /*
- * p0b.1b — DashboardPage tests (3 cases).
+ * p0b.1b / p0d.2 — DashboardPage tests (3 cases).
+ *
+ * Moved from src/pages/__tests__/ to src/pages/portal/__tests__/ when
+ * the component moved to its new home under the PortalShell. All
+ * relative imports stay identical (one fewer `../` would have been a
+ * typo).
  *
  * Covers:
  *   1. shows greeting `Hola, {first_name}` from `user.first_name`
@@ -11,11 +16,11 @@ import { render, screen } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 
-import { AuthContext, type AuthContextValue } from '../../features/auth/AuthProvider';
-import type { AuthMeOut, SubscriptionOut } from '../../features/auth/types';
+import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
+import type { AuthMeOut, SubscriptionOut } from '../../../features/auth/types';
 import { DashboardPage } from '../DashboardPage';
 
-vi.mock('../../features/subscription/api', async () => {
+vi.mock('../../../features/subscription/api', async () => {
   return {
     cancelSubscription: vi.fn(),
     upgradeSubscription: vi.fn(),

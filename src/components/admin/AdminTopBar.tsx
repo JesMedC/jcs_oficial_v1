@@ -38,7 +38,7 @@ export function AdminTopBar({ title = 'Panel de administracion' }: AdminTopBarPr
   const handlePortalSwitch = () => {
     setMenuOpen(false);
     writeStoredPortal('user');
-    navigate('/dashboard');
+    navigate('/portal/dashboard');
   };
 
   return (

@@ -106,7 +106,7 @@ export function UpgradePage() {
       <SeoHead
         title="Elegir plan"
         description="Sube de plan en cualquier momento. Cancela cuando quieras."
-        canonicalPath="/dashboard/upgrade"
+        canonicalPath="/portal/upgrade"
         noindex
       />
       <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">

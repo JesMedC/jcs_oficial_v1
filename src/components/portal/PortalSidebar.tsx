@@ -1,27 +1,23 @@
 /*
- * p0b.2 — AdminSidebar.
+ * p0d.2 — PortalSidebar.
  *
- * Collapsible left rail with the four admin destinations and the
- * "Volver al portal usuario" link for BOTH-role staff. The collapse
- * toggle lives at the bottom; the preference is persisted via
- * sessionStorage by AdminLayout.
+ * Left rail for the authenticated user portal (/portal/*). Collapsible
+ * with the same width transition AdminSidebar uses (240px expanded,
+ * 64px collapsed). Active item gets a cyan left-border + cyan glow,
+ * matching the spec ("cyan border-left + cyan text + cyan glow").
  *
- * Visual language per mem #70 (cyan + Orbitron, glassmorphism):
- *   - Logo row uses `font-display uppercase tracking-[0.2em] text-primary`.
- *   - Active nav item gets the underline glow via `after:content-[""]
- *     after:bg-primary after:shadow-[0_0_8px_rgba(0,255,255,0.8)]`.
- *   - Inactive items fade to `text-text-secondary` and brighten on hover.
+ * Reuses the AdminSidebar layout pattern (sticky rail, h-dvh, brand
+ * row at the top, nav in the middle, collapse toggle at the bottom)
+ * but drops the BOTH-only "Volver al portal usuario" link — that's
+ * admin-specific.
  *
- * Per mem #68, all user-visible labels are Spanish. Code identifiers
- * (props, types, comments) stay English.
+ * Visual language per mem #70 (cyan + Orbitron, glassmorphism). UI
+ * labels per mem #68 are Spanish (Dashboard, Cuentas, Movimientos,
+ * Configuracion). Code identifiers stay English.
  */
-import { NavLink, useNavigate } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 
-import { useAuth } from '../../features/auth/useAuth';
-import { writeStoredPortal } from '../../features/auth/authStorage';
-import { ADMIN_ROLES } from '../../features/auth/types';
-
-interface AdminSidebarProps {
+interface PortalSidebarProps {
   readonly collapsed: boolean;
   readonly onToggle: () => void;
 }
@@ -52,7 +48,7 @@ function DashboardIcon() {
   );
 }
 
-function UsersIcon() {
+function CuentasIcon() {
   return (
     <svg
       className="w-5 h-5"
@@ -65,28 +61,13 @@ function UsersIcon() {
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M16 11a4 4 0 10-8 0 4 4 0 008 0zM3 21a7 7 0 0114 0M21 21a5 5 0 00-3.535-4.778"
+        d="M3 7.5A2.5 2.5 0 015.5 5h13A2.5 2.5 0 0121 7.5v9a2.5 2.5 0 01-2.5 2.5h-13A2.5 2.5 0 013 16.5v-9zM3 10h18"
       />
     </svg>
   );
 }
 
-function PlansIcon() {
-  return (
-    <svg
-      className="w-5 h-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden="true"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
-    </svg>
-  );
-}
-
-function PaymentsIcon() {
+function MovimientosIcon() {
   return (
     <svg
       className="w-5 h-5"
@@ -99,13 +80,13 @@ function PaymentsIcon() {
       <path
         strokeLinecap="round"
         strokeLinejoin="round"
-        d="M2.25 8.25h19.5M2.25 8.25V18a1.5 1.5 0 001.5 1.5h16.5a1.5 1.5 0 001.5-1.5V8.25M2.25 8.25V6.75A1.5 1.5 0 013.75 5.25h16.5a1.5 1.5 0 011.5 1.5v1.5"
+        d="M4 6h16M4 12h16M4 18h16M8 3l-3 3 3 3M16 21l3-3-3-3"
       />
     </svg>
   );
 }
 
-function AnalyticsIcon() {
+function ConfiguracionIcon() {
   return (
     <svg
       className="w-5 h-5"
@@ -115,7 +96,12 @@ function AnalyticsIcon() {
       strokeWidth="1.5"
       aria-hidden="true"
     >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M3 3v18h18M7 16l4-5 4 3 5-7" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 15a3 3 0 100-6 3 3 0 000 6z" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M19.4 15a1.7 1.7 0 00.3 1.8l.1.1a2 2 0 11-2.8 2.8l-.1-.1a1.7 1.7 0 00-1.8-.3 1.7 1.7 0 00-1 1.5V21a2 2 0 01-4 0v-.1a1.7 1.7 0 00-1.1-1.5 1.7 1.7 0 00-1.8.3l-.1.1a2 2 0 11-2.8-2.8l.1-.1a1.7 1.7 0 00.3-1.8 1.7 1.7 0 00-1.5-1H3a2 2 0 010-4h.1a1.7 1.7 0 001.5-1.1 1.7 1.7 0 00-.3-1.8l-.1-.1a2 2 0 112.8-2.8l.1.1a1.7 1.7 0 001.8.3H9a1.7 1.7 0 001-1.5V3a2 2 0 014 0v.1a1.7 1.7 0 001 1.5 1.7 1.7 0 001.8-.3l.1-.1a2 2 0 112.8 2.8l-.1.1a1.7 1.7 0 00-.3 1.8V9a1.7 1.7 0 001.5 1H21a2 2 0 010 4h-.1a1.7 1.7 0 00-1.5 1z"
+      />
     </svg>
   );
 }
@@ -140,24 +126,13 @@ function CollapseIcon({ collapsed }: { readonly collapsed: boolean }) {
 }
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
-  { to: '/admin', label: 'Dashboard', icon: <DashboardIcon />, end: true },
-  { to: '/admin/users', label: 'Usuarios', icon: <UsersIcon /> },
-  { to: '/admin/plans', label: 'Planes', icon: <PlansIcon /> },
-  { to: '/admin/payments', label: 'Pagos', icon: <PaymentsIcon /> },
-  { to: '/admin/analytics', label: 'Analitica', icon: <AnalyticsIcon /> },
+  { to: '/portal/dashboard', label: 'Dashboard', icon: <DashboardIcon />, end: true },
+  { to: '/portal/cuentas', label: 'Cuentas', icon: <CuentasIcon /> },
+  { to: '/portal/movimientos', label: 'Movimientos', icon: <MovimientosIcon /> },
+  { to: '/portal/configuracion', label: 'Configuracion', icon: <ConfiguracionIcon /> },
 ];
 
-export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
-  const { user } = useAuth();
-  const navigate = useNavigate();
-
-  const showUserPortalLink = user !== null && ADMIN_ROLES.includes(user.role);
-
-  const handlePortalSwitch = () => {
-    writeStoredPortal('user');
-    navigate('/portal/dashboard');
-  };
-
+export function PortalSidebar({ collapsed, onToggle }: PortalSidebarProps) {
   return (
     <aside
       className={[
@@ -166,7 +141,7 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
         'flex flex-col transition-[width] duration-200',
         collapsed ? 'w-16' : 'w-60',
       ].join(' ')}
-      aria-label="Menu lateral del panel admin"
+      aria-label="Menu lateral del portal de usuario"
     >
       <div
         className={[
@@ -181,7 +156,7 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
               JadeCapitalSuite
             </span>
             <span className="font-display uppercase tracking-widest text-text-muted text-[9px] mt-0.5">
-              ADMIN
+              USUARIO
             </span>
           </div>
         ) : null}
@@ -196,11 +171,12 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
             title={collapsed ? item.label : undefined}
             className={({ isActive }) =>
               [
-                'group flex items-center gap-3 px-3 py-2 rounded-lg transition-colors font-body text-sm',
+                'group flex items-center gap-3 pl-3 pr-3 py-2 rounded-r-lg',
+                'border-l-4 transition-colors font-body text-sm',
                 isActive
-                  ? 'bg-primary/15 text-primary'
-                  : 'text-text-secondary hover:bg-primary/10 hover:text-primary',
-                collapsed ? 'justify-center' : '',
+                  ? 'border-l-primary bg-primary/15 text-primary shadow-[0_0_12px_rgba(0,255,255,0.25)]'
+                  : 'border-l-transparent text-text-secondary hover:bg-primary/10 hover:text-primary',
+                collapsed ? 'justify-center pl-2 pr-2' : '',
               ].join(' ')
             }
           >
@@ -208,31 +184,6 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
             {!collapsed ? <span className="truncate">{item.label}</span> : null}
           </NavLink>
         ))}
-
-        {showUserPortalLink ? (
-          <button
-            type="button"
-            onClick={handlePortalSwitch}
-            title={collapsed ? 'Volver al portal usuario' : undefined}
-            className={[
-              'w-full flex items-center gap-3 px-3 py-2 rounded-lg transition-colors font-body text-sm',
-              'text-text-secondary hover:bg-primary/10 hover:text-primary',
-              collapsed ? 'justify-center' : '',
-            ].join(' ')}
-          >
-            <svg
-              className="w-5 h-5"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.5"
-              aria-hidden="true"
-            >
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
-            </svg>
-            {!collapsed ? <span className="truncate">Volver al portal usuario</span> : null}
-          </button>
-        ) : null}
       </nav>
 
       <div className="border-t border-primary/20 p-3">

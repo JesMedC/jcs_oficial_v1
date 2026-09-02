@@ -72,7 +72,7 @@ export function RegisterForm() {
           navigate('/portal-select', { replace: true });
           return;
         }
-        navigate(intended ?? '/dashboard', { replace: true });
+        navigate(intended ?? '/portal/dashboard', { replace: true });
       },
       errorMessageFor: (env) => env.message,
     });

@@ -12,12 +12,12 @@ import type { SubscriptionOut, SubscriptionStatus, SubscriptionTier } from '../a
  * status.
  *
  * CTA mapping (per spec):
- *   TRIAL      → "Actualizar a Plus o Elite"  → /dashboard/upgrade
- *   ACTIVE     → "Gestionar suscripcion"     → /dashboard/upgrade
+ *   TRIAL      → "Actualizar a Plus o Elite"  → /portal/upgrade
+ *   ACTIVE     → "Gestionar suscripcion"     → /portal/upgrade
  *                 (placeholder link until real management UI in p0b.2)
- *   CANCELED   → "Reactivar suscripcion"     → /dashboard/upgrade
- *   EXPIRED    → "Renovar suscripcion"       → /dashboard/upgrade
- *   no sub     → "Activar suscripcion"       → /dashboard/upgrade (the
+ *   CANCELED   → "Reactivar suscripcion"     → /portal/upgrade
+ *   EXPIRED    → "Renovar suscripcion"       → /portal/upgrade
+ *   no sub     → "Activar suscripcion"       → /portal/upgrade (the
  *                 `null` case is handled by the parent DashboardPage
  *                 passing `subscription={null}`).
  */
@@ -72,7 +72,7 @@ export function SubscriptionCard({ subscription }: SubscriptionCardProps) {
             dias o elegi un plan Plus/Elite para empezar de una.
           </p>
           <Link
-            to="/dashboard/upgrade"
+            to="/portal/upgrade"
             className="self-start inline-flex bg-primary text-bg font-display uppercase tracking-wide px-5 py-2.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
           >
             Activar suscripcion
@@ -160,13 +160,13 @@ function Field({ label, value }: { readonly label: string; readonly value: strin
 function ctaForStatus(status: SubscriptionStatus): { readonly label: string; readonly to: string } {
   switch (status) {
     case 'TRIAL':
-      return { label: 'Actualizar a Plus o Elite', to: '/dashboard/upgrade' };
+      return { label: 'Actualizar a Plus o Elite', to: '/portal/upgrade' };
     case 'ACTIVE':
-      return { label: 'Gestionar suscripcion', to: '/dashboard/upgrade' };
+      return { label: 'Gestionar suscripcion', to: '/portal/upgrade' };
     case 'CANCELED':
-      return { label: 'Reactivar suscripcion', to: '/dashboard/upgrade' };
+      return { label: 'Reactivar suscripcion', to: '/portal/upgrade' };
     case 'EXPIRED':
-      return { label: 'Renovar suscripcion', to: '/dashboard/upgrade' };
+      return { label: 'Renovar suscripcion', to: '/portal/upgrade' };
   }
 }
 

@@ -25,7 +25,7 @@ const PORTAL_OPTIONS: ReadonlyArray<PortalOption> = [
     id: 'user',
     title: 'Portal de Usuario',
     description: 'Registra operaciones, journal, metricas',
-    target: '/dashboard',
+    target: '/portal/dashboard',
   },
   {
     id: 'admin',

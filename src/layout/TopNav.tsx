@@ -160,7 +160,7 @@ export function TopNav() {
                       className="absolute right-0 top-12 z-40 min-w-[200px] bg-surface-el/95 backdrop-blur-md border border-primary/30 rounded-xl py-2 shadow-elevated"
                     >
                       <Link
-                        to="/dashboard"
+                        to="/portal/dashboard"
                         role="menuitem"
                         onClick={() => setMenuOpen(false)}
                         className="block px-4 py-2 text-text-primary font-body text-sm hover:bg-primary/10"

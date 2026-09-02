@@ -5,7 +5,7 @@
  * acá tras un pago aprobado. Polling corto contra ``GET /subscriptions/me``
  * (max 5 intentos, 1s c/u) para detectar el momento en que el webhook
  * confirma la subscription. Si en 3s no se confirma, redirige a
- * ``/dashboard`` igual — el webhook puede llegar tarde.
+ * ``/portal/dashboard`` igual — el webhook puede llegar tarde.
  *
  * Per mem #70: cyan + Orbitron, glassmorphism. Per mem #68: copy 100%
  * en español.
@@ -41,7 +41,7 @@ export function PaymentSuccessPage() {
         try {
           const sub = await getMySubscriptionApi();
           if (sub !== null && isConfirmedActive(sub.status)) {
-            navigate('/dashboard', { replace: true });
+            navigate('/portal/dashboard', { replace: true });
             return;
           }
         } catch {
@@ -54,10 +54,10 @@ export function PaymentSuccessPage() {
   }, [polls, navigate]);
 
   // Failsafe: si en REDIRECT_AFTER_MS no se confirmó, mandamos a
-  // /dashboard igual — el webhook puede llegar tarde.
+  // /portal/dashboard igual — el webhook puede llegar tarde.
   useEffect(() => {
     const timer = setTimeout(() => {
-      navigate('/dashboard', { replace: true });
+      navigate('/portal/dashboard', { replace: true });
     }, REDIRECT_AFTER_MS);
     return () => clearTimeout(timer);
   }, [navigate]);
