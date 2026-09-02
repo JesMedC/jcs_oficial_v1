@@ -52,7 +52,9 @@ function AccountMockCard({
 }: {
   readonly name: string;
   readonly balance: string;
-  readonly glow: 'cyan' | 'none';
+  // portal-fase0a-base — glow prop token pivoted (cyan -> jade) to
+  // match the renamed GlassCardGlow union in src/components/common/GlassCard.tsx.
+  readonly glow: 'jade' | 'none';
 }) {
   return (
     <GlassCard glow={glow} variant="default" className="space-y-3">
@@ -134,7 +136,7 @@ export function GlassShowcase() {
 
             <AccountMockCard name="Cuenta PRO" balance="$48,920.55" glow="none" />
 
-            <AccountMockCard name="Cuenta con glow" balance="$7,330.10" glow="cyan" />
+            <AccountMockCard name="Cuenta con glow" balance="$7,330.10" glow="jade" />
 
             <GlassCard padding="lg" variant="default">
               <div className="space-y-3">

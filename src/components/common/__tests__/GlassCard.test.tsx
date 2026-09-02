@@ -46,14 +46,14 @@ describe('GlassCard', () => {
     expect(card).not.toHaveClass('p-6');
   });
 
-  it("glow='cyan' applies hover:shadow-glow-cyan-sm and transition", () => {
+  it("glow='jade' applies hover:shadow-glow-jade-sm and transition", () => {
     render(
-      <GlassCard data-testid="card" glow="cyan">
+      <GlassCard data-testid="card" glow="jade">
         content
       </GlassCard>,
     );
     const card = screen.getByTestId('card');
-    expect(card).toHaveClass('hover:shadow-glow-cyan-sm');
+    expect(card).toHaveClass('hover:shadow-glow-jade-sm');
     expect(card).toHaveClass('transition-shadow');
     expect(card).toHaveClass('duration-300');
   });
@@ -61,7 +61,7 @@ describe('GlassCard', () => {
   it("glow='none' (default) does NOT add hover utilities", () => {
     render(<GlassCard data-testid="card">content</GlassCard>);
     const card = screen.getByTestId('card');
-    expect(card).not.toHaveClass('hover:shadow-glow-cyan-sm');
+    expect(card).not.toHaveClass('hover:shadow-glow-jade-sm');
   });
 
   it("variant 'strong' propagates to the underlying panel classes", () => {

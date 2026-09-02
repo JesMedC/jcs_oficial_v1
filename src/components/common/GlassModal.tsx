@@ -1,5 +1,6 @@
 /*
  * p0ui.1 — GlassModal.
+ * portal-fase0a-base — comments aligned with jade primary pivot.
  *
  * Lightweight glass wrapper over the existing <Modal> (Modal.tsx,
  * p0e.3). GlassModal does NOT replace Modal — it composes it so all
@@ -9,7 +10,7 @@
  * Strategy: pass identical props to Modal and wrap the `children` in
  * a div that carries the new glass tokens (bg-glass-strong,
  * backdrop-blur-glass-lg, glass border, glass-panel shadow). The
- * outer Modal card still has its cyan title bar / footer; the inner
+ * outer Modal card still has its jade title bar / footer; the inner
  * glass surface is where the body content sits, creating a layered
  * translucency effect that reads as "panel inside a panel" — a
  * common glassmorphism pattern.

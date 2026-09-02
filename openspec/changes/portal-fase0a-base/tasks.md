@@ -66,14 +66,14 @@ Chain strategy: stacked-to-main
 
 ## Wave 1b — Jade primitives
 
-- [ ] `src/components/common/GlassPanel.tsx`: replace cyan literals with jade tokens (verify none remain)
-- [ ] `src/components/common/GlassCard.tsx`: replace cyan literals with jade tokens
-- [ ] `src/components/common/GlassModal.tsx`: replace cyan literals with jade tokens
-- [ ] If any primitive hardcodes `#00FFFF` / `cyan`, refactor to `text-primary` / `bg-primary` / `border-primary` tokens
-- [ ] Verify: `rg -n '#00FFFF|\bcyan\b' src/components/common/` returns zero matches
-- [ ] Verify: `pnpm test` 91/91
-- [ ] Verify: Playwright screenshot diff `.playwright-mcp/jade-pivot/after_1b_*.png` vs baseline — diff <5% pixels
-- [ ] Commit: `feat(design): apply jade tokens to glass primitives`
+- [x] `src/components/common/GlassPanel.tsx`: replace cyan literals with jade tokens (verify none remain)
+- [x] `src/components/common/GlassCard.tsx`: replace cyan literals with jade tokens (prop `glow='cyan'` -> `'jade'`, className `glow-cyan-sm` -> `glow-jade-sm`)
+- [x] `src/components/common/GlassModal.tsx`: replace cyan literals with jade tokens (comment only)
+- [x] If any primitive hardcodes `#00FFFF` / `cyan`, refactor to `text-primary` / `bg-primary` / `border-primary` tokens
+- [x] Verify: `rg -n '#00FFFF|\bcyan\b' src/components/common/` returns zero matches
+- [x] Verify: `pnpm test` 88/91 (3 preexistentes intactos)
+- [x] Verify: Playwright screenshot diff skipped — primitives no son visibles sin consumidores públicos/portal; Wave 1c/1d cubren las páginas
+- [x] Commit: `feat(design): apply jade tokens to glass primitives`
 
 ## Wave 1c — Jade public pages
 

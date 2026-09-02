@@ -123,8 +123,14 @@ const config: Config = {
         'glass-lg': '1.25rem',
       },
       boxShadow: {
-        'glow-cyan': '0 0 40px rgba(0,255,255,0.30)',
-        'glow-cyan-sm': '0 0 20px rgba(0,255,255,0.20)',
+        // portal-fase0a-base — jade glow utilities. Old `glow-cyan*`
+        // entries are intentionally retained as visual-equivalent
+        // aliases; they are removed in Waves 1c/1d when their consumers
+        // (styleguide + page-level CTA hooks) pivot to jade tokens.
+        'glow-jade': '0 0 40px rgba(46,220,140,0.30)',
+        'glow-jade-sm': '0 0 20px rgba(46,220,140,0.20)',
+        'glow-cyan': '0 0 40px rgba(46,220,140,0.30)',
+        'glow-cyan-sm': '0 0 20px rgba(46,220,140,0.20)',
         glass: '0 8px 32px 0 rgba(8,13,18,0.45)',
         elevated: '0 12px 48px 0 rgba(8,13,18,0.60)',
         'glass-panel':
