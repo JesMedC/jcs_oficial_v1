@@ -1,9 +1,13 @@
 /*
  * p0d.2 — PortalShell smoke tests.
+ * p0e.1 — extended to 6 nav labels (Dashboard, Cuentas, Operaciones,
+ *         Diario, Playbook, Configuracion); Movimientos was renamed
+ *         to Operaciones and Diario + Playbook were added.
  *
  * Covers the three things the spec demands from the shell:
- *   1. All 4 nav labels render (Dashboard, Cuentas, Movimientos,
- *      Configuracion) and the brand row shows "USUARIO".
+ *   1. All 6 nav labels render (Dashboard, Cuentas, Operaciones,
+ *      Diario, Playbook, Configuracion) and the brand row shows
+ *      "USUARIO".
  *   2. The NavLink for the active route gets aria-current="page".
  *   3. The main area renders the routed children (PortalShell's
  *      <Outlet /> works).
@@ -34,17 +38,20 @@ function renderAt(path: string) {
 }
 
 describe('PortalShell', () => {
-  it('renders the brand, the collapse toggle and the four nav labels', () => {
+  it('renders the brand, the collapse toggle and the six nav labels', () => {
     renderAt('/portal/cuentas');
 
     // Brand row.
     expect(screen.getByText('JadeCapitalSuite')).toBeInTheDocument();
     expect(screen.getByText('USUARIO')).toBeInTheDocument();
 
-    // Nav labels (Spanish per mem #68).
+    // Nav labels (Spanish per mem #68). Six items in final nav order:
+    // Dashboard, Cuentas, Operaciones, Diario, Playbook, Configuracion.
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Movimientos' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Operaciones' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Diario' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Playbook' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configuracion' })).toBeInTheDocument();
 
     // Collapse toggle label (expanded state).
@@ -62,7 +69,15 @@ describe('PortalShell', () => {
       'aria-current',
       'page',
     );
-    expect(screen.getByRole('link', { name: 'Movimientos' })).not.toHaveAttribute(
+    expect(screen.getByRole('link', { name: 'Operaciones' })).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'Diario' })).not.toHaveAttribute(
+      'aria-current',
+      'page',
+    );
+    expect(screen.getByRole('link', { name: 'Playbook' })).not.toHaveAttribute(
       'aria-current',
       'page',
     );

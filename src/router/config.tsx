@@ -9,7 +9,7 @@ import { Navigate, type RouteObject } from 'react-router-dom';
 import { ProtectedRoute } from '../features/auth/ProtectedRoute';
 
 /*
- * p0b.2 router config (extended in p0d.2).
+ * p0b.2 router config (extended in p0d.2, again in p0e.1).
  *
  * The public routes (home, pricing, features, about, login, register,
  * legal, contact, demo, 404) stay flat. The auth-gated routes
@@ -25,6 +25,13 @@ import { ProtectedRoute } from '../features/auth/ProtectedRoute';
  * the shell so the checkout flow stays distraction-free. The legacy
  * /dashboard and /dashboard/upgrade paths still resolve as Navigate
  * redirects so existing bookmarks and links keep working.
+ *
+ * p0e.1: portal sidebar restructure — Movimientos was renamed to
+ * Operaciones, and Diario (Diario de Trading) + Playbook were added
+ * as siblings. Final nav order: dashboard, cuentas, operaciones,
+ * diario, playbook, configuracion. /portal/movimientos still
+ * resolves via a Navigate redirect so any legacy bookmark or in-app
+ * link keeps working.
  */
 
 const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -61,8 +68,14 @@ const PortalDashboardPage = lazy(() =>
 const PortalCuentasPage = lazy(() =>
   import('../pages/portal/CuentasPage').then((m) => ({ default: m.CuentasPage })),
 );
-const PortalMovimientosPage = lazy(() =>
-  import('../pages/portal/MovimientosPage').then((m) => ({ default: m.MovimientosPage })),
+const PortalOperacionesPage = lazy(() =>
+  import('../pages/portal/OperacionesPage').then((m) => ({ default: m.OperacionesPage })),
+);
+const PortalDiarioPage = lazy(() =>
+  import('../pages/portal/DiarioPage').then((m) => ({ default: m.DiarioPage })),
+);
+const PortalPlaybookPage = lazy(() =>
+  import('../pages/portal/PlaybookPage').then((m) => ({ default: m.PlaybookPage })),
 );
 const PortalConfiguracionPage = lazy(() =>
   import('../pages/portal/ConfiguracionPage').then((m) => ({ default: m.ConfiguracionPage })),
@@ -122,6 +135,8 @@ export const routeChildren: RouteObject[] = [
     children: [
       { path: '/portal-select', element: <PortalSelector /> },
       // p0d.2 — user portal shell with vertical sidebar.
+      // p0e.1 — sidebar restructure: Movimientos renamed to
+      // Operaciones; Diario + Playbook added as siblings.
       {
         path: '/portal',
         element: <PortalShell />,
@@ -129,13 +144,21 @@ export const routeChildren: RouteObject[] = [
           { index: true, element: <Navigate to="/portal/dashboard" replace /> },
           { path: 'dashboard', element: <PortalDashboardPage /> },
           { path: 'cuentas', element: <PortalCuentasPage /> },
-          { path: 'movimientos', element: <PortalMovimientosPage /> },
+          { path: 'operaciones', element: <PortalOperacionesPage /> },
+          { path: 'diario', element: <PortalDiarioPage /> },
+          { path: 'playbook', element: <PortalPlaybookPage /> },
           { path: 'configuracion', element: <PortalConfiguracionPage /> },
         ],
       },
       // /portal/upgrade lives outside the shell so the checkout flow
       // stays distraction-free (no sidebar noise during payment).
       { path: '/portal/upgrade', element: <UpgradePage /> },
+      // p0e.1 — legacy /portal/movimientos redirect. The old
+      // `Movimientos` route was renamed to `operaciones`; this
+      // catches any bookmark or in-app deep link that still points
+      // at the previous URL. The codebase grep for the literal
+      // "/portal/movimientos" is expected to match ONLY this entry.
+      { path: '/portal/movimientos', element: <Navigate to="/portal/operaciones" replace /> },
       // Legacy redirects — old /dashboard URLs still resolve so any
       // bookmark, deep-link, or in-app reference that hasn't been
       // updated keeps working. The codebase grep for the literal

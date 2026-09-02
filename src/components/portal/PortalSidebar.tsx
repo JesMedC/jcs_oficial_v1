@@ -1,5 +1,9 @@
 /*
  * p0d.2 — PortalSidebar.
+ * p0e.1 — Extend nav: rename Movimientos → Operaciones, add Diario
+ *         (Diario de Trading) + Playbook. Final 6-item order:
+ *         Dashboard, Cuentas, Operaciones, Diario, Playbook,
+ *         Configuracion.
  *
  * Left rail for the authenticated user portal (/portal/*). Collapsible
  * with the same width transition AdminSidebar uses (240px expanded,
@@ -12,8 +16,8 @@
  * admin-specific.
  *
  * Visual language per mem #70 (cyan + Orbitron, glassmorphism). UI
- * labels per mem #68 are Spanish (Dashboard, Cuentas, Movimientos,
- * Configuracion). Code identifiers stay English.
+ * labels per mem #68 are Spanish (Dashboard, Cuentas, Operaciones,
+ * Diario, Playbook, Configuracion). Code identifiers stay English.
  */
 import { NavLink } from 'react-router-dom';
 
@@ -67,7 +71,7 @@ function CuentasIcon() {
   );
 }
 
-function MovimientosIcon() {
+function OperacionesIcon() {
   return (
     <svg
       className="w-5 h-5"
@@ -81,6 +85,44 @@ function MovimientosIcon() {
         strokeLinecap="round"
         strokeLinejoin="round"
         d="M4 6h16M4 12h16M4 18h16M8 3l-3 3 3 3M16 21l3-3-3-3"
+      />
+    </svg>
+  );
+}
+
+function DiarioIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M5 4a2 2 0 012-2h10a2 2 0 012 2v16a1 1 0 01-1 1H6a2 2 0 01-2-2V4zM9 7h6M9 11h6M9 15h4"
+      />
+    </svg>
+  );
+}
+
+function PlaybookIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3a6 6 0 00-4 10.9c.8.7 1.5 1.6 1.5 2.6h5c0-1 .7-1.9 1.5-2.6A6 6 0 0012 3zM10 21h4M9 18h6"
       />
     </svg>
   );
@@ -128,7 +170,9 @@ function CollapseIcon({ collapsed }: { readonly collapsed: boolean }) {
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: <DashboardIcon />, end: true },
   { to: '/portal/cuentas', label: 'Cuentas', icon: <CuentasIcon /> },
-  { to: '/portal/movimientos', label: 'Movimientos', icon: <MovimientosIcon /> },
+  { to: '/portal/operaciones', label: 'Operaciones', icon: <OperacionesIcon /> },
+  { to: '/portal/diario', label: 'Diario', icon: <DiarioIcon /> },
+  { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon /> },
   { to: '/portal/configuracion', label: 'Configuracion', icon: <ConfiguracionIcon /> },
 ];
 
