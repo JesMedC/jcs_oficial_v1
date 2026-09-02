@@ -6,14 +6,26 @@
  * account selected — the form narrows on ``type``. On valid submit it
  * hands the parsed payload to useCreateTrade.mutate(...) which does
  * the POST + invalidation dance.
+ *
+ * FASE 4A / Ola 6 — Journal guard rail.
+ *
+ * When both `pre_trade_notes` and `emotional_tags` are empty, the
+ * first submit attempt does NOT call the mutation directly — it
+ * surfaces the `DisciplineSoftBlock` and waits. The user can either
+ * add a note (focus the textarea) or confirm the skip, which
+ * re-triggers the submit and lands on the wire. The block is SOFT:
+ * the user always retains the final say on whether to save.
  */
-import { useEffect, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 
 import { useAccounts } from '../accounts/hooks';
 import { TradeFormSchema, type TradeFormValues } from './schemas';
 import { useCreateTrade } from './useCreateTrade';
+import { DisciplineSoftBlock } from './DisciplineSoftBlock';
+import { EmotionalTagsChips } from './EmotionalTagsChips';
+import type { EmotionalTag } from './types';
 
 export interface NewTradeFormProps {
   readonly onSuccess?: () => void;
@@ -59,8 +71,19 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
       stop_loss: '',
       take_profit: '',
       pre_trade_notes: '',
-    } as TradeFormValues,
+      emotional_tags: [],
+    } as unknown as TradeFormValues,
   });
+
+  // FASE 4A / Ola 6 — Journal-aware submit intercept.
+  // `emotionalTags` lives outside RHF on purpose: the chip selector
+  // is a controlled component and RHF's value-as-string model would
+  // mangle the array. `showSoftBlock` is the visibility flag for the
+  // amber banner — once raised we skip the intercept on re-submit
+  // (user has already acknowledged by clicking "Guardar igual").
+  const [emotionalTags, setEmotionalTags] = useState<EmotionalTag[]>([]);
+  const [showSoftBlock, setShowSoftBlock] = useState(false);
+  const notesRef = useRef<HTMLTextAreaElement>(null);
 
   const selectedType = watch('type');
   const watchedAccountId = watch('account_id');
@@ -92,7 +115,21 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     );
   }
 
-  const onSubmit: SubmitHandler<TradeFormValues> = (values) => {
+  const handleSubmitClick: SubmitHandler<TradeFormValues> = (values) => {
+    // Soft-block intercept. When the journal is empty AND the user
+    // has not already acknowledged the warning in this submit cycle,
+    // we raise the banner and bail. The re-submit path (triggered by
+    // the "Guardar igual" button) sets `showSoftBlock` to false but
+    // the closure here still observes `showSoftBlock === true`, so
+    // `!showSoftBlock` is false and we fall through to the mutate.
+    // That keeps the flow simple and the block genuinely SOFT.
+    const notesEmpty = (values.pre_trade_notes ?? '').trim() === '';
+    const tagsEmpty = emotionalTags.length === 0;
+    if (notesEmpty && tagsEmpty && !showSoftBlock) {
+      setShowSoftBlock(true);
+      return;
+    }
+
     // The backend CreateTradeIn expects `instrument` alongside the
     // discriminated-union specific fields. We derive it from `pair`
     // (FOREX) or fall back to the literal "BINARY" so the create
@@ -112,11 +149,12 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         stop_loss: values.stop_loss ?? null,
         take_profit: values.take_profit ?? null,
       };
-      if (notes.length > 0) {
-        createTrade.mutate({ ...payload, pre_trade_notes: notes });
-      } else {
-        createTrade.mutate(payload);
-      }
+      const enriched = {
+        ...payload,
+        ...(notes.length > 0 ? { pre_trade_notes: notes } : {}),
+        ...(emotionalTags.length > 0 ? { emotional_tags: emotionalTags } : {}),
+      };
+      createTrade.mutate(enriched);
     } else {
       const payload: import('./types').CreateBinaryTradePayload = {
         account_id: values.account_id,
@@ -127,17 +165,18 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         payout_pct: values.payout_pct,
         expiration_seconds: values.expiration_seconds,
       };
-      if (notes.length > 0) {
-        createTrade.mutate({ ...payload, pre_trade_notes: notes });
-      } else {
-        createTrade.mutate(payload);
-      }
+      const enriched = {
+        ...payload,
+        ...(notes.length > 0 ? { pre_trade_notes: notes } : {}),
+        ...(emotionalTags.length > 0 ? { emotional_tags: emotionalTags } : {}),
+      };
+      createTrade.mutate(enriched);
     }
   };
 
   return (
     <form
-      onSubmit={handleSubmit(onSubmit)}
+      onSubmit={handleSubmit(handleSubmitClick)}
       className="flex flex-col gap-4"
       data-testid="new-trade-form"
       noValidate
@@ -287,10 +326,29 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
       <Field label="Notas pre-trade (opcional)" error={(errors as Record<string, { message?: string } | undefined>)['pre_trade_notes']?.message}>
         <textarea
           {...control.register('pre_trade_notes')}
+          ref={notesRef}
           rows={3}
+          data-testid="new-trade-pre-notes"
           className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary resize-y"
         />
       </Field>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-wide text-text-secondary font-display">
+          Etiquetas emocionales (opcional)
+        </label>
+        <EmotionalTagsChips value={emotionalTags} onChange={setEmotionalTags} />
+      </div>
+
+      <DisciplineSoftBlock
+        preTradeNotes={watch('pre_trade_notes') ?? ''}
+        emotionalTagsCount={emotionalTags.length}
+        onConfirmSkip={() => {
+          setShowSoftBlock(false);
+          void handleSubmit(handleSubmitClick)();
+        }}
+        onRequestFocusNotes={() => notesRef.current?.focus()}
+      />
 
       {createTrade.isError ? (
         <div

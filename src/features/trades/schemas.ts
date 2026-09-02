@@ -39,6 +39,16 @@ const DecimalString = (opts: {
       return n.toString();
     });
 
+/**
+ * FASE 4A / Ola 6 — EmotionalTag enum mirror.
+ *
+ * Kept in lockstep with the `EmotionalTag` union in `./types.ts` (which
+ * mirrors the backend Pydantic enum). The chip selector in
+ * `NewTradeForm` rejects anything outside this set at the form layer
+ * before the backend ever sees the payload.
+ */
+const EmotionalTagSchema = z.enum(['FOMO', 'REVENGE', 'PATIENCE', 'DISCIPLINE', 'OTHER']);
+
 export const ForexFormSchema = z.object({
   account_id: Uuid,
   type: z.literal('FOREX'),
@@ -55,6 +65,7 @@ export const ForexFormSchema = z.object({
     .optional()
     .transform((value) => (value === '' || value === undefined ? null : Number(value).toString())),
   pre_trade_notes: z.string().max(2000).optional(),
+  emotional_tags: z.array(EmotionalTagSchema).optional(),
 });
 
 export const BinaryFormSchema = z.object({
@@ -74,6 +85,7 @@ export const BinaryFormSchema = z.object({
         .max(86400, 'Expiracion maxima 24h'),
     ),
   pre_trade_notes: z.string().max(2000).optional(),
+  emotional_tags: z.array(EmotionalTagSchema).optional(),
 });
 
 export const TradeFormSchema = z.discriminatedUnion('type', [
