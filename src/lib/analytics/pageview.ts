@@ -22,7 +22,9 @@ export interface RecordPageviewParams {
 }
 
 const ANON_COOKIE_NAME = 'jcs.analytics.anon_id';
-const DEFAULT_BASE_URL = 'http://localhost:8000/api/v1';
+// Relative base URL — see `src/lib/api/client.ts` for the rationale.
+// Works behind nginx in prod and Vite's dev proxy on :5173.
+const DEFAULT_BASE_URL = '/api/v1';
 
 function getBaseUrl(): string {
   const env = import.meta.env.VITE_API_BASE_URL;

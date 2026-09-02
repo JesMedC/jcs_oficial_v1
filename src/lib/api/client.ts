@@ -27,7 +27,10 @@ const ACCESS_TOKEN_KEY = 'jcs.auth.access_token';
 const REFRESH_TOKEN_KEY = 'jcs.auth.refresh_token';
 const INTENDED_URL_KEY = 'jcs.auth.intended_url';
 
-const DEFAULT_BASE_URL = 'http://localhost:8000/api/v1';
+// Relative base URL — works behind any reverse proxy (nginx in prod,
+// Vite's dev proxy on :5173). Override with `VITE_API_BASE_URL` for
+// exotic topologies (e.g. calling a remote staging API directly).
+const DEFAULT_BASE_URL = '/api/v1';
 
 const baseURL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? DEFAULT_BASE_URL;
 

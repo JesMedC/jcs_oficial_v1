@@ -23,6 +23,18 @@ export default defineConfig({
   },
   server: {
     port: 5173,
+    // Dev proxy: forward `/api/v1` to the FastAPI backend on :8000.
+    // Mirrors the nginx prod reverse-proxy at `infra/nginx/nginx.conf`
+    // so the SPA uses the same relative `/api/v1` base URL in both
+    // environments. Without this, the dev bundle (which points at
+    // `/api/v1` after the p0infra.4 fix) would 404 against Vite
+    // itself.
+    proxy: {
+      '/api/v1': {
+        target: 'http://localhost:8000',
+        changeOrigin: true,
+      },
+    },
   },
   build: {
     target: 'es2022',
