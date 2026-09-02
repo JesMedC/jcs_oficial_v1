@@ -32,6 +32,13 @@ from app.services.subscription_service import (
     is_trial_active,
     upgrade_subscription,
 )
+from app.services.trade_service import (
+    TradeError,
+    close_trade,
+    get_trade,
+    list_trades,
+    open_trade,
+)
 from app.services.trading_account_service import (
     TradingAccountError,
     create_trading_account,
@@ -84,4 +91,9 @@ __all__ = [
     "withdraw_account",
     "delete_account",
     "list_user_accounts",
+    "TradeError",
+    "open_trade",
+    "close_trade",
+    "list_trades",
+    "get_trade",
 ]

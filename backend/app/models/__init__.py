@@ -5,6 +5,13 @@ from app.models.payment import Payment, PaymentStatus
 from app.models.plan_tier_price import PlanTierPrice
 from app.models.refresh_token import RefreshToken
 from app.models.subscription import Subscription, SubscriptionStatus, SubscriptionTier
+from app.models.trade import (
+    BinaryDirection,
+    ForexDirection,
+    Trade,
+    TradeStatus,
+    TradeType,
+)
 from app.models.trading_account import TradingAccount, TradingAccountType
 from app.models.user import User, UserRole
 from app.models.workspace import Workspace, WorkspacePlanTier
@@ -30,4 +37,9 @@ __all__ = [
     "PageView",
     "TradingAccount",
     "TradingAccountType",
+    "Trade",
+    "TradeType",
+    "TradeStatus",
+    "ForexDirection",
+    "BinaryDirection",
 ]

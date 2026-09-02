@@ -30,6 +30,14 @@ from app.schemas.subscription import (
     UpgradeIn,
     UpgradeOut,
 )
+from app.schemas.trade import (
+    BinaryTradeFields,
+    ForexTradeFields,
+    TradeCloseIn,
+    TradeCreateIn,
+    TradeListOut,
+    TradeOut,
+)
 from app.schemas.trading_account import (
     DeleteIn,
     FundIn,
@@ -74,6 +82,12 @@ __all__ = [
     "FundIn",
     "WithdrawIn",
     "DeleteIn",
+    "ForexTradeFields",
+    "BinaryTradeFields",
+    "TradeCreateIn",
+    "TradeCloseIn",
+    "TradeOut",
+    "TradeListOut",
     "UserOut",
     "WorkspaceOut",
 ]
