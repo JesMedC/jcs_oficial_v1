@@ -24,6 +24,7 @@ JSON y contra la DB directa cuando hace falta.
 from __future__ import annotations
 
 import uuid
+from datetime import datetime, timezone
 from decimal import Decimal
 
 import pytest
@@ -35,6 +36,7 @@ from app.models import (
     Trade,
     TradeStatus,
     TradeType,
+    TradingAccount,
     User,
     UserRole,
 )
@@ -1215,3 +1217,493 @@ async def test_risk_summary_returns_422_workspace_required_when_user_has_no_ws(
     assert resp.status_code == 422, resp.text
     body = resp.json()
     assert body["code"] == "WORKSPACE_REQUIRED"
+
+
+# ============================================================
+# FASE 6A — GET /trades/metrics (KPIs + equity curve)
+# ============================================================
+
+METRICS_URL = "/api/v1/trades/metrics"
+
+
+async def _account_owner_ids(db_session, account_id: str) -> tuple:
+    """``(user_id, workspace_id)`` de una cuenta creada vía HTTP.
+
+    Los tests de metrics necesitan insertar trades cerrados con
+    ``closed_at`` arbitrario (el flow HTTP siempre usa ``now()``), y
+    para eso hace falta el par ``user_id``/``workspace_id`` real que
+    el service usó al crear la cuenta.
+    """
+    account = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account_id)
+            )
+        )
+    ).scalar_one()
+    return account.user_id, account.workspace_id
+
+
+async def _insert_closed_trade(
+    db_session,
+    *,
+    user_id,
+    workspace_id,
+    account_id: str,
+    pnl: str,
+    closed_at,
+    status: TradeStatus | None = None,
+) -> None:
+    """Inserta un trade YA cerrado con ``closed_at`` controlado.
+
+    El endpoint ``/close`` siempre estampa ``datetime.now(utc)``, así
+    que no hay forma vía HTTP de fabricar una serie multi-día. Se
+    insertan como BINARY porque es el tipo con menos campos
+    obligatorios.
+
+    ``status`` se deriva del signo del ``pnl`` (misma regla que
+    ``close_trade``) salvo que se pase explícito — necesario para el
+    caso ``CLOSED_BREAK``, que también tiene ``pnl == 0``.
+
+    Se hace ``commit()`` y NO ``flush()``: el fixture SQLite ``:memory:``
+    usa ``StaticPool``, así que la sesión del request HTTP comparte la
+    MISMA conexión que ``db_session``. Al terminar cada request,
+    ``get_async_session`` hace ``session.close()``, que dispara un
+    ROLLBACK sobre esa conexión y se lleva puesto cualquier flush sin
+    commitear. Con flush, el primer GET vería los trades y el segundo
+    los vería desaparecer.
+    """
+    amount = Decimal(pnl)
+    if status is None:
+        if amount > 0:
+            status = TradeStatus.CLOSED_WIN
+        elif amount < 0:
+            status = TradeStatus.CLOSED_LOSS
+        else:
+            status = TradeStatus.CLOSED_BREAK
+    db_session.add(
+        Trade(
+            user_id=user_id,
+            workspace_id=workspace_id,
+            account_id=uuid.UUID(account_id),
+            instrument="EUR/USD OTC",
+            type=TradeType.BINARY,
+            status=status,
+            direction="CALL",
+            investment_usd=Decimal("100.00"),
+            payout_pct=Decimal("85.00"),
+            expiration_seconds=60,
+            pnl_usd=amount,
+            closed_at=closed_at,
+        )
+    )
+    await db_session.commit()
+
+
+def _utc(year: int, month: int, day: int):
+    """Mediodía UTC del día indicado — evita bordes de medianoche."""
+    return datetime(year, month, day, 12, 0, tzinfo=timezone.utc)
+
+
+class TestMetrics:
+    """``GET /api/v1/trades/metrics`` — KPIs + equity curve (FASE 6A).
+
+    Mismo patrón que ``TestRiskSummary``: registración + cuenta vía
+    HTTP. Los trades cerrados se insertan directo en DB cuando el test
+    necesita controlar ``closed_at`` (equity curve, Sharpe, rango de
+    fechas) porque el flow HTTP de ``/close`` siempre usa ``now()``.
+    """
+
+    async def test_metrics_no_trades_returns_zero(
+        self, client, valid_register_payload
+    ) -> None:
+        """Workspace sin trades → ceros, ratios ``null``, curva vacía."""
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+        resp = await client.get(METRICS_URL, headers=headers)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["total_trades"] == 0
+        assert body["wins"] == 0
+        assert body["losses"] == 0
+        assert body["breaks"] == 0
+        assert body["win_rate"] == 0.0
+        assert body["profit_factor"] is None
+        assert body["sharpe_ratio"] is None
+        assert Decimal(body["expectancy_usd"]) == Decimal("0")
+        assert Decimal(body["gross_profit_usd"]) == Decimal("0")
+        assert Decimal(body["gross_loss_usd"]) == Decimal("0")
+        assert body["equity_curve"] == []
+        # Echo de los filtros: sin query params van todos en null.
+        assert body["account_id"] is None
+        assert body["from_date"] is None
+        assert body["to_date"] is None
+
+    async def test_metrics_calculates_win_rate(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """3 WIN + 1 LOSS + 1 BREAK → win_rate 0.75 (BREAK excluido).
+
+        wins  = +10, +20, +30 → gross_profit 60, avg_win 20
+        losses = −20          → gross_loss −20, avg_loss −20
+        win_rate      = 3 / (3+1) = 0.75  ← el BREAK NO entra
+        profit_factor = 60 / 20 = 3.0
+        expectancy    = 0.75×20 + 0.25×(−20) = 10.00
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+        user_id, ws_id = await _account_owner_ids(db_session, account["id"])
+
+        for pnl in ("10.00", "20.00", "30.00", "-20.00"):
+            await _insert_closed_trade(
+                db_session,
+                user_id=user_id,
+                workspace_id=ws_id,
+                account_id=account["id"],
+                pnl=pnl,
+                closed_at=_utc(2026, 3, 10),
+            )
+        await _insert_closed_trade(
+            db_session,
+            user_id=user_id,
+            workspace_id=ws_id,
+            account_id=account["id"],
+            pnl="0.00",
+            closed_at=_utc(2026, 3, 10),
+            status=TradeStatus.CLOSED_BREAK,
+        )
+
+        resp = await client.get(METRICS_URL, headers=headers)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["total_trades"] == 5
+        assert body["wins"] == 3
+        assert body["losses"] == 1
+        assert body["breaks"] == 1
+        assert body["win_rate"] == 0.75
+        assert body["profit_factor"] == 3.0
+        assert Decimal(body["gross_profit_usd"]) == Decimal("60.00")
+        assert Decimal(body["gross_loss_usd"]) == Decimal("-20.00")
+        assert Decimal(body["avg_win_usd"]) == Decimal("20.00")
+        assert Decimal(body["avg_loss_usd"]) == Decimal("-20.00")
+        assert Decimal(body["expectancy_usd"]) == Decimal("10.00")
+
+    async def test_metrics_profit_factor_excludes_zero_loss(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """Sólo WIN → ``profit_factor`` es ``null``, NO infinito.
+
+        Devolver un número gigante (o ``inf``, que ni es JSON válido)
+        mentiría sobre la calidad de la estrategia.
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+        user_id, ws_id = await _account_owner_ids(db_session, account["id"])
+
+        for pnl in ("15.00", "25.00"):
+            await _insert_closed_trade(
+                db_session,
+                user_id=user_id,
+                workspace_id=ws_id,
+                account_id=account["id"],
+                pnl=pnl,
+                closed_at=_utc(2026, 3, 10),
+            )
+
+        resp = await client.get(METRICS_URL, headers=headers)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["profit_factor"] is None
+        assert body["win_rate"] == 1.0
+        assert Decimal(body["gross_loss_usd"]) == Decimal("0")
+        assert Decimal(body["avg_loss_usd"]) == Decimal("0")
+        # expectancy = 1.0×20 + 0.0×0 = 20.00
+        assert Decimal(body["expectancy_usd"]) == Decimal("20.00")
+
+    async def test_metrics_equity_curve_chronological(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """Curva ordenada por fecha con ``balance`` acumulado.
+
+        día 1: +100 → balance 100
+        día 2: −40  → balance 60
+        Con 2 días sólo hay 1 retorno → Sharpe ``null``.
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+        user_id, ws_id = await _account_owner_ids(db_session, account["id"])
+
+        # Insertados en orden INVERSO a propósito: la curva debe salir
+        # ordenada por el service, no por el orden de inserción.
+        for pnl, when in (
+            ("-40.00", _utc(2026, 3, 12)),
+            ("100.00", _utc(2026, 3, 10)),
+        ):
+            await _insert_closed_trade(
+                db_session,
+                user_id=user_id,
+                workspace_id=ws_id,
+                account_id=account["id"],
+                pnl=pnl,
+                closed_at=when,
+            )
+
+        resp = await client.get(METRICS_URL, headers=headers)
+        assert resp.status_code == 200, resp.text
+        curve = resp.json()["equity_curve"]
+
+        assert len(curve) == 2
+        assert curve[0]["date"] == "2026-03-10"
+        assert curve[1]["date"] == "2026-03-12"
+        assert curve[0]["date"] < curve[1]["date"]
+
+        assert Decimal(curve[0]["daily_pnl"]) == Decimal("100.00")
+        assert Decimal(curve[0]["balance"]) == Decimal("100.00")
+        assert Decimal(curve[1]["daily_pnl"]) == Decimal("-40.00")
+        assert Decimal(curve[1]["balance"]) == Decimal("60.00")
+        # Invariante del acumulado.
+        assert Decimal(curve[1]["balance"]) == (
+            Decimal(curve[0]["balance"]) + Decimal(curve[1]["daily_pnl"])
+        )
+        # 2 días ⇒ 1 retorno ⇒ menos del mínimo de 2 ⇒ null.
+        assert resp.json()["sharpe_ratio"] is None
+
+    async def test_metrics_sharpe_over_daily_returns(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """3 días con actividad → 2 retornos → Sharpe anualizado.
+
+        pnl:      +100, +50, −30
+        balances:  100, 150, 120
+        retornos: día 1 se descarta (no hay capital previo),
+                  50/100 = 0.5 ; −30/150 = −0.2
+        mean = 0.15 ; stdev muestral = 0.494974...
+        sharpe = (0.15 / 0.494974) × √252 ≈ 4.8107
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+        user_id, ws_id = await _account_owner_ids(db_session, account["id"])
+
+        for pnl, when in (
+            ("100.00", _utc(2026, 4, 1)),
+            ("50.00", _utc(2026, 4, 2)),
+            ("-30.00", _utc(2026, 4, 3)),
+        ):
+            await _insert_closed_trade(
+                db_session,
+                user_id=user_id,
+                workspace_id=ws_id,
+                account_id=account["id"],
+                pnl=pnl,
+                closed_at=when,
+            )
+
+        resp = await client.get(METRICS_URL, headers=headers)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert len(body["equity_curve"]) == 3
+        assert body["sharpe_ratio"] == pytest.approx(4.8107, rel=1e-4)
+
+    async def test_metrics_sharpe_null_when_zero_stdev(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """Retornos diarios idénticos → stdev 0 → Sharpe ``null``.
+
+        pnl:      +100, +50, +75
+        balances:  100, 150, 225
+        retornos: 50/100 = 0.5 ; 75/150 = 0.5 → sin dispersión.
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+        user_id, ws_id = await _account_owner_ids(db_session, account["id"])
+
+        for pnl, when in (
+            ("100.00", _utc(2026, 5, 4)),
+            ("50.00", _utc(2026, 5, 5)),
+            ("75.00", _utc(2026, 5, 6)),
+        ):
+            await _insert_closed_trade(
+                db_session,
+                user_id=user_id,
+                workspace_id=ws_id,
+                account_id=account["id"],
+                pnl=pnl,
+                closed_at=when,
+            )
+
+        resp = await client.get(METRICS_URL, headers=headers)
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert len(body["equity_curve"]) == 3
+        assert body["sharpe_ratio"] is None
+
+    async def test_metrics_filtered_by_account(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """``account_id`` acota los KPIs a una sola cuenta."""
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        acc_a = await _create_account(client, headers, type="BINARY", name="A")
+        acc_b = await _create_account(client, headers, type="BINARY", name="B")
+        user_id, ws_id = await _account_owner_ids(db_session, acc_a["id"])
+
+        await _insert_closed_trade(
+            db_session,
+            user_id=user_id,
+            workspace_id=ws_id,
+            account_id=acc_a["id"],
+            pnl="40.00",
+            closed_at=_utc(2026, 3, 10),
+        )
+        await _insert_closed_trade(
+            db_session,
+            user_id=user_id,
+            workspace_id=ws_id,
+            account_id=acc_b["id"],
+            pnl="-15.00",
+            closed_at=_utc(2026, 3, 10),
+        )
+
+        # Sin filtro: ve las dos cuentas.
+        resp_all = await client.get(METRICS_URL, headers=headers)
+        assert resp_all.status_code == 200, resp_all.text
+        assert resp_all.json()["total_trades"] == 2
+
+        # Filtrado por A: sólo el WIN de 40.
+        resp_a = await client.get(
+            f"{METRICS_URL}?account_id={acc_a['id']}", headers=headers
+        )
+        assert resp_a.status_code == 200, resp_a.text
+        body_a = resp_a.json()
+        assert body_a["account_id"] == acc_a["id"]
+        assert body_a["total_trades"] == 1
+        assert body_a["wins"] == 1
+        assert body_a["losses"] == 0
+        assert Decimal(body_a["gross_profit_usd"]) == Decimal("40.00")
+        assert body_a["profit_factor"] is None  # sin pérdidas en A
+
+        # Filtrado por B: sólo el LOSS de −15.
+        resp_b = await client.get(
+            f"{METRICS_URL}?account_id={acc_b['id']}", headers=headers
+        )
+        assert resp_b.status_code == 200, resp_b.text
+        body_b = resp_b.json()
+        assert body_b["total_trades"] == 1
+        assert body_b["losses"] == 1
+        assert body_b["win_rate"] == 0.0
+        assert Decimal(body_b["gross_loss_usd"]) == Decimal("-15.00")
+
+    async def test_metrics_filtered_by_date_range(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """``from``/``to`` acotan por ``closed_at``, ambos inclusivos."""
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+        user_id, ws_id = await _account_owner_ids(db_session, account["id"])
+
+        for pnl, when in (
+            ("10.00", _utc(2026, 6, 1)),  # antes del rango
+            ("20.00", _utc(2026, 6, 5)),  # borde inferior (inclusivo)
+            ("30.00", _utc(2026, 6, 7)),  # borde superior (inclusivo)
+            ("40.00", _utc(2026, 6, 9)),  # después del rango
+        ):
+            await _insert_closed_trade(
+                db_session,
+                user_id=user_id,
+                workspace_id=ws_id,
+                account_id=account["id"],
+                pnl=pnl,
+                closed_at=when,
+            )
+
+        resp = await client.get(
+            f"{METRICS_URL}?from=2026-06-05&to=2026-06-07", headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["from_date"] == "2026-06-05"
+        assert body["to_date"] == "2026-06-07"
+        assert body["total_trades"] == 2
+        # 20 + 30 — los de fuera del rango no suman.
+        assert Decimal(body["gross_profit_usd"]) == Decimal("50.00")
+        curve_dates = [p["date"] for p in body["equity_curve"]]
+        assert curve_dates == ["2026-06-05", "2026-06-07"]
+
+    async def test_metrics_unauthenticated_401(self, client) -> None:
+        """Sin Authorization header → 401 AUTH_TOKEN_MISSING."""
+        resp = await client.get(METRICS_URL)
+        assert resp.status_code == 401, resp.text
+        assert resp.json()["code"] == "AUTH_TOKEN_MISSING"
+
+    async def test_metrics_cross_workspace_isolation(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """Trades del workspace B NO entran en las metrics de A.
+
+        Mismo patrón que ``test_risk_summary_cross_workspace_isolation``:
+        user A por HTTP, user B directo en DB con su propio workspace.
+        """
+        reg_a = await _register(client, valid_register_payload)
+        headers_a = {"Authorization": f"Bearer {reg_a['access_token']}"}
+
+        suffix = uuid.uuid4().hex[:8]
+        user_b = User(
+            email=f"metricsws_b_{suffix}@jadecapital.local",
+            password_hash=hash_password("Trader1234!"),
+            first_name="B",
+            last_name="Metrics",
+            phone="+34600000998",
+            role=UserRole.USER,
+        )
+        db_session.add(user_b)
+        await db_session.flush()
+        await create_default_workspace_for_user(db_session, user_b)
+
+        login_b = await client.post(
+            "/api/v1/auth/login",
+            json={"email": user_b.email, "password": "Trader1234!"},
+        )
+        assert login_b.status_code == 200, login_b.text
+        headers_b = {
+            "Authorization": f"Bearer {login_b.json()['access_token']}"
+        }
+
+        # User B cierra trades en SU workspace.
+        account_b = await _create_account(client, headers_b, type="BINARY")
+        user_b_id, ws_b = await _account_owner_ids(db_session, account_b["id"])
+        await _insert_closed_trade(
+            db_session,
+            user_id=user_b_id,
+            workspace_id=ws_b,
+            account_id=account_b["id"],
+            pnl="500.00",
+            closed_at=_utc(2026, 3, 10),
+        )
+
+        # Metrics de A: vacías.
+        resp_a = await client.get(METRICS_URL, headers=headers_a)
+        assert resp_a.status_code == 200, resp_a.text
+        body_a = resp_a.json()
+        assert body_a["total_trades"] == 0
+        assert body_a["equity_curve"] == []
+        assert Decimal(body_a["gross_profit_usd"]) == Decimal("0")
+
+        # Sanity: B sí ve lo suyo.
+        resp_b = await client.get(METRICS_URL, headers=headers_b)
+        assert resp_b.status_code == 200, resp_b.text
+        body_b = resp_b.json()
+        assert body_b["total_trades"] == 1
+        assert Decimal(body_b["gross_profit_usd"]) == Decimal("500.00")

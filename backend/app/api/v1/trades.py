@@ -7,7 +7,14 @@ contra ``account.balance_usd += pnl_usd`` (fórmula del servicio).
 
 FASE 4A: ``GET /risk-summary`` agrega métricas diarias (P&L, open
 count, win rate, semáforo) para el widget ``RiskSemaphore`` del
-Topbar. Es la única ruta de lectura que NO devuelve ``TradeOut``.
+Topbar.
+
+FASE 6A: ``GET /metrics`` agrega los KPIs históricos (win rate,
+profit factor, expectancy, Sharpe) + la equity curve del workspace.
+
+``/risk-summary`` y ``/metrics`` son las dos únicas rutas de lectura
+que NO devuelven ``TradeOut``, y ambas deben declararse ANTES de
+``/{trade_id}`` (ver docstring de cada handler).
 
 Los errores del service (``TradeError``) se traducen a
 ``ErrorEnvelope`` en ``_raise_trade_error``. Las reglas canónicas:
@@ -19,6 +26,7 @@ Los errores del service (``TradeError``) se traducen a
 from __future__ import annotations
 
 import uuid
+from datetime import date
 from typing import Annotated
 
 from fastapi import APIRouter, Query, Request, status
@@ -27,6 +35,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.models.trade import TradeStatus, TradeType
 from app.schemas.envelope import ErrorCode
 from app.schemas.trade import (
+    MetricsOut,
     RiskSummaryOut,
     TradeCloseIn,
     TradeCreateIn,
@@ -36,6 +45,7 @@ from app.schemas.trade import (
 from app.services.trade_service import (
     TradeError,
     close_trade,
+    get_metrics,
     get_risk_summary,
     get_trade,
     list_trades,
@@ -189,6 +199,44 @@ async def get_risk_summary_endpoint(
         return await get_risk_summary(
             db,
             user=user,
+            jwt_workspace_ids=user.workspace_ids,
+        )
+    except TradeError as exc:
+        _raise_trade_error(exc)
+
+
+@router.get("/metrics", response_model=MetricsOut)
+async def get_metrics_endpoint(
+    user: CurrentUser,
+    db: DbSession,
+    account_id: Annotated[uuid.UUID | None, Query()] = None,
+    from_date: Annotated[date | None, Query(alias="from")] = None,
+    to_date: Annotated[date | None, Query(alias="to")] = None,
+) -> MetricsOut:
+    """KPIs de trading + equity curve del workspace activo.
+
+    ``GET /api/v1/trades/metrics?account_id=&from=&to=``
+
+    Los query params de fecha se exponen como ``from`` y ``to`` (el
+    contrato publico) pero se reciben como ``from_date`` / ``to_date``
+    porque ``from`` es palabra reservada de Python. Mismo truco de
+    ``alias`` que ``status_filter`` / ``type_filter`` en ``list_trades``.
+    Formato: ``YYYY-MM-DD``, inclusivos ambos extremos.
+
+    Sin ``account_id`` agrega TODAS las cuentas del workspace activo.
+
+    Se registra ANTES de ``/{trade_id}`` por la misma razon que
+    ``/risk-summary``: FastAPI matchea en orden de declaracion y si
+    cayera despues seria capturado como ``trade_id="metrics"``,
+    reventando en el parsing de UUID.
+    """
+    try:
+        return await get_metrics(
+            db,
+            user=user,
+            account_id=account_id,
+            from_date=from_date,
+            to_date=to_date,
             jwt_workspace_ids=user.workspace_ids,
         )
     except TradeError as exc:

@@ -35,8 +35,10 @@ Cada mutación emite un ``AuditLog`` propio (``trade.open`` o
 """
 from __future__ import annotations
 
+import math
+import statistics
 import uuid
-from datetime import date, datetime, time, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from decimal import Decimal
 from typing import Any
 
@@ -55,7 +57,7 @@ from app.models import (
     TradingAccount,
     User,
 )
-from app.schemas.trade import RiskSummaryOut
+from app.schemas.trade import EquityPoint, MetricsOut, RiskSummaryOut
 from app.services.workspace_service import (
     WorkspaceRequiredError,
     infer_workspace_id,
@@ -65,6 +67,7 @@ from app.services.workspace_service import (
 _ZERO = Decimal("0")
 _ONE = Decimal("1")
 _HUNDRED = Decimal("100")
+_CENTS = Decimal("0.01")
 
 
 class TradeError(Exception):
@@ -849,6 +852,265 @@ async def get_risk_summary(
     )
 
 
+# ---------- metrics (FASE 6A: KPIs + equity curve) ----------
+# Anualizacion del Sharpe: 252 dias habiles de mercado por año. Es la
+# convencion estandar de la industria (NYSE/CME) y la usamos fija en
+# vez de contar dias reales del rango porque el numerador ya es un
+# promedio de retornos DIARIOS — mezclar bases haria el numero
+# incomparable contra cualquier benchmark publico.
+_TRADING_DAYS_PER_YEAR = 252
+# Sharpe necesita dispersion: con 1 solo retorno el desvio no existe.
+_MIN_RETURNS_FOR_SHARPE = 2
+
+
+def _day_bounds(
+    from_date: date | None, to_date: date | None
+) -> tuple[datetime | None, datetime | None]:
+    """Traduce un rango de fechas a bounds ``datetime`` half-open UTC.
+
+    Filtramos con ``closed_at >= start`` / ``closed_at < end`` en vez de
+    ``func.date(closed_at) BETWEEN ...`` por dos razones:
+
+    1. **Sargable**: la comparacion directa sobre la columna usa el
+       indice; envolverla en ``date()`` lo descarta y fuerza full scan.
+    2. **Portable**: ``func.date()`` devuelve tipos distintos en SQLite
+       (texto) y Postgres (``date``), lo que hace que el mismo predicado
+       se comporte distinto entre los tests y produccion.
+
+    ``end`` es exclusivo (medianoche del dia siguiente) para incluir
+    todo ``to_date`` sin depender de la precision de fracciones de
+    segundo del backend.
+    """
+    start = (
+        datetime.combine(from_date, time.min, tzinfo=timezone.utc)
+        if from_date is not None
+        else None
+    )
+    end = (
+        datetime.combine(
+            to_date + timedelta(days=1), time.min, tzinfo=timezone.utc
+        )
+        if to_date is not None
+        else None
+    )
+    return start, end
+
+
+def _empty_metrics(
+    *,
+    account_id: uuid.UUID | None,
+    from_date: date | None,
+    to_date: date | None,
+) -> MetricsOut:
+    """Respuesta canonica cuando el rango no tiene trades cerrados.
+
+    Los ratios van ``None`` (indefinidos), los montos y contadores en
+    cero. ``win_rate`` es ``0.0`` por la convencion del schema.
+    """
+    return MetricsOut(
+        account_id=account_id,
+        from_date=from_date,
+        to_date=to_date,
+        total_trades=0,
+        wins=0,
+        losses=0,
+        breaks=0,
+        win_rate=0.0,
+        profit_factor=None,
+        expectancy_usd=_ZERO,
+        sharpe_ratio=None,
+        gross_profit_usd=_ZERO,
+        gross_loss_usd=_ZERO,
+        avg_win_usd=_ZERO,
+        avg_loss_usd=_ZERO,
+        equity_curve=[],
+    )
+
+
+def _build_equity_curve(
+    trades: list[Trade],
+) -> tuple[list[EquityPoint], list[float]]:
+    """Agrupa por dia de cierre y devuelve ``(curva, retornos_diarios)``.
+
+    El ``balance`` de cada punto es el P&L acumulado (arranca en ``0``,
+    ver docstring de ``EquityPoint``). Los retornos diarios que
+    alimentan el Sharpe se calculan como
+    ``daily_pnl / |balance_del_dia_anterior|``:
+
+    - El PRIMER dia nunca genera retorno (no hay capital previo sobre
+      el que medir el rendimiento) — por eso hacen falta 3 dias con
+      actividad para tener los 2 retornos minimos del Sharpe.
+    - Si el acumulado vuelve a ``0`` en algun dia, el retorno del dia
+      siguiente se omite en vez de dividir por cero.
+    """
+    by_day: dict[date, Decimal] = {}
+    for t in trades:
+        if t.closed_at is None:
+            # Defensivo: ``close_trade`` siempre popula ``closed_at``,
+            # pero un trade cerrado sin fecha no puede ubicarse en la
+            # serie temporal — lo dejamos fuera de la curva (sigue
+            # contando en los KPIs agregados).
+            continue
+        day = t.closed_at.date()
+        by_day[day] = by_day.get(day, _ZERO) + (t.pnl_usd or _ZERO)
+
+    curve: list[EquityPoint] = []
+    daily_returns: list[float] = []
+    running_balance = _ZERO
+    prev_balance = _ZERO
+    for day in sorted(by_day):
+        daily_pnl = by_day[day]
+        running_balance += daily_pnl
+        curve.append(
+            EquityPoint(
+                date=day,
+                balance=running_balance.quantize(_CENTS),
+                daily_pnl=daily_pnl.quantize(_CENTS),
+            )
+        )
+        if prev_balance != _ZERO:
+            daily_returns.append(float(daily_pnl / abs(prev_balance)))
+        prev_balance = running_balance
+
+    return curve, daily_returns
+
+
+def _sharpe_ratio(daily_returns: list[float]) -> float | None:
+    """Sharpe anualizado sobre retornos diarios, o ``None``.
+
+    ``(mean / stdev) × sqrt(252)`` con ``stdev`` MUESTRAL (``n-1``),
+    que es lo que devuelve ``statistics.stdev``. Devolvemos ``None``
+    cuando hay menos de 2 retornos o cuando el desvio es ``0`` — en
+    ambos casos el ratio no esta definido y un ``0.0`` se leeria como
+    "estrategia mediocre" en vez de "sin datos suficientes".
+
+    Risk-free rate = 0 (simplificacion de FASE 6A).
+    """
+    if len(daily_returns) < _MIN_RETURNS_FOR_SHARPE:
+        return None
+    std = statistics.stdev(daily_returns)
+    if std <= 0:
+        return None
+    mean = statistics.fmean(daily_returns)
+    return (mean / std) * math.sqrt(_TRADING_DAYS_PER_YEAR)
+
+
+async def get_metrics(
+    db: AsyncSession,
+    *,
+    user: User,
+    account_id: uuid.UUID | None = None,
+    from_date: date | None = None,
+    to_date: date | None = None,
+    jwt_workspace_ids: list[uuid.UUID] | None = None,
+) -> MetricsOut:
+    """KPIs agregados + equity curve del workspace activo del usuario.
+
+    Universo de calculo: trades del ``workspace_id`` activo con
+    ``status != OPEN`` y ``deleted_at IS NULL``, opcionalmente
+    acotados por ``account_id`` y por rango de ``closed_at``.
+
+    Formulas (canonicas — el frontend NO recalcula, solo pinta):
+
+      ``win_rate``      = ``wins / (wins + losses)``. Los ``BREAK`` se
+                          excluyen del denominador: un empate no es ni
+                          acierto ni error, meterlo abajo penalizaria
+                          una estrategia scalping de break-even.
+      ``profit_factor`` = ``gross_profit / |gross_loss|``, ``None`` si
+                          no hubo perdidas.
+      ``expectancy``    = ``win_rate × avg_win − (1 − win_rate) ×
+                          |avg_loss|``. USD esperados por trade.
+      ``sharpe_ratio``  = ver ``_sharpe_ratio``.
+
+    ``expectancy_usd`` se computa a partir de ``avg_win`` / ``avg_loss``
+    YA cuantizados a centavos para que el cliente pueda reproducir el
+    numero exacto con los campos que recibe (auditabilidad del KPI).
+
+    Multi-tenant: mismo contrato que ``get_risk_summary`` — sin
+    workspace resoluble levanta ``TradeError(WORKSPACE_REQUIRED, 422)``.
+    """
+    try:
+        workspace_id = await infer_workspace_id(
+            db, user.id, jwt_workspace_ids=jwt_workspace_ids
+        )
+    except WorkspaceRequiredError as exc:
+        raise TradeError(
+            code="WORKSPACE_REQUIRED",
+            message=str(exc),
+            status=422,
+        ) from exc
+
+    where = [
+        Trade.workspace_id == workspace_id,
+        Trade.status != TradeStatus.OPEN,
+        Trade.deleted_at.is_(None),
+    ]
+    if account_id is not None:
+        where.append(Trade.account_id == account_id)
+    start, end = _day_bounds(from_date, to_date)
+    if start is not None:
+        where.append(Trade.closed_at >= start)
+    if end is not None:
+        where.append(Trade.closed_at < end)
+
+    trades = list(
+        (await db.execute(select(Trade).where(*where))).scalars().all()
+    )
+    if not trades:
+        return _empty_metrics(
+            account_id=account_id, from_date=from_date, to_date=to_date
+        )
+
+    # Un solo pase en Python (no 3 queries): el set ya esta materializado
+    # porque la equity curve necesita los ``closed_at`` fila por fila.
+    wins = [t for t in trades if t.status == TradeStatus.CLOSED_WIN]
+    losses = [t for t in trades if t.status == TradeStatus.CLOSED_LOSS]
+    breaks = [t for t in trades if t.status == TradeStatus.CLOSED_BREAK]
+    n_wins, n_losses = len(wins), len(losses)
+    decided = n_wins + n_losses  # denominador del win_rate (sin BREAK)
+
+    gross_profit = sum((t.pnl_usd or _ZERO for t in wins), _ZERO)
+    gross_loss = sum((t.pnl_usd or _ZERO for t in losses), _ZERO)  # ≤ 0
+    avg_win = (gross_profit / n_wins) if n_wins else _ZERO
+    avg_loss = (gross_loss / n_losses) if n_losses else _ZERO
+
+    gross_profit = gross_profit.quantize(_CENTS)
+    gross_loss = gross_loss.quantize(_CENTS)
+    avg_win = avg_win.quantize(_CENTS)
+    avg_loss = avg_loss.quantize(_CENTS)
+
+    win_rate = (n_wins / decided) if decided else 0.0
+    profit_factor = (
+        float(gross_profit / abs(gross_loss)) if gross_loss != _ZERO else None
+    )
+    # ``avg_loss`` ya es negativo, asi que sumamos en vez de restar.
+    expectancy = (
+        Decimal(str(win_rate)) * avg_win
+        + Decimal(str(1 - win_rate)) * avg_loss
+    ).quantize(_CENTS)
+
+    equity_curve, daily_returns = _build_equity_curve(trades)
+
+    return MetricsOut(
+        account_id=account_id,
+        from_date=from_date,
+        to_date=to_date,
+        total_trades=len(trades),
+        wins=n_wins,
+        losses=n_losses,
+        breaks=len(breaks),
+        win_rate=win_rate,
+        profit_factor=profit_factor,
+        expectancy_usd=expectancy,
+        sharpe_ratio=_sharpe_ratio(daily_returns),
+        gross_profit_usd=gross_profit,
+        gross_loss_usd=gross_loss,
+        avg_win_usd=avg_win,
+        avg_loss_usd=avg_loss,
+        equity_curve=equity_curve,
+    )
+
+
 __all__ = [
     "TradeError",
     "open_trade",
@@ -856,4 +1118,6 @@ __all__ = [
     "list_trades",
     "get_trade",
     "get_risk_summary",
+    "get_metrics",
 ]
+

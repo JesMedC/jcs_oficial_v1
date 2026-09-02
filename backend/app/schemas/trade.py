@@ -22,6 +22,7 @@ mantiene la respuesta estable a través de refreshes.
 from __future__ import annotations
 
 import uuid
+from datetime import date as date_type
 from datetime import datetime
 from decimal import Decimal
 from typing import Literal
@@ -44,6 +45,8 @@ __all__ = [
     "TradeOut",
     "TradeListOut",
     "RiskSummaryOut",
+    "EquityPoint",
+    "MetricsOut",
 ]
 
 
@@ -260,3 +263,67 @@ class RiskSummaryOut(BaseModel):
     open_trades_count: int
     win_rate_today: float
     message: str
+
+
+# ---- metrics (FASE 6A) ----
+class EquityPoint(BaseModel):
+    """Un punto de la equity curve — un dia calendario CON actividad.
+
+    ``balance`` es el P&L acumulado desde el inicio del rango (arranca
+    en ``0``), NO el ``balance_usd`` de la ``TradingAccount``. La razon
+    es que el rango es filtrable (``from``/``to``): un balance absoluto
+    obligaria a reconstruir el saldo historico previo al rango, que hoy
+    no esta persistido en ningun snapshot. Para el widget de equity lo
+    que importa es la FORMA de la curva, y el P&L acumulado la preserva
+    exactamente.
+
+    Los dias sin trades cerrados NO aparecen en la serie: la curva es
+    sparse. El frontend decide si interpolar (step chart) o no.
+    """
+
+    date: date_type
+    balance: Decimal
+    daily_pnl: Decimal
+
+
+class MetricsOut(BaseModel):
+    """KPIs de trading + equity curve del workspace activo.
+
+    Todos los agregados se computan SOLO sobre trades cerrados
+    (``status != OPEN``) del workspace activo. Los trades ``OPEN`` no
+    tienen ``pnl_usd`` todavia, asi que contarlos distorsionaria cada
+    metrica.
+
+    Campos que pueden venir ``null`` y por que (el frontend debe
+    renderizar "N/A", no ``0``):
+
+    - ``profit_factor``: ``gross_loss == 0``. La division seria
+      infinita; devolver un numero gigante mentiria sobre la calidad
+      de la estrategia.
+    - ``sharpe_ratio``: menos de 2 retornos diarios, o desvio estandar
+      ``0``. Sin dispersion el ratio no esta definido.
+
+    ``win_rate`` es ``0.0`` (no ``null``) cuando no hay cerradas —
+    misma convencion que ``RiskSummaryOut.win_rate_today``.
+    """
+
+    account_id: uuid.UUID | None = None
+    from_date: date_type | None = None
+    to_date: date_type | None = None
+
+    total_trades: int
+    wins: int
+    losses: int
+    breaks: int
+
+    win_rate: float
+    profit_factor: float | None = None
+    expectancy_usd: Decimal
+    sharpe_ratio: float | None = None
+
+    gross_profit_usd: Decimal
+    gross_loss_usd: Decimal  # negativo o cero
+    avg_win_usd: Decimal
+    avg_loss_usd: Decimal  # negativo o cero
+
+    equity_curve: list[EquityPoint]
