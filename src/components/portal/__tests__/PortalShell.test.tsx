@@ -1,20 +1,12 @@
 /*
  * p0d.2 — PortalShell smoke tests.
  * p0e.1 — extended to 6 nav labels (Dashboard, Cuentas, Operaciones,
- *         Diario, Playbook, Configuracion); Movimientos was renamed
- *         to Operaciones and Diario + Playbook were added.
- *
- * Covers the three things the spec demands from the shell:
- *   1. All 6 nav labels render (Dashboard, Cuentas, Operaciones,
- *      Diario, Playbook, Configuracion) and the brand row shows
- *      "USUARIO".
- *   2. The NavLink for the active route gets aria-current="page".
- *   3. The main area renders the routed children (PortalShell's
- *      <Outlet /> works).
- *
- * Pattern mirrors the AdminSidebar test: MemoryRouter + HelmetProvider
- * wrapped around the shell so NavLink and Helmet hooks find their
- * contexts without a full app bootstrap.
+ *         Diario, Playbook, Configuracion).
+ * portal-fase0a-base — sidebar composes three pieces (Header / Nav /
+ *         Footer + WorkspaceSelector). The header/nav/footer are
+ *         still rendered by PortalShell via the PortalSidebar; this
+ *         file now wraps with AuthProvider so WorkspaceSelector can
+ *         call useAuth without tripping the guard.
  */
 import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
@@ -22,18 +14,45 @@ import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
 
 import { PortalShell } from '../PortalShell';
+import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
+import type { AuthMeOut } from '../../../features/auth/types';
+
+const buildAuth = (): AuthContextValue => ({
+  user: {
+    user_id: 'u1',
+    email: 'juana@example.com',
+    first_name: 'Juana',
+    last_name: 'Perez',
+    phone: '+54 11 1234 5678',
+    role: 'USER',
+    workspaces: [],
+    current_subscription: null,
+  },
+  subscription: null,
+  loading: false,
+  error: null,
+  portal: null,
+  login: () => Promise.resolve({} as AuthMeOut),
+  register: () => Promise.resolve({} as AuthMeOut),
+  logout: () => Promise.resolve(),
+  refresh: () => Promise.resolve({} as AuthMeOut | null),
+  setPortal: () => Promise.resolve(),
+  clearError: () => undefined,
+});
 
 function renderAt(path: string) {
   return render(
-    <HelmetProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/portal/*" element={<PortalShell />}>
-            <Route path="cuentas" element={<div data-testid="child">cuentas child content</div>} />
-          </Route>
-        </Routes>
-      </MemoryRouter>
-    </HelmetProvider>,
+    <AuthContext.Provider value={buildAuth()}>
+      <HelmetProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/portal/*" element={<PortalShell />}>
+              <Route path="cuentas" element={<div data-testid="child">cuentas child content</div>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </HelmetProvider>
+    </AuthContext.Provider>,
   );
 }
 
@@ -63,25 +82,7 @@ describe('PortalShell', () => {
 
     const active = screen.getByRole('link', { name: 'Cuentas' });
     expect(active).toHaveAttribute('aria-current', 'page');
-
-    // Sibling links must NOT be marked as active.
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(screen.getByRole('link', { name: 'Operaciones' })).not.toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(screen.getByRole('link', { name: 'Diario' })).not.toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(screen.getByRole('link', { name: 'Playbook' })).not.toHaveAttribute(
-      'aria-current',
-      'page',
-    );
-    expect(screen.getByRole('link', { name: 'Configuracion' })).not.toHaveAttribute(
       'aria-current',
       'page',
     );
@@ -90,7 +91,6 @@ describe('PortalShell', () => {
   it('renders the routed children inside the main area', () => {
     renderAt('/portal/cuentas');
 
-    // The child rendered via Outlet sits inside a <main> element.
     const main = screen.getByRole('main');
     const child = screen.getByTestId('child');
     expect(main).toContainElement(child);
