@@ -18,8 +18,9 @@ if (typeof globalThis.matchMedia !== 'function') {
 }
 
 // jsdom also lacks ResizeObserver/IntersectionObserver. AuroraBackground
-// uses IntersectionObserver to pause the canvas when off-screen. Provide
-// a no-op stub so module top-level effects don't throw.
+// uses IntersectionObserver to pause the canvas when off-screen; cmdk
+// uses ResizeObserver to keep the highlighted item scrolled into view.
+// Both are stubbed here so module top-level effects don't throw.
 if (typeof globalThis.IntersectionObserver !== 'function') {
   class StubIntersectionObserver implements IntersectionObserver {
     readonly root: Element | Document | null = null;
@@ -34,6 +35,16 @@ if (typeof globalThis.IntersectionObserver !== 'function') {
   }
   globalThis.IntersectionObserver =
     StubIntersectionObserver as unknown as typeof IntersectionObserver;
+}
+
+if (typeof globalThis.ResizeObserver !== 'function') {
+  class StubResizeObserver implements ResizeObserver {
+    readonly observe = (): void => {};
+    readonly unobserve = (): void => {};
+    readonly disconnect = (): void => {};
+  }
+  globalThis.ResizeObserver =
+    StubResizeObserver as unknown as typeof ResizeObserver;
 }
 
 // Canvas 2d context stub for jsdom (used by AuroraBackground). jsdom does

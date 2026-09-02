@@ -6,6 +6,8 @@ import { RiskSemaphore } from '../components/common/RiskSemaphore';
 import { CommandPaletteTrigger } from '../components/common/CommandPaletteTrigger';
 import { NewTradeButton } from '../components/common/NewTradeButton';
 import { NewTradeDrawer } from '../features/trades/NewTradeDrawer';
+import { useCommandPaletteHotkey } from '../hooks/useCommandPaletteHotkey';
+import { useCommandPalette } from '../stores/useCommandPalette';
 
 /*
  * p0b.2 + hide-public-chrome-on-auth — TopNav with auth-aware chrome.
@@ -45,6 +47,13 @@ export function TopNav() {
   const navigate = useNavigate();
   const { user, logout, loading } = useAuth();
   const isAuthenticated = user !== null;
+
+  // portal-fase0a-base — mount the global Cmd+K / Ctrl+K listener at
+  // the top of the tree so every authenticated route can open the
+  // palette. The palette itself is rendered below in the same component
+  // (Next/dynamic-style lazy via React.lazy in production builds).
+  useCommandPaletteHotkey();
+  const paletteOpen = useCommandPalette((state) => state.isOpen);
 
   const handleLogout = () => {
     setDrawerOpen(false);
@@ -176,6 +185,11 @@ export function TopNav() {
        * sibling rather than threading it through PortalShell.
        */}
       <NewTradeDrawer />
+      {paletteOpen ? (
+        <Suspense fallback={null}>
+          <LazyCommandPalette />
+        </Suspense>
+      ) : null}
     </>
   );
 }
@@ -186,3 +200,17 @@ const navItems: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Precios', to: '/pricing' },
   { label: 'Nosotros', to: '/about' },
 ];
+
+/*
+ * portal-fase0a-base — LazyCommandPalette wrapper.
+ *
+ * Loaded via React.lazy so the initial bundle doesn't pay for the
+ * cmdk dependency until the user actually opens the palette. The
+ * lightweight trigger button (CommandPaletteTrigger) is in the
+ * critical path; the palette itself is rare.
+ */
+import { lazy } from 'react';
+const LazyCommandPalette = lazy(async () => {
+  const mod = await import('../components/common/CommandPalette');
+  return { default: mod.CommandPalette };
+});
