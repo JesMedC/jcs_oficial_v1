@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 
 import { PaymentRow } from '../PaymentRow';
-import type { PaymentOut } from '../../features/payments/types';
+import type { PaymentOut } from '../../../features/payments/types';
 
 function buildPayment(overrides: Partial<PaymentOut> = {}): PaymentOut {
   return {

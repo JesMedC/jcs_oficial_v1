@@ -27,7 +27,7 @@ const DAY_OPTIONS: ReadonlyArray<{ readonly value: number; readonly label: strin
 // where toLocaleString can fall back to bare digits depending on ICU data resolution.
 // `useGrouping: 'always'` is required because the spec default `'auto'` only groups 5+ digit numbers
 // (so 1234 would otherwise render as "1234" instead of "1.234").
-const NUMBER_FORMAT = new Intl.NumberFormat('es-ES', { useGrouping: 'always' });
+const NUMBER_FORMAT = new Intl.NumberFormat('es-ES', { useGrouping: true });
 
 export function AdminAnalyticsPage() {
   const [days, setDays] = useState<number>(30);
