@@ -91,6 +91,25 @@ async def _store_refresh_token(
     return entry
 
 
+async def _resolve_workspace_ids_for_jwt(
+    db: AsyncSession, user: User
+) -> list[uuid.UUID]:
+    """Lee los ``workspace_ids`` del user, priorizando el transient.
+
+    FASE 4B hardening: ``register_user``, ``authenticate_user`` y
+    ``rotate_refresh_token`` ahora stashean ``user.workspace_ids``
+    en la misma transacción que crea/carga al user, garantizando
+    visibilidad inmediata (evita el bug de ``workspace_ids=[]`` en
+    el JWT que aparecía después de uptime largo en producción).
+    Como red de seguridad, si el transient no está seteado, caemos
+    al lookup DB.
+    """
+    cached = getattr(user, "workspace_ids", None)
+    if cached:
+        return list(cached)
+    return await get_user_workspace_ids(db, user.id)
+
+
 async def _issue_tokens(
     db: AsyncSession,
     user: User,
@@ -100,10 +119,17 @@ async def _issue_tokens(
     p0f.1 (multi-tenant): el access token ahora viaja con el claim
     ``workspace_ids`` poblado de las memberships reales del user.
     Los services (trading_account, trade) lo leen de ahí para
-    resolver el ``workspace_id`` activo sin un round-trip extra a
-    la DB.
+    resolver el ``workspace_id`` activo sin un round-trip extra a la
+    DB.
+
+    FASE 4B hardening: prefiere ``user.workspace_ids`` (seteado por
+    el caller en la misma transacción) sobre un lookup DB. Esto
+    garantiza que el JWT emitido en el request de register/login
+    lleve la lista correcta incluso si el connection pool del
+    worker tiene alguna rareza con visibilidad de filas recién
+    commiteadas.
     """
-    workspace_ids = await get_user_workspace_ids(db, user.id)
+    workspace_ids = await _resolve_workspace_ids_for_jwt(db, user)
     access, expires_in = create_access_token(
         user.id, user.role, workspace_ids
     )
@@ -161,6 +187,15 @@ async def register_user(
         db, user=user, workspace=workspace, correlation_id=correlation_id
     )
 
+    # FASE 4B hardening: capturamos ``workspace_ids`` ANTES del
+    # ``commit()`` mientras la conexión todavía ve la fila de
+    # ``WorkspaceMember`` que acabamos de flushear. Esto evita el
+    # bug donde el JWT emitido por ``_issue_tokens`` quedaba con
+    # ``workspace_ids=[]`` por una race del connection pool del
+    # worker (la fila era visible en la DB pero no en la
+    # transacción que el pool le entregaba a la siguiente query).
+    user.workspace_ids = await get_user_workspace_ids(db, user.id)
+
     await _emit_audit(
         db,
         actor_user_id=user.id,
@@ -178,6 +213,11 @@ async def register_user(
     )
     await db.commit()
     await db.refresh(user)
+    # ``db.refresh`` puede expirar atributos transitorios; los
+    # re-seteamos por seguridad (los services los leen vía
+    # ``getattr`` en ``_issue_tokens``).
+    if not getattr(user, "workspace_ids", None):
+        user.workspace_ids = await get_user_workspace_ids(db, user.id)
     return user
 
 
@@ -225,6 +265,11 @@ async def authenticate_user(
         correlation_id=correlation_id,
     )
     await db.commit()
+    # FASE 4B hardening: stash ``workspace_ids`` para que
+    # ``_issue_tokens`` los reuse en lugar de pegarle a la DB
+    # otra vez (y quedar vulnerable a la misma rareza del
+    # connection pool que vimos en register).
+    user.workspace_ids = await get_user_workspace_ids(db, user.id)
     return user
 
 
@@ -272,7 +317,12 @@ async def rotate_refresh_token(
     # emitir el access token con el claim ``workspace_ids`` correcto.
     # Si el user fue invitado/removido de workspaces entre el login
     # y este refresh, el nuevo access token refleja el estado actual.
-    workspace_ids = await get_user_workspace_ids(db, user.id)
+    # FASE 4B hardening: stash en ``user.workspace_ids`` antes de
+    # emitir el access token — el helper ``_issue_tokens`` los lee
+    # del transient y se ahorra un round-trip + evita la rareza del
+    # connection pool.
+    user.workspace_ids = await get_user_workspace_ids(db, user.id)
+    workspace_ids = user.workspace_ids
     access, expires_in = create_access_token(
         user.id, user.role, workspace_ids
     )

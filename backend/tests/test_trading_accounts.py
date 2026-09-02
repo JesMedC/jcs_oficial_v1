@@ -701,3 +701,117 @@ async def test_create_account_without_workspace_returns_422(
     )
     assert resp.status_code == 422, resp.text
     assert resp.json()["code"] == "WORKSPACE_REQUIRED"
+
+
+# ============================================================
+# FASE 4B — backend hardening: regression tests
+# ============================================================
+#
+# Cubre los 2 bugs encontrados durante FASE 4A E2E contra el
+# backend live:
+#
+# - Issue 2: ``POST /api/v1/accounts`` devolvía 500
+#   (``MissingGreenlet``) en runtime cuando el JWT emitido por
+#   register traía ``workspace_ids=[]`` por una rareza del
+#   connection pool después de uptime largo. El test
+#   ``test_create_account_e2e_after_register`` reproduce ese path
+#   usando sólo HTTP (sin tocar DB directa).
+#
+# - Verificación del invariant: ``workspace_id`` que devuelve el
+#   POST /accounts tiene que ser EXACTAMENTE el del claim del JWT
+#   (``test_create_account_workspace_id_matches_jwt_claim``).
+#   Esto protege contra el caso donde el service infiere por DB
+#   y termina devolviendo un workspace distinto al activo del
+#   usuario.
+
+
+async def test_create_account_e2e_after_register(
+    client, valid_register_payload
+) -> None:
+    """FASE 4B regression: register HTTP → POST /accounts devuelve 201.
+
+    Antes del fix: 500 ``MissingGreenlet`` porque el JWT emitido
+    por ``register_user`` traía ``workspace_ids=[]`` (connection
+    pool del worker no veía la fila recién insertada) y el service
+    caía al DB fallback que también fallaba por la misma razón.
+    Después: 201 con ``workspace_id`` poblado correctamente.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+    # Sanity: el JWT trae workspace_ids poblado (FASE 4B fix #1).
+    import base64
+    import json
+
+    p = reg["access_token"].split(".")[1]
+    p += "=" * (-len(p) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(p))
+    assert len(claims["workspace_ids"]) >= 1, (
+        "JWT emitido por register debe traer workspace_ids poblado "
+        "(FASE 4B hardening: workspace_ids se capturan antes del commit)"
+    )
+
+    resp = await client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={
+            "broker_name": "Pocket Option",
+            "type": "BINARY",
+            "name": "E2E Account",
+        },
+    )
+    # Antes: 500 MissingGreenlet.
+    # Después: 201 con body conteniendo workspace_id.
+    assert resp.status_code == 201, (
+        f"POST /accounts esperaba 201, recibió {resp.status_code}: "
+        f"{resp.text}"
+    )
+    body = resp.json()
+    assert body["broker_name"] == "Pocket Option"
+    assert body["type"] == "BINARY"
+    assert body["name"] == "E2E Account"
+    assert "workspace_id" in body
+    assert body["workspace_id"] is not None, (
+        "workspace_id no debe ser None (model es NOT NULL en runtime)"
+    )
+    # El balance siempre arranca en 0.
+    assert Decimal(body["balance_usd"]) == Decimal("0")
+
+
+async def test_create_account_workspace_id_matches_jwt_claim(
+    client, valid_register_payload
+) -> None:
+    """FASE 4B invariant: ``workspace_id`` del POST /accounts ==
+    primer workspace del claim ``workspace_ids`` del JWT.
+
+    Esto cierra el caso donde ``infer_workspace_id`` devolvía un
+    workspace distinto al activo del JWT (por membership más
+    antigua + JWT con varios workspaces). El service ya usaba
+    ``jwt_workspace_ids`` primero, pero el bug de ``workspace_ids=[]``
+    en el JWT hacía que siempre cayera al DB fallback.
+    """
+    import base64
+    import json
+
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+    # El endpoint /me devuelve la lista de workspaces del JWT.
+    me = await client.get("/api/v1/auth/me", headers=headers)
+    assert me.status_code == 200, me.text
+    expected_ws = me.json()["workspaces"][0]["id"]
+
+    resp = await client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"broker_name": "Pocket Option", "type": "BINARY", "name": "X"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["workspace_id"] == expected_ws
+
+    # Y el workspace del JWT claim coincide con el que vino en /me.
+    p = reg["access_token"].split(".")[1]
+    p += "=" * (-len(p) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(p))
+    assert expected_ws in claims["workspace_ids"]

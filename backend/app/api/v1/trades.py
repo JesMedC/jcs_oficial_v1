@@ -179,12 +179,20 @@ async def get_risk_summary_endpoint(
     rutas en orden de declaración: si ``risk-summary`` cayera
     después, sería capturado como ``trade_id="risk-summary"`` y
     reventaría en el parsing de UUID.
+
+    FASE 4B hardening: el service ahora puede levantar
+    ``TradeError(WORKSPACE_REQUIRED, 422)`` cuando el user no
+    tiene workspace resoluble. Lo traducimos al envelope estándar
+    acá (mismo patrón que el resto de los handlers de /trades).
     """
-    return await get_risk_summary(
-        db,
-        user=user,
-        jwt_workspace_ids=user.workspace_ids,
-    )
+    try:
+        return await get_risk_summary(
+            db,
+            user=user,
+            jwt_workspace_ids=user.workspace_ids,
+        )
+    except TradeError as exc:
+        _raise_trade_error(exc)
 
 
 @router.get("/{trade_id}", response_model=TradeOut)

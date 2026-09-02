@@ -1096,3 +1096,122 @@ class TestRiskSummary:
         )
         assert resp_b.status_code == 200, resp_b.text
         assert resp_b.json()["open_trades_count"] == 1
+
+
+# ============================================================
+# FASE 4B — backend hardening: regression tests
+# ============================================================
+#
+# Estos tests cubren los 2 bugs encontrados durante FASE 4A E2E
+# contra el backend live:
+#
+# - Issue 1: ``GET /api/v1/trades/risk-summary`` devolvía 422
+#   (path-validation contra ``/{trade_id}``) en runtime, aunque
+#   los tests unitarios pasaban. El test
+#   ``test_risk_summary_e2e_after_register`` reproduce el flow
+#   E2E completo: register vía HTTP → GET /risk-summary con el
+#   JWT fresco. Debe devolver 200 (no 422).
+#
+# - Issue 2: ``POST /api/v1/accounts`` devolvía 500
+#   (``MissingGreenlet``) en runtime cuando el JWT emitido por
+#   register traía ``workspace_ids=[]`` por una rareza del
+#   connection pool después de uptime largo. El test
+#   ``test_create_account_e2e_after_register`` cubre ese path.
+#
+# Ambos tests usan sólo HTTP (sin tocar DB directa) para reproducir
+# exactamente el flow que rompe en el backend live.
+
+
+async def test_risk_summary_e2e_after_register(
+    client, valid_register_payload
+) -> None:
+    """FASE 4B regression: el flow E2E register → risk-summary devuelve 200.
+
+    Antes del fix: 422 con ``loc=["path","trade_id"]`` porque FastAPI
+    matcheaba ``risk-summary`` contra la ruta ``/{trade_id}`` (UUID
+    inválido). El route está declarado ANTES de ``/{trade_id}`` y
+    este test verifica que sigue siendo así en el flow HTTP real.
+    """
+    reg = await _register(client, valid_register_payload)
+    access = reg["access_token"]
+
+    # Sanity: el JWT trae workspace_ids poblado (FASE 4B fix #1).
+    import base64
+    import json
+
+    p = access.split(".")[1]
+    p += "=" * (-len(p) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(p))
+    assert isinstance(claims["workspace_ids"], list)
+    assert len(claims["workspace_ids"]) >= 1, (
+        "JWT emitido por register debe traer workspace_ids poblado "
+        "(FASE 4B hardening: se captura antes del commit)"
+    )
+
+    resp = await client.get(
+        "/api/v1/trades/risk-summary",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    # Antes: 422 (path validation contra /{trade_id}).
+    # Después: 200 con body JSON del semáforo.
+    assert resp.status_code == 200, (
+        f"GET /trades/risk-summary esperaba 200, recibió {resp.status_code}: "
+        f"{resp.text}"
+    )
+    body = resp.json()
+    assert body["level"] in ("green", "yellow", "red")
+    assert "daily_pnl_usd" in body
+    assert "open_trades_count" in body
+    assert "win_rate_today" in body
+    assert "message" in body
+
+
+async def test_risk_summary_returns_422_workspace_required_when_user_has_no_ws(
+    client, db_session
+) -> None:
+    """FASE 4B: si el user autenticado no tiene workspace resoluble
+    (caso ``WorkspaceRequiredError``), el endpoint devuelve 422 con
+    ``code="WORKSPACE_REQUIRED"`` en lugar del 500 genérico.
+
+    Esto cubre la ruta defensiva agregada en ``get_risk_summary``.
+    """
+    import base64
+    import json
+
+    from app.core.security.password import hash_password
+    from app.models import User, UserRole
+
+    suffix = uuid.uuid4().hex[:8]
+    user = User(
+        email=f"nows_rs_{suffix}@jadecapital.local",
+        password_hash=hash_password("NoWork1234!"),
+        first_name="No",
+        last_name="Workspace",
+        phone="+34600000999",
+        role=UserRole.USER,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    # Login emite JWT con ``workspace_ids=[]`` (user sin memberships).
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": user.email, "password": "NoWork1234!"},
+    )
+    assert login.status_code == 200, login.text
+    access = login.json()["access_token"]
+    # Confirmamos que el JWT está vacío (el setup).
+    p = access.split(".")[1]
+    p += "=" * (-len(p) % 4)
+    claims = json.loads(base64.urlsafe_b64decode(p))
+    assert claims["workspace_ids"] == []
+
+    resp = await client.get(
+        "/api/v1/trades/risk-summary",
+        headers={"Authorization": f"Bearer {access}"},
+    )
+    # Antes del fix defensivo: 500 (WorkspaceRequiredError no
+    # traducida en get_risk_summary). Después: 422 WORKSPACE_REQUIRED.
+    assert resp.status_code == 422, resp.text
+    body = resp.json()
+    assert body["code"] == "WORKSPACE_REQUIRED"

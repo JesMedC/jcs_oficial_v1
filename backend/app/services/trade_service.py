@@ -760,10 +760,24 @@ async def get_risk_summary(
     El rango "hoy" es UTC. La simplificación acepta que el P&L diario
     se corte a las 00:00 UTC sin importar el timezone del broker — el
     semáforo es una guía, no un signal de stop-out.
+
+    FASE 4B hardening: si el usuario no tiene workspace resoluble
+    (JWT con ``workspace_ids=[]`` y cero memberships OWNER) caemos
+    a ``TradeError(WORKSPACE_REQUIRED, 422)`` en vez de propagar
+    la ``WorkspaceRequiredError`` cruda (que se traduciría a un
+    500 por el middleware genérico de errores). El frontend mapea
+    ``WORKSPACE_REQUIRED`` a i18n; un 500 no.
     """
-    workspace_id = await infer_workspace_id(
-        db, user.id, jwt_workspace_ids=jwt_workspace_ids
-    )
+    try:
+        workspace_id = await infer_workspace_id(
+            db, user.id, jwt_workspace_ids=jwt_workspace_ids
+        )
+    except WorkspaceRequiredError as exc:
+        raise TradeError(
+            code="WORKSPACE_REQUIRED",
+            message=str(exc),
+            status=422,
+        ) from exc
 
     today_start = datetime.combine(
         date.today(), time.min, tzinfo=timezone.utc
