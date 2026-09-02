@@ -10,10 +10,11 @@
  *     kept simple until the design system grows one in Ola 5).
  *   - error: friendly retry prompt with a ``text-loss`` accent.
  *   - empty: copy explaining the current filter combination.
- *   - ready: 10-column dense grid, sticky header, hover row tint.
+ *   - ready: 11-column dense grid, sticky header, hover row tint.
  *
- * Inline row actions (close, edit, delete) belong to Ola 5; the
- * row component intentionally has no buttons.
+ * Ola 5: the last column ("Acción") hosts the inline close button
+ * rendered by ``TradeTableRow`` for OPEN trades. Edit/delete are
+ * still out of scope.
  */
 import { useTrades } from './hooks';
 import { TradeTableRow } from './TradeTableRow';
@@ -76,6 +77,7 @@ export function TradeTable({ filters = {} }: Props) {
             <th className="px-3 py-2 text-right">Tamaño</th>
             <th className="px-3 py-2 text-right">P&amp;L</th>
             <th className="px-3 py-2 text-right">R</th>
+            <th className="px-3 py-2 text-right">Acción</th>
           </tr>
         </thead>
         <tbody>

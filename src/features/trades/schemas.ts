@@ -84,3 +84,51 @@ export const TradeFormSchema = z.discriminatedUnion('type', [
 export type ForexFormValues = z.infer<typeof ForexFormSchema>;
 export type BinaryFormValues = z.infer<typeof BinaryFormSchema>;
 export type TradeFormValues = z.infer<typeof TradeFormSchema>;
+
+/*
+ * portal-fase0a-base / FASE 4A — Close-trade form schemas.
+ *
+ * Mirrors `CloseTradePayload` from `types.ts` (which mirrors backend
+ * Pydantic `CloseTradeIn`): discriminated by `type`, FOREX branch
+ * carries `exit_price`, BINARY branch carries `outcome: 'WIN'|'LOSS'`
+ * (no BREAK — the backend computes CLOSED_BREAK server-side from the
+ * payout when relevant, so the wire format only exposes the two
+ * outcomes the user actually decides on).
+ *
+ * The journal triple (`post_trade_notes`, `followed_plan`,
+ * `mistakes`) is optional on both branches and round-trips through
+ * the backend unchanged.
+ */
+export const CloseForexPayloadSchema = z.object({
+  type: z.literal('FOREX'),
+  exit_price: z
+    .union([z.string(), z.number()])
+    .transform((value, ctx) => {
+      const n = typeof value === 'number' ? value : Number(value);
+      if (Number.isNaN(n) || n <= 0) {
+        ctx.addIssue({ code: z.ZodIssueCode.custom, message: 'Precio de salida invalido' });
+        return z.NEVER;
+      }
+      return n.toString();
+    }),
+  post_trade_notes: z.string().max(2000).optional(),
+  followed_plan: z.boolean().optional(),
+  mistakes: z.string().max(2000).optional(),
+});
+
+export const CloseBinaryPayloadSchema = z.object({
+  type: z.literal('BINARY'),
+  outcome: z.enum(['WIN', 'LOSS']),
+  post_trade_notes: z.string().max(2000).optional(),
+  followed_plan: z.boolean().optional(),
+  mistakes: z.string().max(2000).optional(),
+});
+
+export const CloseTradeFormSchema = z.discriminatedUnion('type', [
+  CloseForexPayloadSchema,
+  CloseBinaryPayloadSchema,
+]);
+
+export type CloseForexFormValues = z.infer<typeof CloseForexPayloadSchema>;
+export type CloseBinaryFormValues = z.infer<typeof CloseBinaryPayloadSchema>;
+export type CloseTradeFormInput = z.infer<typeof CloseTradeFormSchema>;
