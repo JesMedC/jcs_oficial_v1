@@ -1,16 +1,15 @@
 /*
- * portal-fase0a-base — RiskSemaphore.
+ * FASE 4A — RiskSemaphore.
  *
- * FASE 0A placeholder that shows the risk dot (green/yellow/red) for
- * the active portal session. Reads `level` from the useRiskLevel store
- * and renders a labeled dot + the textual "Sin datos de hoy" hint
- * because no real data is wired yet (real source is the future
- * `/api/v1/trades/risk-summary` endpoint, FASE 4).
+ * Topbar widget that shows the active session's risk level
+ * (green/yellow/red) sourced from ``useRiskSummary()`` (which reads
+ * ``GET /trades/risk-summary`` and polls every 60s).
  *
- * Visible only at lg+ widths so it doesn't crowd the topbar at
- * mobile sizes.
+ * The data-testid + dynamic aria-label contract is exercised by
+ * ``src/components/common/__tests__/topbarWidgets.test.tsx``; the
+ * visible-only-at-lg rule keeps the topbar readable on mobile.
  */
-import { useRiskLevel } from '../../stores/useRiskLevel';
+import { useRiskSummary } from '../../features/trades/hooks';
 
 const COLOR_CLASS = {
   green: 'bg-profit shadow-[0_0_8px_rgba(53,208,127,0.6)]',
@@ -25,13 +24,15 @@ const LABEL = {
 } as const;
 
 export function RiskSemaphore() {
-  const level = useRiskLevel((state) => state.level);
+  const { data } = useRiskSummary();
+  const level = data?.level ?? 'green';
+  const dailyPnl = data?.daily_pnl_usd ?? '0';
 
   return (
     <div
       data-testid="risk-semaphore"
-      aria-label={`Riesgo: ${level}`}
-      title="Sin datos de hoy"
+      aria-label={`Riesgo: ${level} (P&L hoy: $${dailyPnl})`}
+      title={data?.message ?? 'Sin datos de hoy'}
       className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 bg-surface-el/40 backdrop-blur-sm"
     >
       <span

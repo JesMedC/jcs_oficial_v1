@@ -247,3 +247,25 @@ export const EMOTIONAL_TAG_LABEL: Record<EmotionalTag, string> = {
   DISCIPLINE: 'Disciplina',
   OTHER: 'Otro',
 };
+
+/**
+ * Risk level returned by ``GET /trades/risk-summary``. Drives the
+ * topbar semaphore and the dashboard guard rail. Mirrors
+ * ``RiskLevel`` on the backend.
+ */
+export type RiskLevel = 'green' | 'yellow' | 'red';
+
+/**
+ * Aggregated risk snapshot returned by ``GET /trades/risk-summary``.
+ * ``daily_pnl_usd`` stays as a string (the backend serializes
+ * ``Decimal`` as JSON strings to preserve precision — same convention
+ * as the rest of the trade types). ``win_rate_today`` is a plain
+ * number in ``[0, 1]`` — it's a derived ratio, not money.
+ */
+export interface RiskSummary {
+  readonly level: RiskLevel;
+  readonly daily_pnl_usd: string;
+  readonly open_trades_count: number;
+  readonly win_rate_today: number;
+  readonly message: string;
+}
