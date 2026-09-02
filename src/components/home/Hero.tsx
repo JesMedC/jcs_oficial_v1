@@ -4,9 +4,10 @@ import { Link } from 'react-router-dom';
 /*
  * p1c — Home hero.
  *
- * H1 uses Orbitron uppercase tracking-wide with a cyan glow per mem #70.
- * Body uses Inter (readability per design tokens). Dual CTA: filled cyan
- * + outline cyan. Bullets list with cyan check SVG.
+ * portal-fase0a-base — primary pivoted to jade, kept visual rhythm.
+ * H1 uses Orbitron uppercase tracking-wide with a jade glow per mem #70.
+ * Body uses Inter (readability per design tokens). Dual CTA: filled jade
+ * + outline jade. Bullets list with jade check SVG.
  *
  * The right-hand slot (DashboardPreview on desktop, below on mobile)
  * is provided by the HomePage so the Hero stays a pure presentational

@@ -2,8 +2,9 @@ import { GlassCard } from '../GlassCard';
 
 /*
  * p1c — About / Mission section.
+ * portal-fase0a-base — SVG chart-line colour pivoted to jade primary.
  *
- * Two columns: cyan chart-line SVG illustration + story text + tagline.
+ * Two columns: jade chart-line SVG illustration + story text + tagline.
  */
 export function MissionSection() {
   return (
@@ -46,7 +47,7 @@ function ChartLine() {
       height="180"
       viewBox="0 0 240 180"
       fill="none"
-      stroke="#00FFFF"
+      stroke="#2EDC8C"
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -55,24 +56,24 @@ function ChartLine() {
       aria-label="Curva de crecimiento"
     >
       <defs>
-        <linearGradient id="cyanFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#00FFFF" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#00FFFF" stopOpacity="0" />
+        <linearGradient id="jadeFill" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="#2EDC8C" stopOpacity="0.4" />
+          <stop offset="100%" stopColor="#2EDC8C" stopOpacity="0" />
         </linearGradient>
       </defs>
       <path
         d="M10,140 L40,120 L70,130 L100,100 L130,110 L160,80 L190,70 L220,40 L230,30"
         fill="none"
-        stroke="#00FFFF"
+        stroke="#2EDC8C"
         strokeWidth="2.5"
       />
       <path
         d="M10,140 L40,120 L70,130 L100,100 L130,110 L160,80 L190,70 L220,40 L230,30 L230,170 L10,170 Z"
-        fill="url(#cyanFill)"
+        fill="url(#jadeFill)"
         stroke="none"
       />
-      <circle cx="160" cy="80" r="3" fill="#00FFFF" />
-      <circle cx="220" cy="40" r="3" fill="#00FFFF" />
+      <circle cx="160" cy="80" r="3" fill="#2EDC8C" />
+      <circle cx="220" cy="40" r="3" fill="#2EDC8C" />
     </svg>
   );
 }

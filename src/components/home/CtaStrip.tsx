@@ -2,7 +2,7 @@ import { Link } from 'react-router-dom';
 
 /*
  * p0b.1b — Home CTA strip (full-width band).
- * H2 Orbitron cyan + single cyan filled CTA to /register.
+ * H2 Orbitron jade + single jade filled CTA to /register.
  */
 export function CtaStrip() {
   return (

@@ -4,7 +4,7 @@ import { GlassCard } from '../GlassCard';
  * p1c — Home features grid (4 cards).
  *
  * Cards mirror the "Features" page exactly per Angular content
- * (verbatim copy in user prompt). Each card: cyan SVG icon, H3 Inter
+ * (verbatim copy in user prompt). Each card: jade SVG icon, H3 Inter
  * 600, P Inter text-secondary. 2-col desktop, stacked mobile.
  */
 export function FeaturesGrid() {
@@ -65,7 +65,7 @@ function FeatureIcon({ d }: { readonly d: string }) {
       height="32"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#00FFFF"
+      stroke="#2EDC8C"
       strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"

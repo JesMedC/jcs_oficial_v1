@@ -4,7 +4,7 @@ import { FeaturesGrid } from '../components/features/FeaturesGrid';
 /*
  * p1c — Features page.
  *
- * Hero (Orbitron cyan) + 4-card features grid. Mirrors the Angular
+ * Hero (Orbitron jade) + 4-card features grid. Mirrors the Angular
  * app content verbatim per user prompt.
  */
 export function FeaturesPage() {

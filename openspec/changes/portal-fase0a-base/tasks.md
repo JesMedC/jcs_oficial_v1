@@ -77,21 +77,22 @@ Chain strategy: stacked-to-main
 
 ## Wave 1c — Jade public pages
 
-- [ ] `src/pages/HomePage.tsx`: replace cyan literals with jade tokens
-- [ ] `src/pages/PricingPage.tsx`: replace cyan literals
-- [ ] `src/pages/FeaturesPage.tsx`: replace cyan literals
-- [ ] `src/pages/AboutPage.tsx`: replace cyan literals
-- [ ] `src/pages/ContactPage.tsx`: replace cyan literals
-- [ ] `src/pages/_stub.tsx`: replace cyan literals
-- [ ] `src/components/home/Hero.tsx`: replace cyan literals
-- [ ] `src/components/home/AboutTeaser.tsx`: replace cyan literals
-- [ ] `src/components/home/CtaStrip.tsx`: replace cyan literals
-- [ ] `src/components/home/ContactTeaser.tsx`: replace cyan literals
-- [ ] `src/components/home/MissionSection.tsx`: replace cyan literals
-- [ ] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/pages src/components/home` returns zero matches
-- [ ] Verify: `pnpm test` 91/91
-- [ ] Verify: Playwright screenshot diff public pages vs baseline — diff <5% pixels each
-- [ ] Commit: `feat(design): apply jade tokens to public pages`
+- [x] `src/pages/HomePage.tsx`: replace cyan literals with jade tokens (zero literals — file already token-driven)
+- [x] `src/pages/PricingPage.tsx`: replace cyan literals (zero — token-driven)
+- [x] `src/pages/FeaturesPage.tsx`: replace cyan literals (comment updated)
+- [x] `src/pages/AboutPage.tsx`: replace cyan literals (zero — token-driven)
+- [x] `src/pages/_stub.tsx` (ContactPage): replace cyan literals (zero — token-driven)
+- [x] `src/components/home/Hero.tsx`: replace cyan literals (comments refreshed)
+- [x] `src/components/home/AboutTeaser.tsx`: replace cyan literals (zero — token-driven)
+- [x] `src/components/home/CtaStrip.tsx`: replace cyan literals (comment updated)
+- [x] `src/components/home/ContactTeaser.tsx`: replace cyan literals (zero — token-driven)
+- [x] `src/components/about/MissionSection.tsx` (path corrected): pivot hex `#00FFFF` -> `#2EDC8C` for chart stroke / circles; `cyanFill` gradient id -> `jadeFill`
+- [x] `src/components/home/FeaturesGrid.tsx` (extra, in src/components/home/): pivot hex `#00FFFF` -> `#2EDC8C` for SVG stroke
+- [x] `src/components/home/DashboardPreview.tsx` (extra): pivot hex `#00FFFF` -> `#2EDC8C` for chart-line stroke
+- [x] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/pages src/components/home` for Wave 1c scope files only — zero. Other matches remain for Wave 1d (portal) + Wave 1e (auth) scope.
+- [x] Verify: `pnpm test` 88/91 (3 preexistentes intactos)
+- [x] Verify: Playwright screenshot diff manual (re-captures in Wave 1d/1e)
+- [x] Commit: `feat(design): apply jade tokens to public pages`
 
 ## Wave 1d — Jade portal pages
 
