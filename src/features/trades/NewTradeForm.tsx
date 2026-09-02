@@ -411,7 +411,30 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
           data-testid="new-trade-error"
           className="px-3 py-2 bg-loss/15 border border-loss/40 rounded-lg text-loss font-body text-sm"
         >
-          {(createTrade.error as { message?: string } | null)?.message ?? 'Error al crear el trade'}
+          {(() => {
+            // The response interceptor in lib/api/client.ts normalises
+            // every rejection into an envelope-like object
+            // ({ code, message, correlation_id }), so reading the bare
+            // `.code` / `.message` is the production path. We also
+            // handle the raw axios shape (test mocks that bypass the
+            // interceptor) by checking the legacy `code: 'ECONNABORTED'`
+            // sentinel and any message containing "timeout".
+            const err = createTrade.error as {
+              code?: string;
+              message?: string;
+            } | null;
+            const isTimeout =
+              err?.code === 'ECONNABORTED' ||
+              (typeof err?.message === 'string' &&
+                err.message.toLowerCase().includes('timeout'));
+            if (isTimeout) {
+              return 'La operación tardó demasiado. Reintentá.';
+            }
+            if (err?.code !== undefined && err?.message !== undefined) {
+              return `${err.code}: ${err.message}`;
+            }
+            return err?.message ?? 'Error al crear el trade';
+          })()}
         </div>
       ) : null}
 

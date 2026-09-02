@@ -37,7 +37,10 @@ const baseURL = (import.meta.env.VITE_API_BASE_URL as string | undefined) ?? DEF
 export const apiClient = axios.create({
   baseURL,
   withCredentials: true,
-  timeout: 15000,
+  // 30s accommodates cold-start asyncpg pool warmup after the backend
+  // container restarts (observed ~15.4s for the first POST /trades
+  // against a freshly-restarted backend — see fix/frontend-new-trade-timeout).
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
     Accept: 'application/json',

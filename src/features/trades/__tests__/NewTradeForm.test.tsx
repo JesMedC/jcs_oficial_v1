@@ -29,6 +29,7 @@ import type { ReactNode } from 'react';
 
 import * as accountsApi from '../../accounts/api';
 import type { AccountList, AccountOut } from '../../accounts/types';
+import * as tradesApi from '../api';
 import { NewTradeForm } from '../NewTradeForm';
 
 function makeWrapper() {
@@ -229,5 +230,71 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
     });
 
     expect(spy).toHaveBeenCalled();
+  });
+
+  it('muestra mensaje legible cuando la request excede el timeout', async () => {
+    // Reproduces the production ECONNABORTED path: raw axios timeout
+    // error raised from the interceptor-bypassing test mock. The form
+    // must translate the raw "timeout of 15000ms exceeded" into the
+    // user-friendly Spanish copy so users don't see axios internals.
+    // The journal soft-block guard rail intercepts the first submit
+    // when notes + tags are empty, so the test exercises the canonical
+    // "Guardar igual" path (the production user action when they
+    // intentionally want to skip journaling).
+    mockAccounts([BINARY_ACCOUNT]);
+    vi.spyOn(tradesApi, 'openTradeApi').mockRejectedValue(
+      Object.assign(new Error('timeout of 15000ms exceeded'), {
+        code: 'ECONNABORTED',
+      }),
+    );
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-submit')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('new-trade-submit'));
+    await waitFor(() => {
+      expect(screen.getByTestId('soft-block-skip')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('soft-block-skip'));
+
+    await waitFor(() => {
+      const alert = screen.getByTestId('new-trade-error');
+      expect(alert.textContent).toBe('La operación tardó demasiado. Reintentá.');
+    });
+  });
+
+  it('muestra el envelope code+message cuando el backend rechaza con INSUFFICIENT_BALANCE', async () => {
+    // Verifies the second branch of the error mapper: a normalised
+    // envelope from the response interceptor (e.g. a 422 with the
+    // canonical { code, message, correlation_id } body) must surface
+    // both the code and the message verbatim.
+    mockAccounts([BINARY_ACCOUNT]);
+    vi.spyOn(tradesApi, 'openTradeApi').mockRejectedValue({
+      code: 'INSUFFICIENT_BALANCE',
+      message: 'Saldo insuficiente para abrir la operación.',
+      correlation_id: 'corr-abc-123',
+    });
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-submit')).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByTestId('new-trade-submit'));
+    await waitFor(() => {
+      expect(screen.getByTestId('soft-block-skip')).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByTestId('soft-block-skip'));
+
+    await waitFor(() => {
+      const alert = screen.getByTestId('new-trade-error');
+      expect(alert.textContent).toBe(
+        'INSUFFICIENT_BALANCE: Saldo insuficiente para abrir la operación.',
+      );
+    });
   });
 });
