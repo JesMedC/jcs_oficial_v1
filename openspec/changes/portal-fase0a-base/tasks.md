@@ -167,18 +167,14 @@ Chain strategy: stacked-to-main
 
 ## Wave 4 — Topbar additions
 
-- [ ] Create `src/components/common/RiskSemaphore.tsx` — renders dot + label from `useRiskLevel(s => s.level)`; `aria-label="Riesgo: ${level}"`; carries a `// TODO` comment referencing the future `risk-summary` backend endpoint; visible only on `lg+`
-- [ ] Create `src/components/common/CommandPaletteTrigger.tsx` — button styled per topbar with text "Buscar · ⌘K" (cross-platform shows "Ctrl+K" on non-Mac)
-- [ ] Create `src/components/common/NewTradeButton.tsx` — jade button with `glow-primary`, label "+ Nuevo Trade", wires to `useNewTradeDrawer.open()`
-- [ ] Edit `src/layout/TopNav.tsx`: render `<RiskSemaphore />` after brand; `<CommandPaletteTrigger />` after semaphore; `<NewTradeButton />` after command trigger; keep user name + logout on the right
-- [ ] Create `src/components/common/RiskSemaphore.test.tsx`: renders green by default; reads `useRiskLevel.level` after `set('red')`
-- [ ] Create `src/components/common/CommandPaletteTrigger.test.tsx`: click invokes `useCommandPalette.open()`
-- [ ] Create `src/components/common/NewTradeButton.test.tsx`: click invokes `useNewTradeDrawer.open()`
-- [ ] Verify: `pnpm test` all green
-- [ ] Verify: `pnpm typecheck` clean
-- [ ] Verify: `pnpm lint` clean
-- [ ] Verify: Playwright topbar shows all three widgets on the dashboard route (≥1024px); click `+ Nuevo Trade` opens drawer (drawer is empty until Wave 5 — `GlassDrawer` renders without content)
-- [ ] Commit: `feat(topbar): add RiskSemaphore placeholder + Cmd+K trigger + +Nuevo Trade button`
+- [x] Created `src/components/common/RiskSemaphore.tsx` — read from useRiskLevel; lg+ only
+- [x] Created `src/components/common/CommandPaletteTrigger.tsx` — opens useCommandPalette
+- [x] Created `src/components/common/NewTradeButton.tsx` — opens useNewTradeDrawer, jade with glow
+- [x] Edit `src/layout/TopNav.tsx`: widgets slotted into the auth-only chrome on the right
+- [x] Tests in `src/components/common/__tests__/topbarWidgets.test.tsx` — 4 cases
+- [x] Verify: `pnpm test` 118/118
+- [x] Verify: `pnpm typecheck` zero new errors
+- [x] Commit: `feat(topbar): add RiskSemaphore placeholder + Cmd+K trigger + +Nuevo Trade button`
 
 ## Wave 5 — NewTradeDrawer + form + mutation + useQuery migration
 

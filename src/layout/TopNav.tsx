@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { TopNavMobileDrawer } from './TopNavMobileDrawer';
 import { useAuth } from '../features/auth/useAuth';
+import { RiskSemaphore } from '../components/common/RiskSemaphore';
+import { CommandPaletteTrigger } from '../components/common/CommandPaletteTrigger';
+import { NewTradeButton } from '../components/common/NewTradeButton';
 
 /*
  * p0b.2 + hide-public-chrome-on-auth — TopNav with auth-aware chrome.
@@ -123,6 +126,9 @@ export function TopNav() {
 
             {isAuthenticated && displayName !== null ? (
               <div data-testid="topnav-auth-chrome" className="flex items-center gap-2 md:gap-3">
+                <RiskSemaphore />
+                <CommandPaletteTrigger />
+                <NewTradeButton />
                 <span
                   data-testid="topnav-user-name"
                   className="hidden md:inline text-text-secondary font-body text-sm max-w-[160px] truncate"
