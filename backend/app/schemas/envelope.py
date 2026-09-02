@@ -30,6 +30,12 @@ class ErrorCode(str, Enum):
     IDEMPOTENCY_KEY_REQUIRED = "IDEMPOTENCY_KEY_REQUIRED"
     IDEMPOTENCY_CONFLICT = "IDEMPOTENCY_CONFLICT"
 
+    # TradingAccount (p0e.2) — confirman la traducción 1-a-1 con
+    # ``TradingAccountError.code`` y permiten al frontend mapear
+    # cada causa a i18n sin inferir por status code.
+    INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE"
+    CONFIRMATION_REQUIRED = "CONFIRMATION_REQUIRED"
+
     # Workspace
     WORKSPACE_ACCESS_DENIED = "WORKSPACE_ACCESS_DENIED"
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"

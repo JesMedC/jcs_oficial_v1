@@ -33,8 +33,12 @@ from app.services.subscription_service import (
     upgrade_subscription,
 )
 from app.services.trading_account_service import (
+    TradingAccountError,
     create_trading_account,
+    delete_account,
+    fund_account,
     list_user_accounts,
+    withdraw_account,
 )
 from app.services.user_service import (
     get_user_by_email,
@@ -76,5 +80,8 @@ __all__ = [
     "get_top_pages",
     "get_analytics_summary",
     "create_trading_account",
+    "fund_account",
+    "withdraw_account",
+    "delete_account",
     "list_user_accounts",
 ]

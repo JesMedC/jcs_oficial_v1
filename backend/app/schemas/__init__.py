@@ -31,9 +31,12 @@ from app.schemas.subscription import (
     UpgradeOut,
 )
 from app.schemas.trading_account import (
+    DeleteIn,
+    FundIn,
     TradingAccountIn,
     TradingAccountListOut,
     TradingAccountOut,
+    WithdrawIn,
 )
 from app.schemas.user import UserOut
 from app.schemas.workspace import WorkspaceOut
@@ -68,6 +71,9 @@ __all__ = [
     "TradingAccountIn",
     "TradingAccountListOut",
     "TradingAccountOut",
+    "FundIn",
+    "WithdrawIn",
+    "DeleteIn",
     "UserOut",
     "WorkspaceOut",
 ]

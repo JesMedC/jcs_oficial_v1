@@ -1,12 +1,19 @@
-"""Tests del módulo ``TradingAccount`` — p0d.1.
+"""Tests del módulo ``TradingAccount`` — p0d.1 + p0e.2.
 
-Cubre ``GET /api/v1/accounts`` y ``POST /api/v1/accounts``:
+p0d.1 cubre ``GET /api/v1/accounts`` y ``POST /api/v1/accounts``:
 - listado vacío inicial;
 - create con ``balance_usd=0`` por default;
 - la cuenta aparece en el listado del dueño;
 - scoping per-user (un user NO ve las cuentas de otro);
 - validación (broker_name vacío / type inválido → 422);
 - 401 sin token.
+
+p0e.2 cubre ``POST /fund``, ``POST /withdraw``, ``DELETE /{id}``:
+- happy paths + validación de amount (gt 0, Numeric(10,2));
+- insufficient balance (422 INSUFFICIENT_BALANCE);
+- ownership 404 (no leak de existencia);
+- soft delete + "ELIMINAR" confirmation;
+- cuenta borrada no es mutable vía fund/withdraw.
 """
 from __future__ import annotations
 
@@ -14,9 +21,10 @@ import uuid
 from decimal import Decimal
 
 import pytest
+from sqlalchemy import select
 
 from app.core.security.password import hash_password
-from app.models import User, UserRole
+from app.models import AuditLog, TradingAccount, User, UserRole
 
 
 async def _register(client, payload: dict) -> dict:
@@ -33,6 +41,20 @@ def _payload(unique_email: str) -> dict:
         "last_name": "User",
         "phone": "+34612345678",
     }
+
+
+async def _create_account(
+    client, headers: dict, *, broker: str = "Pocket Option",
+    type: str = "BINARY", name: str = "Cuenta principal"
+) -> dict:
+    """Helper p0e.2: crea una cuenta y devuelve el body de la respuesta."""
+    resp = await client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"broker_name": broker, "type": type, "name": name},
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
 
 
 async def test_list_accounts_empty_initially(client, valid_register_payload) -> None:
@@ -230,3 +252,326 @@ async def test_create_account_unauthenticated_returns_401(client) -> None:
     )
     assert resp.status_code == 401, resp.text
     assert resp.json()["code"] == "AUTH_TOKEN_MISSING"
+
+
+# ============================================================
+# p0e.2 — fund / withdraw / delete
+# ============================================================
+
+
+async def test_fund_account_increases_balance_and_emits_audit(
+    client, valid_register_payload, db_session
+) -> None:
+    """POST /fund happy path → 200, balance += amount, audit_log con new_balance."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    account_id = account["id"]
+
+    resp = await client.post(
+        f"/api/v1/accounts/{account_id}/fund",
+        headers=headers,
+        json={"amount": "250.00"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert Decimal(body["balance_usd"]) == Decimal("250.00")
+    assert body["id"] == account_id
+
+    # Audit log entry debe existir.
+    rows = list(
+        (await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "account.fund",
+                AuditLog.entity_id == account_id,
+            )
+        )).scalars().all()
+    )
+    assert len(rows) == 1, "expected exactly one account.fund audit row"
+    entry = rows[0]
+    assert entry.new_value == {
+        "amount": "250.00",
+        "new_balance": "250.00",
+    }
+    assert entry.previous_value == {"balance_usd": "0.00"}
+
+
+async def test_fund_account_zero_amount_returns_422(
+    client, valid_register_payload
+) -> None:
+    """fund con amount=0 → 422 VALIDATION_ERROR (Pydantic gt=0)."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    resp = await client.post(
+        f"/api/v1/accounts/{account['id']}/fund",
+        headers=headers,
+        json={"amount": "0"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "VALIDATION_ERROR"
+
+
+async def test_fund_account_negative_amount_returns_422(
+    client, valid_register_payload
+) -> None:
+    """fund con amount<0 → 422 VALIDATION_ERROR."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    resp = await client.post(
+        f"/api/v1/accounts/{account['id']}/fund",
+        headers=headers,
+        json={"amount": "-50.00"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "VALIDATION_ERROR"
+
+
+async def test_fund_other_users_account_returns_404(
+    client, valid_register_payload, db_session
+) -> None:
+    """fund sobre cuenta ajena → 404 NOT_FOUND (no leak de existencia)."""
+    reg_a = await _register(client, valid_register_payload)
+    headers_a = {"Authorization": f"Bearer {reg_a['access_token']}"}
+    account_a = await _create_account(
+        client, headers_a, name="A's account"
+    )
+
+    # Creamos user B directo en DB + login.
+    suffix = uuid.uuid4().hex[:8]
+    user_b = User(
+        email=f"fund_b_{suffix}@jadecapital.local",
+        password_hash=hash_password("Trader1234!"),
+        first_name="B",
+        last_name="User",
+        phone="+34600000000",
+        role=UserRole.USER,
+    )
+    db_session.add(user_b)
+    await db_session.flush()
+    login_b = await client.post(
+        "/api/v1/auth/login",
+        json={"email": user_b.email, "password": "Trader1234!"},
+    )
+    assert login_b.status_code == 200, login_b.text
+    headers_b = {"Authorization": f"Bearer {login_b.json()['access_token']}"}
+
+    resp = await client.post(
+        f"/api/v1/accounts/{account_a['id']}/fund",
+        headers=headers_b,
+        json={"amount": "100.00"},
+    )
+    assert resp.status_code == 404, resp.text
+    assert resp.json()["code"] == "NOT_FOUND"
+
+
+async def test_withdraw_account_decreases_balance(
+    client, valid_register_payload
+) -> None:
+    """POST /withdraw happy path → 200, balance -= amount."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    account_id = account["id"]
+
+    # Primero fondeamos 500.
+    fund_resp = await client.post(
+        f"/api/v1/accounts/{account_id}/fund",
+        headers=headers,
+        json={"amount": "500.00"},
+    )
+    assert fund_resp.status_code == 200, fund_resp.text
+    assert Decimal(fund_resp.json()["balance_usd"]) == Decimal("500.00")
+
+    # Ahora retiramos 200.
+    resp = await client.post(
+        f"/api/v1/accounts/{account_id}/withdraw",
+        headers=headers,
+        json={"amount": "200.00"},
+    )
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert Decimal(body["balance_usd"]) == Decimal("300.00")
+
+
+async def test_withdraw_exceeding_balance_returns_422_insufficient(
+    client, valid_register_payload
+) -> None:
+    """withdraw > balance → 422 INSUFFICIENT_BALANCE."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    account_id = account["id"]
+
+    # Fondeamos 100.
+    fund_resp = await client.post(
+        f"/api/v1/accounts/{account_id}/fund",
+        headers=headers,
+        json={"amount": "100.00"},
+    )
+    assert fund_resp.status_code == 200, fund_resp.text
+
+    # Pedimos 150 (más que el saldo).
+    resp = await client.post(
+        f"/api/v1/accounts/{account_id}/withdraw",
+        headers=headers,
+        json={"amount": "150.00"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "INSUFFICIENT_BALANCE"
+
+
+async def test_withdraw_zero_amount_returns_422(
+    client, valid_register_payload
+) -> None:
+    """withdraw con amount=0 → 422 VALIDATION_ERROR."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    resp = await client.post(
+        f"/api/v1/accounts/{account['id']}/withdraw",
+        headers=headers,
+        json={"amount": "0"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "VALIDATION_ERROR"
+
+
+async def test_delete_account_with_confirmation_returns_204(
+    client, valid_register_payload, db_session
+) -> None:
+    """DELETE con confirmation='ELIMINAR' → 204, la cuenta no aparece en list."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    account_id = account["id"]
+
+    resp = await client.request(
+        "DELETE",
+        f"/api/v1/accounts/{account_id}",
+        headers=headers,
+        json={"confirmation": "ELIMINAR"},
+    )
+    assert resp.status_code == 204, resp.text
+
+    # List ya no la incluye.
+    list_resp = await client.get("/api/v1/accounts", headers=headers)
+    assert list_resp.status_code == 200, list_resp.text
+    assert list_resp.json()["total"] == 0
+
+    # Pero la fila sigue en DB con deleted_at populado (soft delete).
+    row = (
+        await db_session.execute(
+            select(TradingAccount).where(TradingAccount.id == uuid.UUID(account_id))
+        )
+    ).scalar_one()
+    assert row.deleted_at is not None
+
+    # Y emitió audit log.
+    audit_rows = list(
+        (await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "account.delete",
+                AuditLog.entity_id == account_id,
+            )
+        )).scalars().all()
+    )
+    assert len(audit_rows) == 1
+    assert audit_rows[0].previous_value == {
+        "broker_name": "Pocket Option",
+        "name": "Cuenta principal",
+        "last_balance": "0.00",
+    }
+
+
+async def test_delete_account_wrong_confirmation_returns_400(
+    client, valid_register_payload
+) -> None:
+    """DELETE con confirmation != 'ELIMINAR' → 400 CONFIRMATION_REQUIRED."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    resp = await client.request(
+        "DELETE",
+        f"/api/v1/accounts/{account['id']}",
+        headers=headers,
+        json={"confirmation": "eliminar"},  # minúsculas
+    )
+    assert resp.status_code == 400, resp.text
+    assert resp.json()["code"] == "CONFIRMATION_REQUIRED"
+
+
+async def test_delete_other_users_account_returns_404(
+    client, valid_register_payload, db_session
+) -> None:
+    """DELETE sobre cuenta ajena → 404 NOT_FOUND."""
+    reg_a = await _register(client, valid_register_payload)
+    headers_a = {"Authorization": f"Bearer {reg_a['access_token']}"}
+    account_a = await _create_account(
+        client, headers_a, name="A's account"
+    )
+
+    suffix = uuid.uuid4().hex[:8]
+    user_b = User(
+        email=f"del_b_{suffix}@jadecapital.local",
+        password_hash=hash_password("Trader1234!"),
+        first_name="B",
+        last_name="User",
+        phone="+34600000000",
+        role=UserRole.USER,
+    )
+    db_session.add(user_b)
+    await db_session.flush()
+    login_b = await client.post(
+        "/api/v1/auth/login",
+        json={"email": user_b.email, "password": "Trader1234!"},
+    )
+    assert login_b.status_code == 200, login_b.text
+    headers_b = {"Authorization": f"Bearer {login_b.json()['access_token']}"}
+
+    resp = await client.request(
+        "DELETE",
+        f"/api/v1/accounts/{account_a['id']}",
+        headers=headers_b,
+        json={"confirmation": "ELIMINAR"},
+    )
+    assert resp.status_code == 404, resp.text
+    assert resp.json()["code"] == "NOT_FOUND"
+
+
+async def test_fund_and_withdraw_deleted_account_returns_404(
+    client, valid_register_payload
+) -> None:
+    """Cuenta soft-deleted no es mutable vía fund/withdraw → 404."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers)
+    account_id = account["id"]
+
+    # Borramos.
+    del_resp = await client.request(
+        "DELETE",
+        f"/api/v1/accounts/{account_id}",
+        headers=headers,
+        json={"confirmation": "ELIMINAR"},
+    )
+    assert del_resp.status_code == 204, del_resp.text
+
+    # fund → 404.
+    fund_resp = await client.post(
+        f"/api/v1/accounts/{account_id}/fund",
+        headers=headers,
+        json={"amount": "10.00"},
+    )
+    assert fund_resp.status_code == 404, fund_resp.text
+    assert fund_resp.json()["code"] == "NOT_FOUND"
+
+    # withdraw → 404.
+    wd_resp = await client.post(
+        f"/api/v1/accounts/{account_id}/withdraw",
+        headers=headers,
+        json={"amount": "5.00"},
+    )
+    assert wd_resp.status_code == 404, wd_resp.text
+    assert wd_resp.json()["code"] == "NOT_FOUND"

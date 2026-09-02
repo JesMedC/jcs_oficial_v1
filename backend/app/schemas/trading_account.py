@@ -3,6 +3,11 @@
 p0d.1: ``TradingAccountIn`` NO incluye ``balance_usd`` — siempre arranca
 en 0 al crear (el default vive en la DB). ``TradingAccountOut`` lo
 expone para que el cliente sepa el estado actual.
+
+p0e.2: ``FundIn`` y ``WithdrawIn`` validan ``amount`` con la misma
+precisión que la columna (``Numeric(10, 2)``) y exigen ``> 0``.
+``DeleteIn`` exige una palabra de confirmación explícita (``"ELIMINAR"``)
+para que el frontend no pueda borrar cuentas con un click perdido.
 """
 from __future__ import annotations
 
@@ -53,8 +58,59 @@ class TradingAccountListOut(BaseModel):
     limit: int
 
 
+class FundIn(BaseModel):
+    """Body para ``POST /api/v1/accounts/{id}/fund``.
+
+    ``amount`` > 0 con la misma precisión que la columna
+    (``Numeric(10, 2)``). Rechaza montos negativos o cero desde la capa
+    de validación — el service no necesita repetir la comprobación.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    amount: Decimal = Field(
+        gt=Decimal("0"),
+        max_digits=10,
+        decimal_places=2,
+    )
+
+
+class WithdrawIn(BaseModel):
+    """Body para ``POST /api/v1/accounts/{id}/withdraw``.
+
+    Mismas reglas que ``FundIn`` (``amount > 0``, ``Numeric(10, 2)``).
+    El check ``amount <= balance_usd`` lo hace el service, no Pydantic,
+    porque depende del estado actual del row.
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    amount: Decimal = Field(
+        gt=Decimal("0"),
+        max_digits=10,
+        decimal_places=2,
+    )
+
+
+class DeleteIn(BaseModel):
+    """Body para ``DELETE /api/v1/accounts/{id}``.
+
+    ``confirmation`` debe valer exactamente ``"ELIMINAR"`` (case
+    sensitive) — el service lo valida y devuelve ``CONFIRMATION_REQUIRED``
+    si no coincide. Acá sólo garantizamos que el string llegue no vacío
+    y acotado (un body gigante no tiene sentido).
+    """
+
+    model_config = ConfigDict(extra="forbid", str_strip_whitespace=True)
+
+    confirmation: str = Field(min_length=1, max_length=50)
+
+
 __all__ = [
     "TradingAccountIn",
     "TradingAccountOut",
     "TradingAccountListOut",
+    "FundIn",
+    "WithdrawIn",
+    "DeleteIn",
 ]
