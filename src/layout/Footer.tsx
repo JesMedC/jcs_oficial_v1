@@ -1,6 +1,15 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 
+import { useAuth } from '../features/auth/useAuth';
+
+/*
+ * hide-public-chrome-on-auth — the public marketing footer is only
+ * visible to signed-out visitors. Once the user authenticates the
+ * portal sidebar (p0d.2) becomes the primary navigation surface, so
+ * we suppress this footer entirely to avoid duplicate chrome.
+ */
+
 const productLinks: ReadonlyArray<{ label: string; to: string }> = [
   { label: 'Características', to: '/features' },
   { label: 'Precios', to: '/pricing' },
@@ -33,6 +42,13 @@ function SocialIcon({ children, label }: { children: ReactNode; label: string })
 }
 
 export function Footer() {
+  const { user } = useAuth();
+  if (user !== null) {
+    // Authenticated visitors land in the portal, which renders its
+    // own sidebar (p0d.2) — the marketing footer is suppressed.
+    return null;
+  }
+
   return (
     <footer className="border-t border-primary/20 bg-surface/40 backdrop-blur-md mt-auto">
       <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 md:py-16">
