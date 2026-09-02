@@ -1,5 +1,11 @@
 /*
  * p0d.3 / p0e.3 — Portal CuentasPage (real).
+ * portal-fase0a-base — migrated data fetching from useEffect+axios to
+ *         TanStack Query via useAccounts(). The create-account form
+ *         still uses a one-shot mutation so the form keeps working
+ *         without rewriting the input bindings. After a successful
+ *         create the ['accounts'] query is invalidated, the same way
+ *         useCreateTrade invalidates after a new trade.
  *
  * Replaces the p0d.2 placeholder. Lists the user's trading accounts
  * (GET /accounts) and lets them create new ones via a form
@@ -21,16 +27,17 @@
  * Per mem #68, copy is Spanish. Per mem #70 the primary token is
  * jade #2EDC8C and the Orbitron display font is used for headings.
  */
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { SeoHead } from '../../components/SeoHead';
 import { GlassCard } from '../../components/GlassCard';
 import { ErrorBanner } from '../../components/ErrorBanner';
-import { createAccountApi, listAccountsApi } from '../../features/accounts/api';
+import { createAccountApi } from '../../features/accounts/api';
+import { useAccounts } from '../../features/accounts/hooks';
 import {
   ACCOUNT_TYPE_BADGE,
-  type AccountOut,
   type AccountTypeLiteral,
   type CreateAccountPayload,
 } from '../../features/accounts/types';
@@ -65,31 +72,16 @@ function formatDate(iso: string): string {
 }
 
 export function CuentasPage() {
-  const [accounts, setAccounts] = useState<readonly AccountOut[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const accountsQuery = useAccounts();
+  const accounts = accountsQuery.data?.items ?? [];
+  const loading = accountsQuery.isLoading;
+  const queryError = accountsQuery.error as ErrorEnvelope | null;
   const [error, setError] = useState<ErrorEnvelope | null>(null);
   const [creating, setCreating] = useState<boolean>(false);
   const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
+  const queryClient = useQueryClient();
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const list = await listAccountsApi();
-        if (cancelled) return;
-        setAccounts(list.items);
-        setError(null);
-      } catch (err) {
-        if (cancelled) return;
-        setError(err as ErrorEnvelope);
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const displayedError = error ?? queryError;
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -105,10 +97,10 @@ export function CuentasPage() {
     };
     setCreating(true);
     try {
-      const created = await createAccountApi(payload);
-      setAccounts((prev) => [created, ...prev]);
+      await createAccountApi(payload);
       setForm(EMPTY_FORM);
       setError(null);
+      await queryClient.invalidateQueries({ queryKey: ['accounts'] });
     } catch (err) {
       setError(err as ErrorEnvelope);
     } finally {
@@ -131,7 +123,7 @@ export function CuentasPage() {
           el modulo de balances.
         </p>
 
-        <ErrorBanner error={error} onDismiss={() => setError(null)} className="mt-6 mb-2" />
+        <ErrorBanner error={displayedError} onDismiss={() => setError(null)} className="mt-6 mb-2" />
 
         <GlassCard variant="default" className="mt-6">
           <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg mb-4">

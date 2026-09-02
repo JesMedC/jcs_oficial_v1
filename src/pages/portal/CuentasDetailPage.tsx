@@ -27,15 +27,17 @@
  * Per mem #68, UI copy is Spanish. Per mem #70, visual language
  * matches the jade + Orbitron + glassmorphism used elsewhere.
  */
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { SeoHead } from '../../components/SeoHead';
 import { GlassCard } from '../../components/GlassCard';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
-import { getAccountById } from '../../features/accounts/api';
+import { fundAccountApi, getAccountById, withdrawAccountApi } from '../../features/accounts/api';
+import { useAccount } from '../../features/accounts/hooks';
 import {
   ACCOUNT_TYPE_BADGE,
   type AccountOut,
@@ -80,54 +82,20 @@ export function CuentasDetailPage() {
   const tabParam = searchParams.get('tab');
   const activeTab: TabId = isTabId(tabParam) ? tabParam : 'resumen';
 
-  const [account, setAccount] = useState<AccountOut | null>(null);
-  const [loading, setLoading] = useState<boolean>(true);
-  const [notFound, setNotFound] = useState<boolean>(false);
+  const accountQuery = useAccount(accountId ?? '');
+  const account = accountQuery.data ?? null;
+  const loading = accountQuery.isLoading;
+  const queryError = accountQuery.error as ErrorEnvelope | null;
+  const notFound = accountQuery.error !== null
+    ? (accountQuery.error as { code?: string }).code === 'NOT_FOUND'
+    : false;
   const [error, setError] = useState<ErrorEnvelope | null>(null);
   const [fundOpen, setFundOpen] = useState<boolean>(false);
   const [withdrawOpen, setWithdrawOpen] = useState<boolean>(false);
   const [deleteOpen, setDeleteOpen] = useState<boolean>(false);
+  const queryClient = useQueryClient();
 
-  const fetchAccount = useCallback(
-    (signal: { cancelled: boolean }) => {
-      if (accountId === undefined) {
-        setNotFound(true);
-        setLoading(false);
-        return;
-      }
-      (async () => {
-        try {
-          const data = await getAccountById(accountId);
-          if (signal.cancelled) return;
-          setAccount(data);
-          setNotFound(false);
-          setError(null);
-        } catch (err) {
-          if (signal.cancelled) return;
-          const envelope = err as ErrorEnvelope;
-          if (envelope.code === 'NOT_FOUND') {
-            setNotFound(true);
-          } else {
-            setError(envelope);
-          }
-        } finally {
-          if (!signal.cancelled) setLoading(false);
-        }
-      })();
-    },
-    [accountId],
-  );
-
-  useEffect(() => {
-    const signal = { cancelled: false };
-    setLoading(true);
-    setNotFound(false);
-    setError(null);
-    fetchAccount(signal);
-    return () => {
-      signal.cancelled = true;
-    };
-  }, [fetchAccount]);
+  const displayedError = error ?? (notFound ? null : queryError);
 
   const handleTabChange = (next: TabId) => {
     if (next === activeTab) return;
@@ -141,7 +109,8 @@ export function CuentasDetailPage() {
   };
 
   const handleSuccess = (updated: AccountOut) => {
-    setAccount(updated);
+    queryClient.setQueryData(['account', updated.id], updated);
+    queryClient.invalidateQueries({ queryKey: ['accounts'] });
     setFundOpen(false);
     setWithdrawOpen(false);
   };
@@ -221,7 +190,7 @@ export function CuentasDetailPage() {
           </span>
         </div>
 
-        <ErrorBanner error={error} onDismiss={() => setError(null)} className="mt-6 mb-2" />
+        <ErrorBanner error={displayedError} onDismiss={() => setError(null)} className="mt-6 mb-2" />
 
         <nav
           className="mt-6 border-b border-primary/20 flex gap-1 overflow-x-auto"

@@ -1,10 +1,11 @@
-import { useState } from 'react';
+import { Suspense, useState } from 'react';
 import { Link, NavLink, useNavigate } from 'react-router-dom';
 import { TopNavMobileDrawer } from './TopNavMobileDrawer';
 import { useAuth } from '../features/auth/useAuth';
 import { RiskSemaphore } from '../components/common/RiskSemaphore';
 import { CommandPaletteTrigger } from '../components/common/CommandPaletteTrigger';
 import { NewTradeButton } from '../components/common/NewTradeButton';
+import { NewTradeDrawer } from '../features/trades/NewTradeDrawer';
 
 /*
  * p0b.2 + hide-public-chrome-on-auth — TopNav with auth-aware chrome.
@@ -167,6 +168,14 @@ export function TopNav() {
           onClose={() => setDrawerOpen(false)}
         />
       ) : null}
+
+      {/*
+       * portal-fase0a-base — portal-level mount so the right-side
+       * drawer is reachable from any portal route. TopNav already
+       * owns this surface, so we keep it next to the mobile drawer
+       * sibling rather than threading it through PortalShell.
+       */}
+      <NewTradeDrawer />
     </>
   );
 }

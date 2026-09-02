@@ -25,12 +25,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../../../features/accounts/api', () => ({
   getAccountById: vi.fn(),
   fundAccountApi: vi.fn(),
   withdrawAccountApi: vi.fn(),
   deleteAccountApi: vi.fn(),
+  listAccountsApi: vi.fn(),
+  createAccountApi: vi.fn(),
 }));
 
 import {
@@ -61,14 +64,19 @@ const mockedWithdraw = withdrawAccountApi as unknown as ReturnType<typeof vi.fn>
 // round-trip. The wrapper test for it lives in api.test.ts.
 
 function renderAt(path: string) {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <HelmetProvider>
-      <MemoryRouter initialEntries={[path]}>
-        <Routes>
-          <Route path="/portal/cuentas/:accountId" element={<CuentasDetailPage />} />
-        </Routes>
-      </MemoryRouter>
-    </HelmetProvider>,
+    <QueryClientProvider client={queryClient}>
+      <HelmetProvider>
+        <MemoryRouter initialEntries={[path]}>
+          <Routes>
+            <Route path="/portal/cuentas/:accountId" element={<CuentasDetailPage />} />
+          </Routes>
+        </MemoryRouter>
+      </HelmetProvider>
+    </QueryClientProvider>,
   );
 }
 

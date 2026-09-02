@@ -17,10 +17,15 @@ import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../../../features/accounts/api', () => ({
   listAccountsApi: vi.fn(),
   createAccountApi: vi.fn(),
+  getAccountById: vi.fn(),
+  fundAccountApi: vi.fn(),
+  withdrawAccountApi: vi.fn(),
+  deleteAccountApi: vi.fn(),
 }));
 
 import { createAccountApi, listAccountsApi } from '../../../features/accounts/api';
@@ -60,12 +65,17 @@ function emptyList(): AccountList {
 }
 
 function renderPage() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false } },
+  });
   return render(
-    <HelmetProvider>
-      <MemoryRouter>
-        <CuentasPage />
-      </MemoryRouter>
-    </HelmetProvider>,
+    <QueryClientProvider client={queryClient}>
+      <HelmetProvider>
+        <MemoryRouter>
+          <CuentasPage />
+        </MemoryRouter>
+      </HelmetProvider>
+    </QueryClientProvider>,
   );
 }
 
@@ -108,12 +118,6 @@ describe('CuentasPage', () => {
   });
 
   it('filling the form + submitting posts payload and prepends new row', async () => {
-    mockedList.mockResolvedValueOnce({
-      items: [buildAccounts()[0]!],
-      total: 1,
-      skip: 0,
-      limit: 50,
-    });
     const newAccount: AccountOut = {
       id: 'acc-new',
       user_id: 'u-1',
@@ -124,7 +128,27 @@ describe('CuentasPage', () => {
       created_at: '2026-09-01T11:00:00.000Z',
       updated_at: '2026-09-01T11:00:00.000Z',
     };
-    mockedCreate.mockResolvedValueOnce(newAccount);
+    // First list call returns the seed; after the create+invalidate, the
+    // refetch must include both the original row and the new one. Using
+    // mockImplementation lets every call return a response keyed on the
+    // current "known accounts" set.
+    const known: AccountOut[] = [buildAccounts()[0] as AccountOut];
+    mockedList.mockImplementation(async () => ({
+      items: known,
+      total: known.length,
+      skip: 0,
+      limit: 50,
+    }));
+    mockedCreate.mockImplementation(async (payload) => {
+      const created: AccountOut = {
+        ...newAccount,
+        broker_name: payload.broker_name,
+        type: payload.type,
+        name: payload.name,
+      };
+      known.unshift(created);
+      return created;
+    });
 
     renderPage();
     await waitFor(() => {
