@@ -25,7 +25,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: jcs-backend
+    # Sin container_name: Docker Compose autonombra `jcs-backend-1`, `-2`, `-3` con --scale.
     restart: unless-stopped
     depends_on:
       postgres:
@@ -44,12 +44,37 @@ services:
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
       MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:-}
       MERCADOPAGO_WEBHOOK_URL: ${MERCADOPAGO_WEBHOOK_URL:-}
-    ports:
-      - "8000:8000"
+    # expose (NO ports): backend NO se publica al host — solo Nginx puede llegar.
+    expose:
+      - "8000"
     volumes:
       # Hot-reload friendly: monta el código desde el host.
       - ./backend:/app
     command: ["bash", "entrypoint.sh"]
+    # Healthcheck via Python (la imagen base `python:3.12-slim` no trae curl).
+    # Cualquier HTTP no-200 hace raise HTTPError -> exit != 0 -> unhealthy.
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - python -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=2)"
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+  nginx:
+    image: nginx:1.27-alpine
+    container_name: jcs-nginx
+    restart: unless-stopped
+    depends_on:
+      backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./infra/nginx/certs:/etc/nginx/certs:ro
 
   frontend:
     image: node:20-alpine
