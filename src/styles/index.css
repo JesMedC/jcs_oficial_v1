@@ -3,18 +3,20 @@
 @tailwind utilities;
 
 /*
- * CSS variables mirror the cyan design tokens from tailwind.config.ts.
+ * CSS variables mirror the design tokens from tailwind.config.ts.
  * Var names keep the "jade-" prefix for compatibility with later slices
- * (p1b+) that consume these names directly. VALUES are cyan per mem #70
- * (jarvis-hrz visual override), NOT jade.
+ * (p1b+) that consume these names directly. VALUES are jade per
+ * portal-fase0a-base (cyan -> jade primary pivot).
  */
 :root {
   --color-jade-bg: #080d12;
   --color-jade-surface: #0d141b;
   --color-jade-surface-el: #111b24;
   --color-jade-border: #1c2a35;
-  --color-jade: #00ffff;
-  --color-jade-dk: #00b8b8;
+  --color-jade: #2edc8c;
+  --color-jade-dk: #25b070;
+  --color-jade-light: #7fe9b5;
+  --color-jade-glow: #2edc8c;
   --color-jade-profit: #35d07f;
   --color-jade-loss: #ff5c5c;
   --color-jade-warning: #f3b94e;
@@ -24,6 +26,25 @@
   --color-jade-text-mut: #607080;
   --shadow-jade-glass: 0 8px 32px 0 rgba(8, 13, 18, 0.45);
   --shadow-jade-elevated: 0 12px 48px 0 rgba(8, 13, 18, 0.6);
+}
+
+/*
+ * portal-fase0a-base — financial/data typography. Tabular figures for
+ * numerics (P&L, lot_size, balances) with no glow effect so account
+ * tables stay readable.
+ */
+.text-financial {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' 1;
+}
+
+/*
+ * portal-fase0a-base — primary glow. Reserved for branding surfaces,
+ * not for financial data. Apply via [data-glow-primary] attribute on
+ * .brand, h1, h2 (the design-only consumers).
+ */
+.glow-primary {
+  text-shadow: 0 0 20px rgba(46, 220, 140, 0.4);
 }
 
 html,

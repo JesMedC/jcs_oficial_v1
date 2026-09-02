@@ -12,10 +12,21 @@ const config: Config = {
         surface: '#0D141B',
         'surface-el': '#111B24',
         border: '#1C2A35',
+        // portal-fase0a-base — primary pivoted cyan -> jade.
+        // Same five-step ladder as the cyan theme had (#2EDC8C +
+        // mid-tone, lighter highlight, glow fallback) plus a
+        // foreground token for text/iconography that sits on top of
+        // primary surfaces.
         primary: {
-          DEFAULT: '#00FFFF',
-          dk: '#00B8B8',
+          DEFAULT: '#2EDC8C',
+          dk: '#25B070',
+          light: '#7FE9B5',
+          glow: '#2EDC8C',
         },
+        // Foreground color used for text/icons rendered ON primary
+        // surfaces (buttons, badges, etc.). Dark to keep contrast
+        // acceptable against the bright jade.
+        'primary-fg': '#080D12',
         // Glassmorphism tokens (p0ui.1) — translucent surfaces with
         // backdrop blur. Applied selectively to chrome (sidebar,
         // modals, account cards, topbar). NEVER on financial tables,

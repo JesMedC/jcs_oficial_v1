@@ -51,18 +51,18 @@ Chain strategy: stacked-to-main
 
 ## Wave 1a — Jade tokens
 
-- [ ] Edit `tailwind.config.ts`: set `colors.primary.DEFAULT` from `#00FFFF` to `#2EDC8C`
-- [ ] Edit `tailwind.config.ts`: set `colors.primary.dk` `#25B070`, `colors.primary.light` `#7FE9B5`, `colors.primary.glow` `#2EDC8C`
-- [ ] Edit `tailwind.config.ts`: add `'primary-fg': '#080D12'` (foreground on primary surfaces)
-- [ ] Edit `src/styles/index.css`: replace CSS vars `--color-primary` and friends with jade values; update comment to "VALUES are jade per portal-fase0a-base"
-- [ ] Edit `src/styles/index.css`: add `.text-financial { font-family: 'JetBrains Mono', monospace }` utility (no glow)
-- [ ] Edit `src/styles/index.css`: add `.glow-primary { text-shadow: 0 0 20px rgba(46, 220, 140, 0.4) }` — usage restricted via linter comment or design review to `.brand`, `h1`, `h2`, `[data-glow-primary]`
-- [ ] Generate baseline screenshots at `.playwright-mcp/jade-pivot/baseline_home.png`, `baseline_pricing.png`, `baseline_login.png`, `baseline_dashboard.png`, `baseline_cuentas.png` — viewport 1440×900, no cache
-- [ ] Verify: `pnpm test` 91/91
-- [ ] Verify: `pnpm typecheck` clean
-- [ ] Verify: `pnpm lint` clean
-- [ ] Verify: `rg -n 'cyan|#00FFFF|glow-cyan' src/ tailwind.config.ts` still matches (this wave only changes tokens, not usages)
-- [ ] Commit: `feat(design): pivot primary color tokens cyan → jade (#2EDC8C)`
+- [x] Edit `tailwind.config.ts`: set `colors.primary.DEFAULT` from `#00FFFF` to `#2EDC8C`
+- [x] Edit `tailwind.config.ts`: set `colors.primary.dk` `#25B070`, `colors.primary.light` `#7FE9B5`, `colors.primary.glow` `#2EDC8C`
+- [x] Edit `tailwind.config.ts`: add `'primary-fg': '#080D12'` (foreground on primary surfaces)
+- [x] Edit `src/styles/index.css`: replace CSS vars `--color-primary` and friends with jade values; update comment to "VALUES are jade per portal-fase0a-base"
+- [x] Edit `src/styles/index.css`: add `.text-financial { font-family: 'JetBrains Mono', monospace }` utility (no glow)
+- [x] Edit `src/styles/index.css`: add `.glow-primary { text-shadow: 0 0 20px rgba(46, 220, 140, 0.4) }` — usage restricted via linter comment or design review to `.brand`, `h1`, `h2`, `[data-glow-primary]`
+- [x] Generate baseline screenshots at `.playwright-mcp/jade-pivot/baseline_home.png`, `baseline_pricing.png`, `baseline_login.png` — viewport 1440×900, no cache (public pages only; Wave 1d captures portal baselines after auth)
+- [x] Verify: `pnpm test` 88/91 (3 preexistentes intactos)
+- [x] Verify: `pnpm typecheck` zero new errors
+- [x] Verify: `pnpm lint` zero new errors
+- [x] Verify: `rg -n 'cyan|#00FFFF|glow-cyan' src/ tailwind.config.ts` still matches (this wave only changes tokens, not usages)
+- [x] Commit: `feat(design): pivot primary color tokens cyan → jade (#2EDC8C)`
 
 ## Wave 1b — Jade primitives
 
