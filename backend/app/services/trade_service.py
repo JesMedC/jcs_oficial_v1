@@ -36,11 +36,11 @@ Cada mutación emite un ``AuditLog`` propio (``trade.open`` o
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import date, datetime, time, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import and_, func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -55,6 +55,7 @@ from app.models import (
     TradingAccount,
     User,
 )
+from app.schemas.trade import RiskSummaryOut
 from app.services.workspace_service import (
     WorkspaceRequiredError,
     infer_workspace_id,
@@ -728,10 +729,117 @@ async def get_trade(
     return trade
 
 
+# ---------- risk summary (Topbar RiskSemaphore) ----------
+# Umbrales del semáforo (FASE 4A, provisionales). Vivir como constantes
+# a nivel de módulo permite que un test los reemplace por monkeypatch
+# si en FASE 4B se quiere parametrizar por config del workspace.
+_RED_DAILY_PNL_USD = Decimal("-50")
+_YELLOW_OPEN_TRADES = 5
+
+
+async def get_risk_summary(
+    db: AsyncSession,
+    *,
+    user: User,
+    jwt_workspace_ids: list[uuid.UUID] | None = None,
+) -> RiskSummaryOut:
+    """Compute risk level + daily aggregates for the active workspace.
+
+    Una sola query agregada (4 columnas) sobre ``trades`` filtrada por
+    ``workspace_id`` del JWT o fallback DB. Cero round-trips extras —
+    el endpoint ``GET /trades/risk-summary`` es consumido por el
+    ``RiskSemaphore`` del Topbar con polling de ~10s, así que el costo
+    debe ser O(1) sobre la tabla.
+
+    Reglas del semáforo (FASE 4A, simplificadas):
+
+    - ``red``    : ``daily_pnl < -50 USD`` (umbral duro provisional).
+    - ``yellow`` : ``daily_pnl < 0`` ó ``open_count > 5``.
+    - ``green``  : resto.
+
+    El rango "hoy" es UTC. La simplificación acepta que el P&L diario
+    se corte a las 00:00 UTC sin importar el timezone del broker — el
+    semáforo es una guía, no un signal de stop-out.
+    """
+    workspace_id = await infer_workspace_id(
+        db, user.id, jwt_workspace_ids=jwt_workspace_ids
+    )
+
+    today_start = datetime.combine(
+        date.today(), time.min, tzinfo=timezone.utc
+    )
+
+    # Una sola round-trip: open_count + daily_pnl + wins_today +
+    # closed_today. ``filtered aggregates`` evitan el doble COUNT+SUM
+    # sobre subsets distintos de filas.
+    stmt = select(
+        func.count()
+        .filter(Trade.status == TradeStatus.OPEN)
+        .label("open_count"),
+        func.coalesce(
+            func.sum(Trade.pnl_usd).filter(Trade.closed_at >= today_start),
+            0,
+        ).label("daily_pnl"),
+        func.count()
+        .filter(
+            and_(
+                Trade.closed_at >= today_start,
+                Trade.status == TradeStatus.CLOSED_WIN,
+            )
+        )
+        .label("wins_today"),
+        func.count()
+        .filter(
+            and_(
+                Trade.closed_at >= today_start,
+                Trade.status.in_(
+                    [TradeStatus.CLOSED_WIN, TradeStatus.CLOSED_LOSS]
+                ),
+            )
+        )
+        .label("closed_today"),
+    ).where(Trade.workspace_id == workspace_id)
+
+    row = (await db.execute(stmt)).one()
+    open_count = row.open_count or 0
+    daily_pnl = Decimal(str(row.daily_pnl or 0))
+    closed_today = row.closed_today or 0
+    wins_today = row.wins_today or 0
+    win_rate = (
+        wins_today / closed_today if closed_today > 0 else None
+    )
+
+    # Semáforo (orden importa: red > yellow > green).
+    if daily_pnl < _RED_DAILY_PNL_USD:
+        level = "red"
+        message = f"Pérdida diaria crítica: ${daily_pnl}"
+    elif daily_pnl < 0 or open_count > _YELLOW_OPEN_TRADES:
+        level = "yellow"
+        message = (
+            f"Atención: P&L diario ${daily_pnl}, "
+            f"{open_count} abiertas"
+        )
+    else:
+        level = "green"
+        message = "Operando dentro de parámetros normales"
+
+    return RiskSummaryOut(
+        level=level,
+        daily_pnl_usd=daily_pnl,
+        open_trades_count=open_count,
+        # ``win_rate`` puede ser None cuando no hubo cerradas hoy;
+        # el campo del schema es ``float`` (no Optional), así que
+        # default a 0.0 — el widget lo interpreta igual: "no data".
+        win_rate_today=win_rate if win_rate is not None else 0.0,
+        message=message,
+    )
+
+
 __all__ = [
     "TradeError",
     "open_trade",
     "close_trade",
     "list_trades",
     "get_trade",
+    "get_risk_summary",
 ]

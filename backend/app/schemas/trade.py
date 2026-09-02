@@ -43,6 +43,7 @@ __all__ = [
     "TradeCloseIn",
     "TradeOut",
     "TradeListOut",
+    "RiskSummaryOut",
 ]
 
 
@@ -236,3 +237,26 @@ class TradeListOut(BaseModel):
     total: int
     skip: int
     limit: int
+
+
+class RiskSummaryOut(BaseModel):
+    """Estado de riesgo del workspace activo del usuario.
+
+    Consumido por el widget ``RiskSemaphore`` del Topbar. La semántica
+    del campo ``level`` es decisión de presentación: el backend lo
+    deriva de umbrales fijos (FASE 4A) para que el frontend solo pinte.
+
+    - ``green``: P&L diario ≥ 0 y ≤ 5 trades abiertas.
+    - ``yellow``: P&L diario < 0, ó > 5 trades abiertas.
+    - ``red``: P&L diario < -50 USD (umbral duro provisional).
+
+    ``win_rate_today`` es ``0.0`` cuando no hubo trades cerradas hoy;
+    un valor ``None`` se serializa como ``0.0`` por la regla de
+    default del service (``wins/closed_today`` ⇒ división por cero).
+    """
+
+    level: Literal["green", "yellow", "red"]
+    daily_pnl_usd: Decimal
+    open_trades_count: int
+    win_rate_today: float
+    message: str

@@ -1,9 +1,13 @@
-"""Trades endpoints — ``/api/v1/trades`` (open / list / get / close).
+"""Trades endpoints — ``/api/v1/trades`` (open / list / get / close / risk).
 
-p0e.4: 4 endpoints, todos requieren auth (Bearer JWT). Las
-mutaciones son ``open`` y ``close``. ``close`` es la única que toca
-el ``balance_usd`` de la ``TradingAccount`` — el flujo se valida
+p0e.4: endpoints CRUD + lifecycle, todos requieren auth (Bearer JWT).
+Las mutaciones son ``open`` y ``close``. ``close`` es la única que
+toca el ``balance_usd`` de la ``TradingAccount`` — el flujo se valida
 contra ``account.balance_usd += pnl_usd`` (fórmula del servicio).
+
+FASE 4A: ``GET /risk-summary`` agrega métricas diarias (P&L, open
+count, win rate, semáforo) para el widget ``RiskSemaphore`` del
+Topbar. Es la única ruta de lectura que NO devuelve ``TradeOut``.
 
 Los errores del service (``TradeError``) se traducen a
 ``ErrorEnvelope`` en ``_raise_trade_error``. Las reglas canónicas:
@@ -23,6 +27,7 @@ from app.api.deps import CurrentUser, DbSession
 from app.models.trade import TradeStatus, TradeType
 from app.schemas.envelope import ErrorCode
 from app.schemas.trade import (
+    RiskSummaryOut,
     TradeCloseIn,
     TradeCreateIn,
     TradeListOut,
@@ -31,6 +36,7 @@ from app.schemas.trade import (
 from app.services.trade_service import (
     TradeError,
     close_trade,
+    get_risk_summary,
     get_trade,
     list_trades,
     open_trade,
@@ -154,6 +160,31 @@ async def open_trade_endpoint(
     except TradeError as exc:
         _raise_trade_error(exc)
     return TradeOut.model_validate(trade)
+
+
+@router.get("/risk-summary", response_model=RiskSummaryOut)
+async def get_risk_summary_endpoint(
+    user: CurrentUser,
+    db: DbSession,
+) -> RiskSummaryOut:
+    """Estado de riesgo del workspace activo del usuario.
+
+    Consumido por el ``RiskSemaphore`` del Topbar. Una sola query
+    agregada (sin N+1) — pensado para polling liviano.
+
+    Multi-tenant: el ``workspace_id`` se resuelve del JWT (o fallback
+    DB) en el service, igual que el resto de ``/trades``.
+
+    Se registra ANTES de ``/{trade_id}`` porque FastAPI matchea
+    rutas en orden de declaración: si ``risk-summary`` cayera
+    después, sería capturado como ``trade_id="risk-summary"`` y
+    reventaría en el parsing de UUID.
+    """
+    return await get_risk_summary(
+        db,
+        user=user,
+        jwt_workspace_ids=user.workspace_ids,
+    )
 
 
 @router.get("/{trade_id}", response_model=TradeOut)

@@ -851,3 +851,248 @@ async def test_open_trade_on_cross_workspace_account_returns_404(
     )
     assert resp.status_code == 404, resp.text
     assert resp.json()["code"] == "NOT_FOUND"
+
+
+# ============================================================
+# FASE 4A — GET /trades/risk-summary (Topbar RiskSemaphore)
+# ============================================================
+
+
+class TestRiskSummary:
+    """``GET /api/v1/trades/risk-summary`` — semáforo del Topbar.
+
+    Mismo patrón que el resto del archivo: registración vía HTTP +
+    creación de cuenta + opens/closes también HTTP. Para el caso
+    cross-workspace se reutiliza el patrón de
+    ``test_open_trade_on_cross_workspace_account_returns_404`` (user
+    B insertado directo en DB con su propio workspace).
+    """
+
+    async def test_risk_summary_no_trades_returns_green(
+        self, client, valid_register_payload
+    ) -> None:
+        """Workspace recién creado (sin trades) → green, ceros."""
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+        resp = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["level"] == "green"
+        assert body["open_trades_count"] == 0
+        # El Decimal se serializa como string en JSON.
+        assert Decimal(body["daily_pnl_usd"]) == Decimal("0")
+        assert body["win_rate_today"] == 0.0
+        assert body["message"]
+
+    async def test_risk_summary_positive_daily_pnl_green(
+        self, client, valid_register_payload
+    ) -> None:
+        """FOREX cerrado hoy con WIN → pnl positivo → green."""
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="FOREX")
+
+        open_resp = await client.post(
+            "/api/v1/trades", headers=headers,
+            json=_forex_open_payload(account["id"]),
+        )
+        assert open_resp.status_code == 201, open_resp.text
+        trade_id = open_resp.json()["id"]
+
+        close_resp = await client.post(
+            f"/api/v1/trades/{trade_id}/close",
+            headers=headers,
+            json={"exit_price": "1.11000000"},  # WIN: exit > entry LONG
+        )
+        assert close_resp.status_code == 200, close_resp.text
+
+        resp = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["level"] == "green"
+        assert Decimal(body["daily_pnl_usd"]) > 0
+        assert body["open_trades_count"] == 0
+        # 1 cerrada WIN / 1 cerrada total = 1.0
+        assert body["win_rate_today"] == 1.0
+
+    async def test_risk_summary_negative_daily_pnl_yellow(
+        self, client, valid_register_payload
+    ) -> None:
+        """BINARY LOSS chico (entre 0 y -50 USD) → yellow (no red).
+
+        Inversión = $10, payout 85%, LOSS → pnl = -$10. Por encima del
+        umbral duro de -50 → yellow.
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+
+        # Inversión custom de $10 (default es 100). Cast al dict del
+        # helper para no tocar la firma.
+        payload = _binary_open_payload(account["id"])
+        payload["investment_usd"] = "10.00"
+
+        open_resp = await client.post(
+            "/api/v1/trades", headers=headers, json=payload
+        )
+        assert open_resp.status_code == 201, open_resp.text
+        trade_id = open_resp.json()["id"]
+
+        close_resp = await client.post(
+            f"/api/v1/trades/{trade_id}/close",
+            headers=headers, json={"outcome": "LOSS"},
+        )
+        assert close_resp.status_code == 200, close_resp.text
+
+        resp = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert Decimal(body["daily_pnl_usd"]) < 0
+        # pnl = -10 está entre 0 y -50 → yellow, no red.
+        assert Decimal(body["daily_pnl_usd"]) > Decimal("-50")
+        assert body["level"] == "yellow"
+        # 0 WIN / 1 cerrada → win_rate = 0.0
+        assert body["win_rate_today"] == 0.0
+
+    async def test_risk_summary_big_loss_red(
+        self, client, valid_register_payload
+    ) -> None:
+        """2× BINARY LOSS con pérdida acumulada > 50 USD → red.
+
+        Inversión = $30 cada uno, LOSS → pnl total = -$60 (cruza el
+        umbral duro de -50 USD).
+        """
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+
+        for _ in range(2):
+            payload = _binary_open_payload(account["id"])
+            payload["investment_usd"] = "30.00"
+            open_resp = await client.post(
+                "/api/v1/trades", headers=headers, json=payload
+            )
+            assert open_resp.status_code == 201, open_resp.text
+            close_resp = await client.post(
+                f"/api/v1/trades/{open_resp.json()['id']}/close",
+                headers=headers, json={"outcome": "LOSS"},
+            )
+            assert close_resp.status_code == 200, close_resp.text
+
+        resp = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["level"] == "red"
+        assert Decimal(body["daily_pnl_usd"]) < Decimal("-50")
+
+    async def test_risk_summary_many_open_yellow(
+        self, client, valid_register_payload
+    ) -> None:
+        """6 trades OPEN → open_count > 5 → yellow (sin P&L)."""
+        reg = await _register(client, valid_register_payload)
+        headers = {"Authorization": f"Bearer {reg['access_token']}"}
+        account = await _create_account(client, headers, type="BINARY")
+
+        for _ in range(6):
+            open_resp = await client.post(
+                "/api/v1/trades", headers=headers,
+                json=_binary_open_payload(account["id"]),
+            )
+            assert open_resp.status_code == 201, open_resp.text
+
+        resp = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["level"] == "yellow"
+        assert body["open_trades_count"] >= 6
+        # P&L = 0 (nadie cerró).
+        assert Decimal(body["daily_pnl_usd"]) == Decimal("0")
+
+    async def test_risk_summary_unauthenticated_401(
+        self, client
+    ) -> None:
+        """Sin Authorization header → 401 AUTH_TOKEN_MISSING."""
+        resp = await client.get("/api/v1/trades/risk-summary")
+        assert resp.status_code == 401, resp.text
+        assert resp.json()["code"] == "AUTH_TOKEN_MISSING"
+
+    async def test_risk_summary_cross_workspace_isolation(
+        self, client, valid_register_payload, db_session
+    ) -> None:
+        """Trades del workspace B NO aparecen en el summary del user A.
+
+        Mismo patrón de ``test_open_trade_on_cross_workspace_account_*``
+        : user A por HTTP (workspace A), user B directo en DB con su
+        propio workspace + trade. El summary de A sólo cuenta trades
+        de su workspace.
+        """
+        # User A — workspace A via HTTP.
+        reg_a = await _register(client, valid_register_payload)
+        headers_a = {"Authorization": f"Bearer {reg_a['access_token']}"}
+
+        # User B — workspace B via DB.
+        suffix = uuid.uuid4().hex[:8]
+        user_b = User(
+            email=f"riskws_b_{suffix}@jadecapital.local",
+            password_hash=hash_password("Trader1234!"),
+            first_name="B",
+            last_name="Risk",
+            phone="+34600000999",
+            role=UserRole.USER,
+        )
+        db_session.add(user_b)
+        await db_session.flush()
+        await create_default_workspace_for_user(db_session, user_b)
+
+        login_b = await client.post(
+            "/api/v1/auth/login",
+            json={"email": user_b.email, "password": "Trader1234!"},
+        )
+        assert login_b.status_code == 200, login_b.text
+        headers_b = {
+            "Authorization": f"Bearer {login_b.json()['access_token']}"
+        }
+
+        # User B crea su cuenta + abre un trade en workspace B.
+        account_b = await _create_account(
+            client, headers_b, type="BINARY"
+        )
+        open_b = await client.post(
+            "/api/v1/trades", headers=headers_b,
+            json=_binary_open_payload(account_b["id"]),
+        )
+        assert open_b.status_code == 201, open_b.text
+
+        # Summary del user A: NO debe ver el trade de B.
+        resp = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers_a
+        )
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+
+        assert body["open_trades_count"] == 0
+        assert Decimal(body["daily_pnl_usd"]) == Decimal("0")
+        assert body["level"] == "green"
+
+        # Sanity: summary del user B sí ve su propio trade.
+        resp_b = await client.get(
+            "/api/v1/trades/risk-summary", headers=headers_b
+        )
+        assert resp_b.status_code == 200, resp_b.text
+        assert resp_b.json()["open_trades_count"] == 1
