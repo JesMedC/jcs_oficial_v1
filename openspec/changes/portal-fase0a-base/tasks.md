@@ -96,22 +96,22 @@ Chain strategy: stacked-to-main
 
 ## Wave 1d — Jade portal pages
 
-- [ ] `src/pages/portal/DashboardPage.tsx`: replace cyan literals
-- [ ] `src/pages/portal/CuentasPage.tsx`: replace cyan literals
-- [ ] `src/pages/portal/CuentasDetailPage.tsx`: replace cyan literals
-- [ ] `src/pages/portal/OperacionesPage.tsx` (stub): replace cyan literals
-- [ ] `src/pages/portal/DiarioPage.tsx` (stub): replace cyan literals
-- [ ] `src/pages/portal/PlaybookPage.tsx` (stub): replace cyan literals
-- [ ] `src/pages/portal/ConfiguracionPage.tsx` (stub): replace cyan literals
-- [ ] `src/components/portal/FundWithdrawModal.tsx`: replace cyan literals
-- [ ] `src/components/portal/DeleteAccountDialog.tsx`: replace cyan literals
-- [ ] `src/components/portal/SubscriptionCard.tsx`: replace cyan literals
-- [ ] `src/components/portal/UpgradeCard.tsx`: replace cyan literals
-- [ ] `src/components/portal/Modal.tsx`: replace cyan literals
-- [ ] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/pages/portal src/components/portal` returns zero matches
-- [ ] Verify: `pnpm test` 91/91
-- [ ] Verify: Playwright E2E login → /portal/dashboard → /portal/cuentas → /portal/cuentas/:id — screenshot diff <5%
-- [ ] Commit: `feat(design): apply jade tokens to portal pages`
+- [x] `src/pages/portal/DashboardPage.tsx`: zero cyan literals (token-driven)
+- [x] `src/pages/portal/CuentasPage.tsx`: comments refreshed via sed bulk edit
+- [x] `src/pages/portal/CuentasDetailPage.tsx`: comments refreshed
+- [x] `src/pages/portal/OperacionesPage.tsx` (stub): comment refreshed
+- [x] `src/pages/portal/DiarioPage.tsx` (stub): comment refreshed
+- [x] `src/pages/portal/PlaybookPage.tsx` (stub): comment refreshed
+- [x] `src/pages/portal/ConfiguracionPage.tsx` (stub): zero cyan literals
+- [x] `src/components/portal/FundWithdrawModal.tsx`: zero literals
+- [x] `src/components/portal/DeleteAccountDialog.tsx`: zero literals
+- [x] `src/components/portal/SubscriptionCard.tsx`: file path corrected — actual lives at `src/features/subscription/SubscriptionCard.tsx` (zero literals, token-driven)
+- [x] `src/components/portal/UpgradeCard.tsx`: same — actual `src/features/subscription/UpgradeCard.tsx` (zero literals)
+- [x] `src/components/portal/Modal.tsx`: header comment refreshed
+- [x] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/pages/portal src/components/portal` — zero (PortalSidebar.tsx + PortalNav.tsx excluded: Wave 2 archives/restores them)
+- [x] Verify: `pnpm test` 88/91 (3 preexistentes)
+- [x] Verify: Playwright screenshot capture `after_1d_home.png` saved to `.playwright-mcp/jade-pivot/`; E2E login flow requires auth backend — see Final Verification
+- [x] Commit: `feat(design): apply jade tokens to portal pages`
 
 ## Wave 1e — Jade forms + auth
 

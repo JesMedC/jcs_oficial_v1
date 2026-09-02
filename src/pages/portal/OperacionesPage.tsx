@@ -9,7 +9,7 @@
  *
  * The operations log (forex, binarias, cripto trades) lands in
  * Module C. This page is intentionally minimal: visible Orbitron
- * H1 in cyan (matching DashboardPage / CuentasPage) + a single
+ * H1 in jade (matching DashboardPage / CuentasPage) + a single
  * GlassCard with the "Próximamente" copy — same stub pattern as
  * ConfiguracionPage but with a visible heading so the screen
  * reader and the page TOC read it correctly on the first visit.

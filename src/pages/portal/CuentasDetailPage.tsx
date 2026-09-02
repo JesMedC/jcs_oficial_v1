@@ -3,10 +3,10 @@
  *
  * Route: ``/portal/cuentas/:accountId`` (nested under ``PortalShell``
  * so it inherits the sidebar). Layout:
- *   - H1 with the account name (Orbitron uppercase, cyan glow)
+ *   - H1 with the account name (Orbitron uppercase, jade glow)
  *   - Broker chip + "← Volver a Cuentas" link
  *   - 4 tabs: Resumen, Saldo, Operaciones, Zona de peligro
- *   - Active tab: cyan border-bottom + cyan text (matches portal
+ *   - Active tab: jade border-bottom + jade text (matches portal
  *     sidebar active pattern from ``PortalSidebar.tsx``)
  *   - Tab state via ``useState<string>('resumen')`` + ``useSearchParams``
  *     so the URL persists the active tab (``?tab=saldo``)
@@ -25,7 +25,7 @@
  * is dense enough that a skeleton would just be visual noise).
  *
  * Per mem #68, UI copy is Spanish. Per mem #70, visual language
- * matches the cyan + Orbitron + glassmorphism used elsewhere.
+ * matches the jade + Orbitron + glassmorphism used elsewhere.
  */
 import { useCallback, useEffect, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';

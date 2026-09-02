@@ -3,7 +3,7 @@
  *
  * Lightweight modal primitive used by FundWithdrawModal and
  * DeleteAccountDialog. Renders a fixed overlay (bg-black/60) with a
- * centered glass card (cyan border, glassmorphism — same palette as
+ * centered glass card (jade border, glassmorphism — same palette as
  * the project's <GlassCard>).
  *
  * Closes on Escape and on backdrop click (target === currentTarget).

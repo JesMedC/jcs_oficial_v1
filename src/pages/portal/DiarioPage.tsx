@@ -5,7 +5,7 @@
  * entry ships now so users see the full product navigation in
  * place (Dashboard, Cuentas, Operaciones, Diario, Playbook,
  * Configuración). The page itself mirrors OperacionesPage:
- * visible Orbitron H1 in cyan + a single GlassCard with the
+ * visible Orbitron H1 in jade + a single GlassCard with the
  * "Próximamente" copy that hints at what the module will do
  * (línea de tiempo de trading con notas y tags emocionales).
  */

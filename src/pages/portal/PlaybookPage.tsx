@@ -6,7 +6,7 @@
  * shows the full product surface from day one
  * (Dashboard → Cuentas → Operaciones → Diario → Playbook →
  * Configuración). Same minimal stub pattern as DiarioPage and
- * OperacionesPage: visible Orbitron H1 in cyan + a single
+ * OperacionesPage: visible Orbitron H1 in jade + a single
  * GlassCard with the "Próximamente" copy.
  */
 import { GlassCard } from '../../components/GlassCard';

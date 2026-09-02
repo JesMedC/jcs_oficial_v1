@@ -7,7 +7,7 @@
  *
  * Render shape:
  *   - SeoHead "Mis cuentas" (noindex — portal surfaces don't rank)
- *   - H1 in Orbitron cyan with glow (matches admin pages)
+ *   - H1 in Orbitron jade with glow (matches admin pages)
  *   - ErrorBanner for API failures
  *   - Create form in a GlassCard (broker_name text, type select with
  *     BINARY/FOREX, name text) — submit disabled while in-flight
@@ -16,10 +16,10 @@
  *
  * p0e.3: every cell wraps a <Link> to ``/portal/cuentas/{id}`` so the
  * whole row navigates to the new detail panel. The row also gets a
- * subtle cyan hover tint (``bg-primary/5``) to signal it's clickable.
+ * subtle jade hover tint (``bg-primary/5``) to signal it's clickable.
  *
  * Per mem #68, copy is Spanish. Per mem #70 the primary token is
- * cyan #00FFFF and the Orbitron display font is used for headings.
+ * jade #2EDC8C and the Orbitron display font is used for headings.
  */
 import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
