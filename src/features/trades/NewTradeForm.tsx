@@ -32,6 +32,25 @@ export interface NewTradeFormProps {
   readonly onError?: (code: string, message: string) => void;
 }
 
+/**
+ * Broker-preset expiration values for BINARY accounts, in seconds.
+ * Mirrors the most common Pocket/IQ-Option candle presets (1m/2m/3m/4m/5m/10m/15m).
+ * Rendered as a `<select>` instead of a free-form number input so the user
+ * cannot send out-of-range values that the backend would reject.
+ */
+const EXPIRATION_OPTIONS_SECONDS: ReadonlyArray<{
+  readonly value: number;
+  readonly label: string;
+}> = [
+  { value: 60, label: '1 min' },
+  { value: 120, label: '2 min' },
+  { value: 180, label: '3 min' },
+  { value: 240, label: '4 min' },
+  { value: 300, label: '5 min' },
+  { value: 600, label: '10 min' },
+  { value: 900, label: '15 min' },
+];
+
 export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
   const { data: accountsData } = useAccounts();
   const createTrade = useCreateTrade({
@@ -46,6 +65,17 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
   // useEffect below does not re-fire when the query result is the same.
   const accounts = useMemo(() => accountsData?.items ?? [], [accountsData?.items]);
   const firstAccount = accounts[0];
+
+  // Derive the initial `type` AND `direction` from the first account.
+  // The original bug: `direction` was hardcoded to `'LONG'` regardless
+  // of the account type, so a BINARY first-account would open the form
+  // with `type: 'BINARY'` + `direction: 'LONG'`. The select renders
+  // CALL/PUT (BINARY branch) but the form state still has 'LONG', so
+  // Zod rejects submission with `Expected 'CALL' | 'PUT', received 'LONG'`.
+  const initialType: 'BINARY' | 'FOREX' =
+    firstAccount?.type === 'BINARY' ? 'BINARY' : 'FOREX';
+  const initialDirection: 'CALL' | 'LONG' =
+    initialType === 'BINARY' ? 'CALL' : 'LONG';
 
   // RHF's discriminated-union errors type is widened; the per-branch field
   // accesses in the JSX below are guarded by `selectedType === 'FOREX'`
@@ -63,13 +93,16 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     resolver: zodResolver(TradeFormSchema),
     defaultValues: {
       account_id: firstAccount?.id ?? '',
-      type: (firstAccount?.type === 'BINARY' ? 'BINARY' : 'FOREX') as 'BINARY' | 'FOREX',
+      type: initialType,
+      direction: initialDirection,
       pair: 'EURUSD',
-      direction: 'LONG' as const,
       entry_price: '1',
       lot_size: '0.1',
       stop_loss: '',
       take_profit: '',
+      investment_usd: '25',
+      payout_pct: '85',
+      expiration_seconds: 60,
       pre_trade_notes: '',
       emotional_tags: [],
     } as unknown as TradeFormValues,
@@ -88,24 +121,34 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
   const selectedType = watch('type');
   const watchedAccountId = watch('account_id');
 
-  // When the user switches account, mirror the account type.
+  // Discriminated-union sync.
+  //
+  // Two responsibilities:
+  //   1. Auto-select the first account when the user hasn't picked yet
+  //      (covers the async-load case where accounts arrive after the
+  //      form mounts — `firstAccount` is `undefined` on the first
+  //      render, so `defaultValues.account_id` stays empty).
+  //   2. Always reset `direction` to the type-correct default whenever
+  //      the account changes. We intentionally do NOT gate on
+  //      `account.type !== selectedType` (the old gate) because the
+  //      original bug lived there: when the cached firstAccount was
+  //      BINARY, `type` was already 'BINARY' from `defaultValues`, so
+  //      the effect skipped the reset and direction kept its stale
+  //      'LONG' value — Zod then rejected submission.
   useEffect(() => {
-    const account = accounts.find((a) => a.id === watchedAccountId);
-    if (account && account.type !== selectedType) {
-      setValue('type', account.type);
-      if (account.type === 'BINARY') {
-        setValue('investment_usd', '25');
-        setValue('payout_pct', '85');
-        setValue('expiration_seconds', 60);
-        setValue('direction', 'CALL');
-      } else {
-        setValue('pair', 'EURUSD');
-        setValue('direction', 'LONG');
-        setValue('entry_price', '1');
-        setValue('lot_size', '0.1');
-      }
+    if (accounts.length === 0) return;
+    const account =
+      accounts.find((a) => a.id === watchedAccountId) ?? accounts[0];
+    if (!account) return;
+    if (watchedAccountId !== account.id) {
+      setValue('account_id', account.id);
     }
-  }, [watchedAccountId, accounts, setValue, selectedType]);
+    if (selectedType !== account.type) {
+      setValue('type', account.type);
+    }
+    const typeCorrectDirection = account.type === 'BINARY' ? 'CALL' : 'LONG';
+    setValue('direction', typeCorrectDirection);
+  }, [accounts, watchedAccountId, selectedType, setValue]);
 
   if (accounts.length === 0) {
     return (
@@ -280,10 +323,11 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
                 render={({ field }) => (
                   <select
                     {...field}
+                    data-testid="new-trade-direction"
                     className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary"
                   >
-                    <option value="CALL">Call</option>
-                    <option value="PUT">Put</option>
+                    <option value="CALL">Compra</option>
+                    <option value="PUT">Venta</option>
                   </select>
                 )}
               />
@@ -310,13 +354,24 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
                 placeholder="85"
               />
             </Field>
-            <Field label="Expiracion (segundos)" error={(errors as Record<string, { message?: string } | undefined>)['expiration_seconds']?.message}>
-              <input
-                {...control.register('expiration_seconds', { valueAsNumber: true })}
-                type="number"
-                data-testid="new-trade-expiration"
-                className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="60"
+            <Field label="Expiracion" error={(errors as Record<string, { message?: string } | undefined>)['expiration_seconds']?.message}>
+              <Controller
+                control={control}
+                name="expiration_seconds"
+                render={({ field }) => (
+                  <select
+                    value={field.value ?? ''}
+                    onChange={(e) => field.onChange(Number(e.target.value))}
+                    data-testid="new-trade-expiration"
+                    className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+                  >
+                    {EXPIRATION_OPTIONS_SECONDS.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                )}
               />
             </Field>
           </div>
