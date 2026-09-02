@@ -31,8 +31,17 @@ export default defineConfig({
     // itself.
     proxy: {
       '/api/v1': {
-        target: 'http://localhost:8000',
+        // In this Docker setup the FastAPI backend is ONLY reachable via
+        // nginx (container `jcs_oficial-backend-1`, port :8000 not published
+        // to the host). Proxying to host:8000 returns ECONNREFUSED.
+        // Routing through nginx (https://localhost:443) mirrors production
+        // exactly — browser → nginx → backend — so dev is 1:1 with prod.
+        // `secure: false` because nginx terminates TLS with a self-signed
+        // cert in dev. No path rewrite: the relative `/api/v1/...` URLs
+        // baked into the SPA pass through unchanged.
+        target: 'https://localhost',
         changeOrigin: true,
+        secure: false,
       },
     },
   },
