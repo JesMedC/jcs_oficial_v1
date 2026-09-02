@@ -16,7 +16,7 @@
  *
  * Spanish copy.
  */
-import { useEffect, useState } from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Modal } from './Modal';
 import { ErrorBanner } from '../ErrorBanner';

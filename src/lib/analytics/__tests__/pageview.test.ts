@@ -7,8 +7,6 @@
  * El test usa un mock global de ``fetch`` para no pegarle a la API.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
 
 import { recordPageview } from '../pageview';
 
@@ -32,7 +30,7 @@ describe('pageview tracking', () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
     const [url, init] = fetchMock.mock.calls[0]!;
     expect(url as string).toContain('/analytics/pageview');
-    const body = JSON.parse((init as RequestInit).body as string);
+    const body = JSON.parse((init as { body?: string }).body as string);
     expect(body.page_path).toBe('/pricing');
     expect(typeof body.session_id === 'string' || body.session_id === undefined).toBe(true);
   });

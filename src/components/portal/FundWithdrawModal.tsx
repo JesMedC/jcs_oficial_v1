@@ -14,7 +14,7 @@
  * Spanish UI copy. Numbers use the same ``en-US`` USD formatter as
  * CuentasPage for visual consistency.
  */
-import { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 
 import { Modal } from './Modal';
 import { ErrorBanner } from '../ErrorBanner';

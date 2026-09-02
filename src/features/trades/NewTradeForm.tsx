@@ -16,7 +16,7 @@
  * re-triggers the submit and lands on the wire. The block is SOFT:
  * the user always retains the final say on whether to save.
  */
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 

@@ -27,7 +27,7 @@
  * Per mem #68, copy is Spanish. Per mem #70 the primary token is
  * jade #2EDC8C and the Orbitron display font is used for headings.
  */
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 

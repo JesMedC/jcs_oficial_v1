@@ -27,7 +27,7 @@
  * Per mem #68, UI copy is Spanish. Per mem #70, visual language
  * matches the jade + Orbitron + glassmorphism used elsewhere.
  */
-import { useState } from 'react';
+import React, { useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
