@@ -16,6 +16,30 @@ const config: Config = {
           DEFAULT: '#00FFFF',
           dk: '#00B8B8',
         },
+        // Glassmorphism tokens (p0ui.1) — translucent surfaces with
+        // backdrop blur. Applied selectively to chrome (sidebar,
+        // modals, account cards, topbar). NEVER on financial tables,
+        // P&L calendars, charts, or scanner alerts. Three opacities
+        // (subtle/default/strong) plus matching border strengths.
+        //
+        // NOTE on the nested `border` object: the spec called for
+        // flat hyphenated keys ('border-DEFAULT', 'border-subtle',
+        // 'border-strong'), but Tailwind treats a hyphen in a key
+        // literally — `'border-DEFAULT'` would emit
+        // `border-glass-border-DEFAULT`, not the intended
+        // `border-glass-border`. Nested objects with a `DEFAULT` key
+        // collapse the suffix and emit the bare class name, which is
+        // what the spec's intent requires.
+        glass: {
+          subtle: 'rgb(255 255 255 / 0.06)',
+          DEFAULT: 'rgb(255 255 255 / 0.10)',
+          strong: 'rgb(255 255 255 / 0.16)',
+          border: {
+            subtle: 'rgb(255 255 255 / 0.08)',
+            DEFAULT: 'rgb(255 255 255 / 0.14)',
+            strong: 'rgb(255 255 255 / 0.22)',
+          },
+        },
         // Semantic finance colors (kept):
         profit: '#35D07F',
         loss: '#FF5C5C',
@@ -39,7 +63,6 @@ const config: Config = {
           'monospace',
         ],
       },
-      borderRadius: { '2xl': '1.25rem' },
       keyframes: {
         'aurora-drift': {
           '0%, 100%': { transform: 'translate3d(-10%, -5%, 0) scale(1)' },
@@ -77,11 +100,24 @@ const config: Config = {
         'portal-selector':
           'radial-gradient(60% 50% at 50% 30%, rgba(0,255,255,0.16), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(77,163,255,0.10), transparent 70%)',
       },
+      backdropBlur: {
+        'glass-sm': '8px',
+        glass: '16px',
+        'glass-lg': '24px',
+        'glass-xl': '40px',
+      },
+      borderRadius: {
+        '2xl': '1.25rem',
+        glass: '1rem',
+        'glass-lg': '1.25rem',
+      },
       boxShadow: {
         'glow-cyan': '0 0 40px rgba(0,255,255,0.30)',
         'glow-cyan-sm': '0 0 20px rgba(0,255,255,0.20)',
         glass: '0 8px 32px 0 rgba(8,13,18,0.45)',
         elevated: '0 12px 48px 0 rgba(8,13,18,0.60)',
+        'glass-panel':
+          '0 8px 32px 0 rgba(8,13,18,0.55), inset 0 1px 0 0 rgb(255 255 255 / 0.06)',
       },
       fontSize: {
         'display-2xl': [

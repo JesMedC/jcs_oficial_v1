@@ -38,6 +38,10 @@ import { ProtectedRoute } from '../features/auth/ProtectedRoute';
  * Uses the inline ``lazy`` form (instead of a top-level
  * ``lazy(...)`` constant) to keep the detail route co-located with
  * its sibling entry and avoid growing the import block at the top.
+ *
+ * p0ui.1: ``/styleguide/glass`` (GlassShowcase) added as a public,
+ * no-auth route for visual validation of the new glass tokens +
+ * primitives before the p0ui.2 component sweep.
  */
 
 const HomePage = lazy(() => import('../pages/HomePage').then((m) => ({ default: m.HomePage })));
@@ -117,6 +121,10 @@ const PaymentFailurePage = lazy(() =>
   import('../pages/PaymentFailurePage').then((m) => ({ default: m.PaymentFailurePage })),
 );
 
+const GlassShowcasePage = lazy(() =>
+  import('../styleguide/GlassShowcase').then((m) => ({ default: m.GlassShowcase })),
+);
+
 const AdminLayout = lazy(() =>
   import('../layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
 );
@@ -136,6 +144,9 @@ export const routeChildren: RouteObject[] = [
   // p0c — callbacks publicos de MercadoPago (sin ProtectedRoute).
   { path: '/payment/success', element: <PaymentSuccessPage /> },
   { path: '/payment/failure', element: <PaymentFailurePage /> },
+  // p0ui.1 — glassmorphism styleguide. Public (no auth) so anyone
+  // reviewing the slice can eyeball the tokens without login.
+  { path: '/styleguide/glass', element: <GlassShowcasePage /> },
   {
     element: <ProtectedRoute />,
     children: [
