@@ -1,7 +1,7 @@
 /*
  * p0a.2 — Login page.
  *
- * Real page (replaces the p1e stub in `_stub.tsx`). H1 Orbitron cyan
+ * Real page (replaces the p1e stub in `_stub.tsx`). H1 Orbitron jade
  * + LoginForm + a small aside with the security story (JWT + PBKDF2
  * + 14-day trial). `noindex` is set because the page is behind an
  * auth boundary — search engines should not index it.

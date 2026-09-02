@@ -5,7 +5,7 @@ import { SeoHead } from '../components/SeoHead';
  * p1c — 404 page.
  *
  * Friendly Spanish copy + CTA "Volver al inicio". Uses the same
- * Hero typography pattern (Orbitron cyan glow) for visual consistency.
+ * Hero typography pattern (Orbitron jade glow) for visual consistency.
  */
 export function NotFoundPage() {
   return (

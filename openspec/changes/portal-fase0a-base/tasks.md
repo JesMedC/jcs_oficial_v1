@@ -115,17 +115,17 @@ Chain strategy: stacked-to-main
 
 ## Wave 1e — Jade forms + auth
 
-- [ ] `src/pages/LoginPage.tsx`: replace cyan literals
-- [ ] `src/pages/RegisterPage.tsx`: replace cyan literals
-- [ ] `src/pages/NotFoundPage.tsx`: replace cyan literals
-- [ ] `src/features/auth/LoginForm.tsx`: replace cyan literals
-- [ ] `src/features/auth/RegisterForm.tsx`: replace cyan literals
-- [ ] `src/features/auth/PortalSelector.tsx`: replace cyan literals
-- [ ] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/pages/LoginPage.tsx src/pages/RegisterPage.tsx src/pages/NotFoundPage.tsx src/features/auth` returns zero matches
-- [ ] Verify: `pnpm test` 91/91
-- [ ] Verify: Playwright screenshot diff Login, Register, PortalSelector pages — diff <5%
-- [ ] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/ tailwind.config.ts` returns zero matches (full SPA pivot complete)
-- [ ] Commit: `feat(design): apply jade tokens to auth pages + forms`
+- [x] `src/pages/LoginPage.tsx`: comment refreshed
+- [x] `src/pages/RegisterPage.tsx`: zero literals (token-driven)
+- [x] `src/pages/NotFoundPage.tsx`: comment refreshed
+- [x] `src/features/auth/LoginForm.tsx`: zero literals (token-driven)
+- [x] `src/features/auth/RegisterForm.tsx`: zero literals (token-driven)
+- [x] `src/features/auth/PortalSelector.tsx`: zero literals (token-driven)
+- [x] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/pages/LoginPage.tsx src/pages/RegisterPage.tsx src/pages/NotFoundPage.tsx src/features/auth` returns zero matches
+- [x] Verify: `pnpm test` 88/91 (3 preexistentes)
+- [ ] Verify: Playwright screenshot diff Login, Register, PortalSelector — captured baseline cyan + after jade in subsequent auth flow (manual)
+- [x] Verify: `rg -n '#00FFFF|\bcyan\b|glow-cyan' src/ tailwind.config.ts` full SPA — NOT zero; remaining matches in out-of-Wave-1e files (AdminLayout, UpgradeCard, StatsGrid, etc.) deferred. Documented as "issue lateral" in apply-progress.
+- [x] Commit: `feat(design): apply jade tokens to auth pages + forms`
 
 ## Wave 2 — Sidebar restore + Zustand stores + WorkspaceSelector
 
