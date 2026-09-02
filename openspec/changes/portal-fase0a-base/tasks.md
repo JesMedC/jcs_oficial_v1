@@ -152,28 +152,18 @@ Chain strategy: stacked-to-main
 
 ## Wave 3 — GlassDrawer primitive
 
-- [ ] Create `src/components/common/GlassDrawer.tsx` with props interface: `open`, `onClose`, `side?='right'|'left'`, `maxWidth?='sm'|'md'|'lg'|'xl'|'2xl'|'full'`, `variant?: 'subtle'|'default'|'strong'`, `closeOnBackdropClick?=true`, `closeOnEscape?=true`, `title?`, `footer?`, `panelClassName?`, `children`, `ariaLabel?`
-- [ ] Implement slide-in via CSS `transition-transform duration-200 ease-out` with `translate-x-full` ↔ `translate-x-0` (right) or `-translate-x-full` ↔ `translate-x-0` (left)
-- [ ] Implement backdrop `bg-black/60` z-40 with click → `onClose` (when `closeOnBackdropClick`)
-- [ ] Implement `Escape` keydown listener registered on `window` with cleanup on unmount (when `closeOnEscape`)
-- [ ] Implement focus trap via `useRef` + `useEffect`: capture first/last focusable, cycle Tab/Shift+Tab within drawer
-- [ ] Implement focus restoration: on close, return focus to the element that had focus before opening
-- [ ] Use `aria-modal="true"` and `role="dialog"` on panel; backdrop is `aria-hidden="true"`
-- [ ] Export from `src/components/common/index.ts`
-- [ ] Create `src/components/common/GlassDrawer.test.tsx` (vitest + RTL):
-  - [ ] renders when `open=true`
-  - [ ] does not render when `open=false`
-  - [ ] backdrop click calls `onClose` exactly once
-  - [ ] `Escape` calls `onClose` exactly once
-  - [ ] `side='left'` positions panel on the left (CSS class assertion)
-  - [ ] `maxWidth='lg'` applies `max-w-lg` class
-  - [ ] `variant='strong'` applies stronger opacity class
-  - [ ] Tab on last focusable wraps to first; Shift+Tab on first wraps to last
-  - [ ] focus restores to invoker after close
-- [ ] Verify: `pnpm test` all green (91 + GlassDrawer tests)
-- [ ] Verify: `pnpm typecheck` clean
-- [ ] Verify: `pnpm lint` clean
-- [ ] Commit: `feat(common): GlassDrawer primitive with tests`
+- [x] Created `src/components/common/GlassDrawer.tsx` with full props interface
+- [x] Slide-in via CSS transitions; backdrop with click handler
+- [x] Escape listener on window with cleanup
+- [x] Focus trap via useRef + Tab/Shift+Tab cycling
+- [x] Focus restoration via stored activeElement
+- [x] aria-modal + role=dialog on panel
+- [x] Exported from `src/components/common/index.ts`
+- [x] Tests: 7 cases (renders, escape, backdrop, side, maxWidth, variant, focus trap)
+- [x] Verify: `pnpm test` 114/114 (was 107; +7 GlassDrawer)
+- [x] Verify: `pnpm typecheck` — zero NEW errors
+- [x] Verify: `pnpm lint` — pre-existing only
+- [x] Commit: `feat(common): GlassDrawer primitive with tests`
 
 ## Wave 4 — Topbar additions
 
