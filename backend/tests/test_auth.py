@@ -3,10 +3,18 @@
 p0b.1a: ``register`` toma ``first_name``, ``last_name`` y ``phone``. Estos
 tests cubren el happy path + los nuevos casos de duplicado de email,
 contraseña débil y teléfono inválido.
+
+p0f.1 (multi-tenant): el access token ahora viaja con el claim
+``workspace_ids`` poblado de las memberships reales del user. Se
+verifica en ``register``, ``login`` y ``refresh``.
 """
 from __future__ import annotations
 
+import uuid
+
 import pytest
+
+from app.core.security.jwt import decode_access_token
 
 
 async def test_register_happy_path(client, valid_register_payload) -> None:
@@ -20,6 +28,15 @@ async def test_register_happy_path(client, valid_register_payload) -> None:
     assert body["expires_in"] > 0
     # Cookie httpOnly seteada.
     assert "jcs_refresh_token" in resp.cookies
+
+    # p0f.1: el access token lleva el claim ``workspace_ids`` con
+    # exactamente 1 elemento (el workspace OWNER recién creado).
+    claims = decode_access_token(body["access_token"])
+    assert isinstance(claims["workspace_ids"], list)
+    assert len(claims["workspace_ids"]) >= 1
+    # Todos los valores son UUIDs stringificables.
+    for ws in claims["workspace_ids"]:
+        uuid.UUID(ws)  # raise si no es uuid
 
 
 async def test_register_duplicate_email(client, valid_register_payload) -> None:
@@ -149,6 +166,10 @@ async def test_login_happy_path(client, unique_email: str) -> None:
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["access_token"]
+    # p0f.1: el JWT del login también lleva ``workspace_ids`` poblado.
+    claims = decode_access_token(body["access_token"])
+    assert isinstance(claims["workspace_ids"], list)
+    assert len(claims["workspace_ids"]) >= 1
 
 
 async def test_login_wrong_password_returns_envelope(client, unique_email: str) -> None:
@@ -183,6 +204,11 @@ async def test_refresh_token_rotates(client, valid_register_payload) -> None:
     body = resp.json()
     assert body["refresh_token"] != old_refresh
     assert body["access_token"]
+    # p0f.1: el access rotado lleva ``workspace_ids`` poblado con la
+    # membership actual del user.
+    claims = decode_access_token(body["access_token"])
+    assert isinstance(claims["workspace_ids"], list)
+    assert len(claims["workspace_ids"]) >= 1
 
 
 async def test_refresh_rejects_revoked_token(client, valid_register_payload) -> None:

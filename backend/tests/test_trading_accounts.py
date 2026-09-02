@@ -25,6 +25,7 @@ from sqlalchemy import select
 
 from app.core.security.password import hash_password
 from app.models import AuditLog, TradingAccount, User, UserRole
+from app.services.workspace_service import create_default_workspace_for_user
 
 
 async def _register(client, payload: dict) -> dict:
@@ -167,6 +168,12 @@ async def test_user_cannot_see_other_users_accounts(
     )
     db_session.add(user_b)
     await db_session.flush()
+    # p0f.1: user B necesita un workspace propio para que su login
+    # emita un JWT con ``workspace_ids`` no vacío. Sin esto,
+    # ``infer_workspace_id`` levanta ``WorkspaceRequiredError`` y la
+    # creación de la cuenta falla con 500 antes de poder probar el
+    # per-user scoping.
+    await create_default_workspace_for_user(db_session, user_b)
 
     login_b = await client.post(
         "/api/v1/auth/login",
@@ -350,6 +357,9 @@ async def test_fund_other_users_account_returns_404(
     )
     db_session.add(user_b)
     await db_session.flush()
+    # p0f.1: B necesita workspace propio para tener JWT con
+    # ``workspace_ids`` no vacío.
+    await create_default_workspace_for_user(db_session, user_b)
     login_b = await client.post(
         "/api/v1/auth/login",
         json={"email": user_b.email, "password": "Trader1234!"},
@@ -523,6 +533,9 @@ async def test_delete_other_users_account_returns_404(
     )
     db_session.add(user_b)
     await db_session.flush()
+    # p0f.1: B necesita workspace propio para tener JWT con
+    # ``workspace_ids`` no vacío.
+    await create_default_workspace_for_user(db_session, user_b)
     login_b = await client.post(
         "/api/v1/auth/login",
         json={"email": user_b.email, "password": "Trader1234!"},
@@ -575,3 +588,116 @@ async def test_fund_and_withdraw_deleted_account_returns_404(
     )
     assert wd_resp.status_code == 404, wd_resp.text
     assert wd_resp.json()["code"] == "NOT_FOUND"
+
+
+# ============================================================
+# p0f.1 — multi-tenant wiring (workspace_id inferido del JWT)
+# ============================================================
+
+
+async def test_create_account_infers_workspace_id(
+    client, valid_register_payload
+) -> None:
+    """POST /accounts setea ``workspace_id`` igual al OWNER workspace del user."""
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+    # El endpoint /me devuelve los workspaces del user; el primero
+    # (OWNER, más antiguo) es el que el service infiere.
+    me = await client.get("/api/v1/auth/me", headers=headers)
+    assert me.status_code == 200, me.text
+    expected_ws = me.json()["workspaces"][0]["id"]
+
+    resp = await client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"broker_name": "Pocket Option", "type": "BINARY", "name": "Wired"},
+    )
+    assert resp.status_code == 201, resp.text
+    body = resp.json()
+    assert body["workspace_id"] == expected_ws
+
+
+async def test_list_accounts_filtered_by_workspace(
+    client, valid_register_payload, db_session
+) -> None:
+    """Si el user tiene 2 workspaces OWNER, las cuentas se asignan al
+    workspace inferido (el más antiguo). GET lista solo esas.
+
+    Setup: el register vía HTTP crea un solo workspace OWNER para el
+    user. Para el segundo workspace, lo creamos directo en DB y lo
+    añadimos como OWNER. Como será más nuevo que el primero, NO es el
+    inferido — sus cuentas (si las tuviera) NO aparecerían en el
+    listado del JWT.
+
+    Esta property test prueba la branch simple: workspace_ids del JWT
+    decide qué se ve.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+    # Creamos 2 cuentas en el workspace inferido (el del register).
+    for i, name in enumerate(("Inferida A", "Inferida B")):
+        r = await client.post(
+            "/api/v1/accounts",
+            headers=headers,
+            json={
+                "broker_name": "Pocket",
+                "type": "BINARY",
+                "name": name,
+            },
+        )
+        assert r.status_code == 201, r.text
+
+    # El listado devuelve 2.
+    resp = await client.get("/api/v1/accounts", headers=headers)
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+    assert body["total"] == 2
+    assert {item["name"] for item in body["items"]} == {
+        "Inferida A",
+        "Inferida B",
+    }
+    # Todas con el mismo workspace_id (= el inferido).
+    wss = {item["workspace_id"] for item in body["items"]}
+    assert len(wss) == 1
+
+
+async def test_create_account_without_workspace_returns_422(
+    client, valid_register_payload, db_session
+) -> None:
+    """User B creado directo en DB sin workspace → crear cuenta → 422
+    ``WORKSPACE_REQUIRED``.
+
+    Pydantic preserva el code literal del error (porque
+    ``WORKSPACE_REQUIRED`` está en ``ErrorCode``).
+    """
+    # User sin workspace.
+    suffix = uuid.uuid4().hex[:8]
+    user = User(
+        email=f"nows_{suffix}@jadecapital.local",
+        password_hash=hash_password("NoWork1234!"),
+        first_name="No",
+        last_name="Workspace",
+        phone="+34600000999",
+        role=UserRole.USER,
+    )
+    db_session.add(user)
+    await db_session.flush()
+
+    # Login emite JWT con ``workspace_ids=[]``.
+    login = await client.post(
+        "/api/v1/auth/login",
+        json={"email": user.email, "password": "NoWork1234!"},
+    )
+    assert login.status_code == 200, login.text
+    headers = {"Authorization": f"Bearer {login.json()['access_token']}"}
+
+    # POST /accounts → 422 WORKSPACE_REQUIRED.
+    resp = await client.post(
+        "/api/v1/accounts",
+        headers=headers,
+        json={"broker_name": "x", "type": "BINARY", "name": "y"},
+    )
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["code"] == "WORKSPACE_REQUIRED"

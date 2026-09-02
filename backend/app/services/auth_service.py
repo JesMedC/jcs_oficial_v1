@@ -34,7 +34,10 @@ from app.core.security.password import (
 from app.models import AuditLog, RefreshToken, User, UserRole, WorkspaceMemberRole
 from app.schemas.envelope import ErrorCode
 from app.services.subscription_service import create_trial
-from app.services.workspace_service import create_default_workspace_for_user
+from app.services.workspace_service import (
+    create_default_workspace_for_user,
+    get_user_workspace_ids,
+)
 
 
 class AuthError(Exception):
@@ -92,8 +95,18 @@ async def _issue_tokens(
     db: AsyncSession,
     user: User,
 ) -> tuple[str, str, int]:
-    """Emite access + refresh + ``expires_in``. Persiste el refresh."""
-    access, expires_in = create_access_token(user.id, user.role, [])
+    """Emite access + refresh + ``expires_in``. Persiste el refresh.
+
+    p0f.1 (multi-tenant): el access token ahora viaja con el claim
+    ``workspace_ids`` poblado de las memberships reales del user.
+    Los services (trading_account, trade) lo leen de ahí para
+    resolver el ``workspace_id`` activo sin un round-trip extra a
+    la DB.
+    """
+    workspace_ids = await get_user_workspace_ids(db, user.id)
+    access, expires_in = create_access_token(
+        user.id, user.role, workspace_ids
+    )
     raw_refresh, _, expires_at = create_refresh_token()
     await _store_refresh_token(db, user.id, raw_refresh, expires_at)
     return access, raw_refresh, expires_in
@@ -255,7 +268,14 @@ async def rotate_refresh_token(
     await db.flush()
     entry.replaced_by_id = new_entry.id
 
-    access, expires_in = create_access_token(user.id, user.role, [])
+    # p0f.1 (multi-tenant): refrescamos las memberships del user para
+    # emitir el access token con el claim ``workspace_ids`` correcto.
+    # Si el user fue invitado/removido de workspaces entre el login
+    # y este refresh, el nuevo access token refleja el estado actual.
+    workspace_ids = await get_user_workspace_ids(db, user.id)
+    access, expires_in = create_access_token(
+        user.id, user.role, workspace_ids
+    )
 
     await _emit_audit(
         db,

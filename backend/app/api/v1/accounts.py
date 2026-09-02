@@ -89,8 +89,18 @@ async def list_accounts(
     skip: Annotated[int, Query(ge=0)] = 0,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
 ) -> TradingAccountListOut:
-    """Lista paginada de las cuentas de trading del usuario autenticado."""
-    rows, total = await list_user_accounts(db, user_id=user.id, skip=skip, limit=limit)
+    """Lista paginada de las cuentas de trading del usuario autenticado.
+
+    p0f.1 (multi-tenant): filtra por el ``workspace_id`` activo del
+    usuario (derivado del JWT — ver ``infer_workspace_id``).
+    """
+    rows, total = await list_user_accounts(
+        db,
+        user_id=user.id,
+        jwt_workspace_ids=user.workspace_ids,
+        skip=skip,
+        limit=limit,
+    )
     return TradingAccountListOut(
         items=[TradingAccountOut.model_validate(r) for r in rows],
         total=total,
@@ -114,6 +124,9 @@ async def create_account(
 
     ``balance_usd`` siempre queda en 0 — el service no acepta el campo
     y la DB tiene ``server_default=0``.
+
+    p0f.1 (multi-tenant): el ``workspace_id`` se infiere del JWT (no
+    viene en el body — el contrato público se preserva).
     """
     try:
         account = await create_trading_account(
@@ -122,6 +135,7 @@ async def create_account(
             broker_name=payload.broker_name,
             type=TradingAccountType(payload.type),
             name=payload.name,
+            jwt_workspace_ids=user.workspace_ids,
             correlation_id=_correlation_id(request),
         )
     except TradingAccountError as exc:

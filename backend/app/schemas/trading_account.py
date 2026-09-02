@@ -35,12 +35,22 @@ class TradingAccountIn(BaseModel):
 
 
 class TradingAccountOut(BaseModel):
-    """Fila de ``trading_accounts`` tal como la devuelve la API."""
+    """Fila de ``trading_accounts`` tal como la devuelve la API.
+
+    ``workspace_id`` (p0f.1, multi-tenant): añadido al output como
+    opcional — el modelo es ``nullable=False`` y siempre trae valor
+    en runtime; el default ``None`` garantiza que clientes existentes
+    que no esperan el campo sigan parseando OK si lo agregan
+    gradualmente. El valor se establece al crear la cuenta por
+    inferencia desde el JWT del usuario autenticado
+    (``trading_account_service.create_trading_account``).
+    """
 
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
     user_id: uuid.UUID
+    workspace_id: uuid.UUID | None = None
     broker_name: str
     type: TradingAccountType
     name: str

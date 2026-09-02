@@ -53,8 +53,11 @@ from app.services.user_service import (
     get_user_workspaces,
 )
 from app.services.workspace_service import (
+    WorkspaceRequiredError,
     create_default_workspace_for_user,
+    get_user_workspace_ids,
     get_user_workspace_role,
+    infer_workspace_id,
 )
 
 __all__ = [
@@ -68,6 +71,9 @@ __all__ = [
     "get_user_with_subscription",
     "create_default_workspace_for_user",
     "get_user_workspace_role",
+    "get_user_workspace_ids",
+    "infer_workspace_id",
+    "WorkspaceRequiredError",
     "create_trial",
     "get_user_active_subscription",
     "is_subscription_active",

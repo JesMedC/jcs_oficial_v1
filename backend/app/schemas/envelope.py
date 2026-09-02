@@ -36,9 +36,20 @@ class ErrorCode(str, Enum):
     INSUFFICIENT_BALANCE = "INSUFFICIENT_BALANCE"
     CONFIRMATION_REQUIRED = "CONFIRMATION_REQUIRED"
 
+    # Trade (p0e.4) — la state-machine OPEN → CLOSED_* usa códigos
+    # específicos para que el cliente pueda mostrar un mensaje exacto
+    # ("este trade ya está cerrado") en lugar de un genérico
+    # ``VALIDATION_ERROR``.
+    TRADE_CLOSED = "TRADE_CLOSED"
+
     # Workspace
     WORKSPACE_ACCESS_DENIED = "WORKSPACE_ACCESS_DENIED"
     WORKSPACE_NOT_FOUND = "WORKSPACE_NOT_FOUND"
+    # El usuario autenticado no tiene ningún workspace resoluble
+    # (JWT vacío y 0 memberships en la DB). El cliente lo distingue de
+    # ``WORKSPACE_ACCESS_DENIED`` porque la causa es la ausencia de
+    # contexto, no un permiso denegado.
+    WORKSPACE_REQUIRED = "WORKSPACE_REQUIRED"
 
     # Admin (p0b.2)
     FORBIDDEN_NOT_ADMIN = "FORBIDDEN_NOT_ADMIN"

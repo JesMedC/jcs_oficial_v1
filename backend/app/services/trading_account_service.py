@@ -34,6 +34,10 @@ from app.models import (
     User,
 )
 from app.observability.logging import get_logger
+from app.services.workspace_service import (
+    WorkspaceRequiredError,
+    infer_workspace_id,
+)
 
 log = get_logger(__name__)
 
@@ -116,6 +120,7 @@ async def create_trading_account(
     broker_name: str,
     type: TradingAccountType,
     name: str,
+    jwt_workspace_ids: list[uuid.UUID] | None = None,
     correlation_id: str | None = None,
 ) -> TradingAccount:
     """Inserta una ``TradingAccount`` del usuario con ``balance_usd=0``.
@@ -124,9 +129,27 @@ async def create_trading_account(
     (``Decimal("0")``) más el ``server_default=0`` de la tabla lo dejan
     en 0. Si el caller lo seteara explícitamente, lo podría pisar — pero
     ``TradingAccountIn`` no lo expone, así que el cliente no puede.
+
+    p0f.1 (multi-tenant): el ``workspace_id`` se infiere del JWT del
+    usuario (claim ``workspace_ids``) o, si el JWT no trae el claim,
+    de la membership OWNER más antigua. El cliente no lo manda en el
+    body — el contrato público se preserva.
     """
+    try:
+        workspace_id = await infer_workspace_id(
+            db, user.id, jwt_workspace_ids=jwt_workspace_ids
+        )
+    except WorkspaceRequiredError as exc:
+        # El usuario autenticado no tiene un workspace resoluble.
+        # Mapeamos a 422 con código canónico ``WORKSPACE_REQUIRED``.
+        raise TradingAccountError(
+            code="WORKSPACE_REQUIRED",
+            message=str(exc),
+            status=422,
+        ) from exc
     account = TradingAccount(
         user_id=user.id,
+        workspace_id=workspace_id,
         broker_name=broker_name,
         type=type,
         name=name,
@@ -135,10 +158,17 @@ async def create_trading_account(
     try:
         await db.flush()
     except IntegrityError as exc:
-        # La única FK es ``user_id`` — si llega a fallar es porque el
-        # user no existe o fue borrado en paralelo. Traducimos a 404
-        # con código canónico ``NOT_FOUND``.
-        await db.rollback()
+        # Hardening: si el ``IntegrityError`` vino de un lazy load
+        # fuera del greenlet, el ``rollback`` mismo puede tirar otro
+        # ``MissingGreenlet``. Comemos cualquier excepción del rollback
+        # porque ya estamos en path de error — lo que importa es no
+        # propagar ruido encima del ``TradingAccountError``.
+        try:
+            await db.rollback()
+        except Exception:  # pragma: no cover — path defensivo
+            log.warning("rollback after IntegrityError raised", exc_info=True)
+        # Traducimos a 404 — la única FK rota realista es ``user_id``
+        # (workspace_id fue inferido contra la DB, así que está OK).
         raise TradingAccountError(
             code="NOT_FOUND",
             message=f"user {user.id} no existe o fue borrado",
@@ -155,6 +185,7 @@ async def create_trading_account(
             "broker_name": broker_name,
             "type": type.value,
             "name": name,
+            "workspace_id": str(workspace_id),
         },
         correlation_id=correlation_id,
     )
@@ -295,14 +326,34 @@ async def list_user_accounts(
     db: AsyncSession,
     *,
     user_id: uuid.UUID,
+    jwt_workspace_ids: list[uuid.UUID] | None = None,
     skip: int = 0,
     limit: int = 50,
 ) -> tuple[list[TradingAccount], int]:
-    """Lista paginada de cuentas no soft-deleted del usuario + total."""
+    """Lista paginada de cuentas no soft-deleted del usuario + total.
+
+    p0f.1 (multi-tenant): además de filtrar por ``user_id``, filtramos
+    por ``workspace_id`` (inferido del JWT o, en fallback, del lookup
+    DB de la membership OWNER más antigua). Esto aísla un workspace
+    de otro: un user que pertenece a 2 workspaces ve las cuentas de
+    UNO solo (el "activo" del JWT o, en su defecto, el más antiguo).
+    El listado multi-workspace simultáneo es otra iteración.
+    """
+    try:
+        workspace_id = await infer_workspace_id(
+            db, user_id, jwt_workspace_ids=jwt_workspace_ids
+        )
+    except WorkspaceRequiredError as exc:
+        raise TradingAccountError(
+            code="WORKSPACE_REQUIRED",
+            message=str(exc),
+            status=422,
+        ) from exc
     base = (
         select(TradingAccount)
         .where(
             TradingAccount.user_id == user_id,
+            TradingAccount.workspace_id == workspace_id,
             TradingAccount.deleted_at.is_(None),
         )
         .order_by(TradingAccount.created_at.desc())
@@ -314,6 +365,7 @@ async def list_user_accounts(
         .select_from(TradingAccount)
         .where(
             TradingAccount.user_id == user_id,
+            TradingAccount.workspace_id == workspace_id,
             TradingAccount.deleted_at.is_(None),
         )
     )

@@ -1,20 +1,29 @@
-"""TradingAccount model — cuentas de trading del usuario.
+"""TradingAccount model — cuentas de trading del workspace.
 
-p0d.1: cada usuario autenticado puede registrar sus cuentas de trading
-(Binary o Forex). El modelo vive a nivel ``User`` (no ``Workspace``)
-porque el dominio de trading es personal: una cuenta de Binary está
-asociada al trader, no al espacio de trabajo.
+p0d.1: el usuario autenticado registra sus cuentas de trading
+(Binary o Forex).
+p0f.1 (multi-tenant pivot): la cuenta pasa a vivir a nivel
+``Workspace``, no ``User``. El campo ``workspace_id`` se infiere del
+``JWT`` del usuario actual al crear (ver
+``trading_account_service.create_trading_account``) — el contrato del
+API público no expone este campo en el body.
+
+La columna ``user_id`` se conserva: marca al dueño original de la
+cuenta (la unicidad ``user → trading_accounts`` sigue siendo
+"una cuenta por (user_id, broker, name)" en términos prácticos).
 
 Campos:
 - ``user_id`` (FK CASCADE) — el dueño de la cuenta.
+- ``workspace_id`` (FK CASCADE) — workspace dueño; se BORRA en
+  cascada si el workspace desaparece.
 - ``broker_name`` — el broker donde está abierta (ej. ``"Pocket Option"``).
 - ``type`` — enum ``BINARY`` | ``FOREX``.
 - ``name`` — nombre legible puesto por el usuario (ej. ``"Cuenta principal"``).
 - ``balance_usd`` — arranca en 0; lo actualizará el módulo de
   sincronización de balances (futuro).
 
-La API expone sólo ``GET /accounts`` (listar las del usuario) y
-``POST /accounts`` (crear). Sin delete/update por ahora.
+La API expone sólo ``GET /accounts`` (listar las del workspace del
+usuario) y ``POST /accounts`` (crear). Sin delete/update por ahora.
 """
 from __future__ import annotations
 
@@ -31,6 +40,7 @@ from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
     from app.models.user import User
+    from app.models.workspace import Workspace
 
 
 class TradingAccountType(str, enum.Enum):
@@ -44,6 +54,11 @@ class TradingAccount(Base, TimestampMixin):
     user_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True),
         ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False,
+    )
+    workspace_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("workspaces.id", ondelete="CASCADE"),
         nullable=False,
     )
     broker_name: Mapped[str] = mapped_column(String(100), nullable=False)
@@ -64,15 +79,18 @@ class TradingAccount(Base, TimestampMixin):
     )
 
     user: Mapped["User"] = relationship()
+    workspace: Mapped["Workspace"] = relationship()
 
     __table_args__ = (
         Index("ix_trading_accounts_user_id", "user_id"),
+        Index("ix_trading_accounts_workspace_id", "workspace_id"),
     )
 
     def __repr__(self) -> str:
         return (
             f"<TradingAccount id={self.id} user={self.user_id} "
-            f"broker={self.broker_name!r} type={self.type} name={self.name!r}>"
+            f"ws={self.workspace_id} broker={self.broker_name!r} "
+            f"type={self.type} name={self.name!r}>"
         )
 
 

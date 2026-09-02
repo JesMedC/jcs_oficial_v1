@@ -46,7 +46,14 @@ async def get_current_user(
     db: DbSession,
     creds: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer)],
 ) -> User:
-    """Decodifica el JWT, carga el usuario activo. 401 si algo falla."""
+    """Decodifica el JWT, carga el usuario activo. 401 si algo falla.
+
+    p0f.1 (multi-tenant): popula el atributo transitorio
+    ``user.workspace_ids`` con la lista cruda del claim
+    ``workspace_ids`` del JWT. Los services que necesitan inferir el
+    ``workspace_id`` activo lo leen de ahí (ver
+    ``infer_workspace_id`` en ``workspace_service``).
+    """
     if creds is None or not creds.credentials:
         raise _envelope(
             status=401,
@@ -84,6 +91,14 @@ async def get_current_user(
             code=ErrorCode.AUTH_USER_INACTIVE,
             message="Usuario no encontrado o inactivo",
         )
+
+    # Atributo transitorio (NO es una columna SQLAlchemy): guarda la
+    # lista cruda del claim ``workspace_ids`` del JWT. Los services
+    # (``trading_account_service``, ``trade_service``) lo leen con
+    # ``user.workspace_ids`` y delegan la resolución final a
+    # ``infer_workspace_id``.
+    raw_ws = claims.get("workspace_ids") or []
+    user.workspace_ids = [uuid.UUID(str(w)) for w in raw_ws]
     return user
 
 
