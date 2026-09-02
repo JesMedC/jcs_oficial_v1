@@ -30,6 +30,11 @@ from app.schemas.subscription import (
     UpgradeIn,
     UpgradeOut,
 )
+from app.schemas.trading_account import (
+    TradingAccountIn,
+    TradingAccountListOut,
+    TradingAccountOut,
+)
 from app.schemas.user import UserOut
 from app.schemas.workspace import WorkspaceOut
 
@@ -60,6 +65,9 @@ __all__ = [
     "SubscriptionOut",
     "UpgradeIn",
     "UpgradeOut",
+    "TradingAccountIn",
+    "TradingAccountListOut",
+    "TradingAccountOut",
     "UserOut",
     "WorkspaceOut",
 ]

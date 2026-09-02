@@ -32,6 +32,10 @@ from app.services.subscription_service import (
     is_trial_active,
     upgrade_subscription,
 )
+from app.services.trading_account_service import (
+    create_trading_account,
+    list_user_accounts,
+)
 from app.services.user_service import (
     get_user_by_email,
     get_user_with_subscription,
@@ -71,4 +75,6 @@ __all__ = [
     "record_pageview",
     "get_top_pages",
     "get_analytics_summary",
+    "create_trading_account",
+    "list_user_accounts",
 ]
