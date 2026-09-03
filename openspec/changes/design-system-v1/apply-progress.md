@@ -254,6 +254,8 @@ Residual `rgba(0,255,255,*)` and `rgba(46,220,140,*)` literals remain in `dist/a
 
 Hand control back to the orchestrator. Per the strict TDD / work-unit-commits contract, the next move is independent SDD verification (`sdd-verify` for Wave 3a) followed by chained Wave 3b (Components drift). Review-budget impact for Wave 3a: **+178 / -8** in one commit — 45% of the 400-line budget.
 
+> **Update post-Wave-3b**: Wave 3b has now completed (see `## Wave 3b Complete` below). The next move is independent SDD verification for Wave 3b, followed by chained Wave 3c (Home / Pricing / Features drift).
+
 ### Rollback boundary
 
 Revert `8245964` (the single Wave 3a commit) to restore the pre-Wave-3a state. The reverted files are:
@@ -263,3 +265,148 @@ Revert `8245964` (the single Wave 3a commit) to restore the pre-Wave-3a state. T
 - `src/test/layout-drift.test.ts` (delete +134-line pin file)
 
 Revert is safe and isolated — no Wave 1 or Wave 2 work is touched.
+
+---
+
+## Wave 3b Complete
+
+Wave 3b retires the residual cyan + pre-pivot old-jade rgba literals that Wave 1+2+3a left in the 8 component files. Each match was replaced with the new neon Cyber-Jade `rgba(0,255,157,*)` triplet (alpha preserved per instance), and a focused pin-test file pins the post-migration contract so a future drift cannot re-introduce the old literals without tripping CI.
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| T3b.1 | `src/test/components-drift.test.ts` | Source-contract pin (file-content read) | ✅ 272/272 | ✅ Written (15 of 43 tests failed as expected) | ✅ Passed (43/43) | ✅ 8 per-file describe blocks (SidebarNav, SidebarHeader, Modal, FundWithdrawModal, DeleteAccountDialog, GlassCard, AdminSidebar, RouteFallback) | ➖ None needed — structural swaps only |
+
+- **Total tests written**: 43 (1 new test file)
+- **Total tests passing**: 43
+- **Layers used**: Source-contract pin (43) — reads each component file as text and asserts forbidden literal absence + required literal presence, mirroring the Wave 3a `layout-drift.test.ts` pattern.
+- **Approval tests** (refactoring): 0 — no behaviour change.
+- **Pure functions created**: 0 — migration was purely literal string swaps.
+
+### Audit phase — matches before migration
+
+`rg "rgba\(46,220,140|rgba\(0,255,255|#00FFFF|stroke=\"#00FFFF|#2EDC8C"` across the 8 component files returned **7 matches across 6 of the 8 files** (2 files already clean):
+
+| File | Line | Match | Class |
+|------|------|-------|-------|
+| `src/components/portal/SidebarNav.tsx` | 160 | `shadow-[0_0_12px_rgba(46,220,140,0.25)]` | active NavLink glow (old-jade → jade) |
+| `src/components/portal/SidebarHeader.tsx` | 20 | `shadow-[0_0_12px_rgba(46,220,140,0.6)]` | brand-dot glow (old-jade → jade) |
+| `src/components/portal/Modal.tsx` | 49 | `shadow-[0_0_40px_rgba(46,220,140,0.18)]` | modal-card shadow (old-jade → jade) |
+| `src/components/portal/FundWithdrawModal.tsx` | 123 | `hover:shadow-[0_0_24px_rgba(0,255,255,0.5)]` | primary submit hover glow (cyan → jade) |
+| `src/components/GlassCard.tsx` | 20 | `hover:shadow-[0_0_32px_rgba(0,255,255,0.15)]` | interactive-variant hover glow (cyan → jade) |
+| `src/components/admin/AdminSidebar.tsx` | 12 (in docstring) | `after:shadow-[0_0_8px_rgba(0,255,255,0.8)]` | docstring code example for active underline (cyan → jade) |
+| `src/components/admin/AdminSidebar.tsx` | 177 | `shadow-[0_0_12px_rgba(0,255,255,0.6)]` | admin brand-dot glow (cyan → jade) |
+| `src/components/RouteFallback.tsx` | — | (already clean) | (zero matches — pins as already-clean regression guard) |
+| `src/components/portal/DeleteAccountDialog.tsx` | — | (already clean) | (zero matches — pins as already-clean regression guard) |
+
+### Replacement phase — mapping applied
+
+- `rgba(46,220,140,0.XX)` → `rgba(0,255,157,0.XX)` (old-jade → neon jade; alpha preserved)
+- `rgba(0,255,255,0.XX)` → `rgba(0,255,157,0.XX)` (cyan → neon jade; alpha preserved)
+- No `#00FFFF` or `#2EDC8C` literals existed in the 8 files (Wave 1 already retired them from the design tokens).
+- No `stroke="#00FFFF"` patterns existed in the 8 files (the Wave 3c pricing table is the only inline-SVG consumer).
+- No Tailwind utility classes (`text-cyan-*`, `ring-cyan-*`, `shadow-cyan-*`, `border-cyan-*`, `bg-cyan-*`) referenced cyan in any of the 8 files — all `cyan` references were rgba values inside `className` strings or docstrings.
+
+Each non-trivial class-string replacement was annotated with a one-line comment naming the Wave/task ID and the rgba mapping (without re-introducing the forbidden source rgb triplet in the comment text — the comment references the target `rgba(0,255,157,*)` family and the descriptive token names `old-jade` / `cyan` only). The `//` line-comment inside JSX attribute lists (used in `FundWithdrawModal.tsx`) is treated as whitespace by esbuild and stripped from the production bundle; the `{/* */}` JSX comments used as standalone elements (in `SidebarHeader.tsx`, `Modal.tsx`, `AdminSidebar.tsx`) are likewise stripped.
+
+### Commits
+
+| Task | SHA | Title | Files | Net Δ |
+|------|-----|-------|-------|-------|
+| T3b.1 | `ec16fae` | feat(design-system): clean up cyan and old-jade literals in components [T3b.1] | `src/components/portal/SidebarNav.tsx`, `src/components/portal/SidebarHeader.tsx`, `src/components/portal/Modal.tsx`, `src/components/portal/FundWithdrawModal.tsx`, `src/components/GlassCard.tsx`, `src/components/admin/AdminSidebar.tsx`, `src/test/components-drift.test.ts` | +315 / -7 |
+
+Two of the eight files (`RouteFallback.tsx`, `DeleteAccountDialog.tsx`) were NOT modified — they already contained zero matches for the four forbidden literal patterns. Both files get dedicated `describe` blocks in the new pin-test file that pin that "already-clean" state as regression guards (4 assertions per file: no cyan rgba, no old-jade rgba, no `#00FFFF`, no `#2EDC8C`). RouteFallback additionally gets a 5th assertion pinning the Wave 1 keyframe rename (`animate-status-dot-pulse`, NOT `animate-pulse-cyan`).
+
+### Final verify grep
+
+```
+$ rg "46,220,140|0,255,255|#00FFFF|#2EDC8C" src/components/portal/SidebarNav.tsx src/components/portal/FundWithdrawModal.tsx src/components/GlassCard.tsx src/components/admin/AdminSidebar.tsx src/components/RouteFallback.tsx src/components/portal/Modal.tsx src/components/portal/SidebarHeader.tsx src/components/portal/DeleteAccountDialog.tsx
+ZERO MATCHES — acceptance met (7 before → 0 after)
+
+$ rg -o "rgba\(0,255,157[^)]*\)" dist/assets/index-*.css | sort -u
+rgba(0,255,157,.15)
+rgba(0,255,157,.16)
+rgba(0,255,157,.18)
+rgba(0,255,157,.2)
+rgba(0,255,157,.25)
+rgba(0,255,157,.3)
+rgba(0,255,157,.5)
+rgba(0,255,157,.6)
+rgba(0,255,157,.8)
+```
+
+The 9 unique opacity values that land in the production CSS bundle include the 6 alpha values Wave 3b migrated (0.15, 0.18, 0.25, 0.5, 0.6, 0.8) plus 3 values contributed by Wave 1/2/3a (`0.16` portal-selector bg, `0.2` borderJade utility, `0.3` box-shadow golds). The 6 alpha values Wave 3b migrated all appear in the bundle as `rgba(0,255,157,0.XX)` (or its minified form `rgba(0,255,157,.XX)`), confirming the component-rendered glow + shadow now emits neon jade wherever it previously emitted cyan or old-jade.
+
+Residual `rgba(0,255,255,*)` and `rgba(46,220,140,*)` literals remain in `dist/assets/*Page-*.js` and `dist/assets/index-*.css` from these out-of-scope files: `styleguide/GlassShowcase.tsx`, `home/{Hero,CtaStrip,ContactTeaser}.tsx`, `consent/CookiesConsent.tsx`, `admin/PlanRow.tsx`, `pages/{LoginPage,RegisterPage,NotFoundPage,AboutPage,FeaturesPage,PaymentSuccessPage,UpgradePage,PricingPage,DashboardPage}.tsx`, `pages/portal/{DiarioPage,PlaybookPage,CuentasPage,CuentasDetailPage}.tsx`, `pricing/{PricingTier,BillingCycleToggle}.tsx`. All of those are Wave 3c / 3d scope per the `tasks.md` file list — out of bounds for Wave 3b's components-only mandate. The T7.3 CI grep guard will catch them after Wave 3 completes.
+
+### Test Results
+
+- **`pnpm test`**: **272/272** passing across 46 test files (Wave 3a baseline 229 + 43 new components-drift tests).
+- **`pnpm typecheck`** (`tsc -b`): exit 0.
+- **`pnpm lint`** (`--max-warnings 0`): exit 0.
+- **`pnpm build`**: succeeds; built CSS bundle emits the new `rgba(0,255,157,*)` triplet at the 6 alphas Wave 3b migrated (0.15, 0.18, 0.25, 0.5, 0.6, 0.8), and the component-rendered neon glow on the SidebarHeader brand-dot, AdminSidebar brand-dot, SidebarNav active link, Modal card shadow, GlassCard interactive-variant hover, and FundWithdrawModal primary submit hover now uses the new neon jade.
+
+### Workload / PR Boundary
+
+- **Mode**: single PR (the orchestrator's prompt scoped Wave 3b as one chained PR slice within the `stacked-to-main` chain strategy).
+- **Current work unit**: Wave 3b — Components drift cleanup (T3b.1).
+- **Boundary**: starts from `86742b4` (Wave 3a's tail end — the `apply-progress` docs commit) and lands at the Wave 3b commit (one feat commit only).
+- **Estimated review budget impact**: well within the 400-line budget.
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm test src/test/components-drift.test.ts` → 43/43 passed in 10ms (single test file). Full suite `pnpm test` → 272/272 passed across 46 test files in 10.45s. |
+| Runtime harness command/scenario and exact result | `pnpm build` → succeeded in 2.70s; built CSS bundle (`dist/assets/index-*.css`) emits `rgba(0,255,157,0.15)`, `rgba(0,255,157,0.18)`, `rgba(0,255,157,0.25)`, `rgba(0,255,157,0.5)`, `rgba(0,255,157,0.6)`, `rgba(0,255,157,0.8)` for the 6 component files that previously emitted cyan or old-jade rgba. |
+| Rollback boundary | Revert the single Wave 3b commit to restore the pre-Wave-3b state. Reverted files: `src/components/portal/SidebarNav.tsx`, `src/components/portal/SidebarHeader.tsx`, `src/components/portal/Modal.tsx`, `src/components/portal/FundWithdrawModal.tsx`, `src/components/GlassCard.tsx`, `src/components/admin/AdminSidebar.tsx` (6 rgba swaps + provenance annotations), and `src/test/components-drift.test.ts` (delete new pin file). No Wave 1, Wave 2, or Wave 3a work is touched. |
+
+### Wave 3b Deviations / Notes
+
+- **`RouteFallback.tsx` and `DeleteAccountDialog.tsx` were not modified.** Both files already contained zero cyan / old-jade / `#00FFFF` / `#2EDC8C` literals. Dedicated `describe` blocks in the new pin-test file document that "already-clean" state as a regression guard so any future drift on either file trips the test. RouteFallback additionally pins the Wave 1 keyframe rename (`animate-status-dot-pulse`, not `animate-pulse-cyan`).
+- **`AdminSidebar.tsx` L9 prose `(cyan + Orbitron, glassmorphism)` was NOT updated.** The word "cyan" appears as a plain English color descriptor in prose, not as a literal rgba/hex value. The forbidden grep pattern (`46,220,140|0,255,255|#00FFFF|#2EDC8C`) does not match the prose word "cyan". Touching the prose comment would be out-of-scope drift cleanup (rewording documentation, not color literal migration).
+- **`AdminSidebar.tsx` L12 docstring example WAS updated.** That line carries a backtick-wrapped code example (`after:bg-primary after:shadow-[0_0_8px_rgba(0,255,255,0.8)]`) which DID trigger the forbidden grep. The example was updated to use the new neon-jade triplet so the comment stays accurate and the grep stays clean. The example describes a pattern the file doesn't currently render (no `after:shadow` on active nav items in AdminSidebar.tsx — the brand-dot at L177 is the only neon-jade shadow consumer in the file), but keeping the documentation accurate preserves the design intent for future implementers.
+- **Provenance comments avoid re-introducing forbidden substrings.** The migration provenance annotations (`// design-system-v1 (Wave 3b, T3b.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).`) reference the target triplet and the descriptive token name (`old-jade` / `cyan`) but NOT the source rgb triplet (which would re-introduce the forbidden `rgba(46,220,140` / `rgba(0,255,255` substrings and break the post-migration grep guard). The first-pass annotations did include the source triplets; they were rewritten before commit to keep the grep clean.
+- **`//` JSX-attribute-position comments used for migration provenance annotations** (in `FundWithdrawModal.tsx` L123 between the `className` attribute and the `>` terminator). esbuild treats these as whitespace-equivalent during JSX transpilation, and the production bundle strips them. TypeScript's `tsc -b` and ESLint's `--max-warnings 0` both pass without complaint. The comments live only in source for reviewer clarity and are not a runtime concern.
+- **`{/* */}` JSX comments used for standalone elements** (in `SidebarHeader.tsx` L20, `Modal.tsx` L49, `AdminSidebar.tsx` L178). Same esbuild behaviour as above — stripped from the production bundle, accepted by both TypeScript and ESLint.
+- **`@ts-expect-error` was NOT needed.** None of the migrated literals touched TypeScript type signatures; they were plain string values in JSX `className` props or JSX `className` template-strings. No type errors were introduced or suppressed.
+- **No `tailwind.config.ts` or `src/styles/index.css` changes.** Wave 1+2 already retired every cyan / old-jade literal from those files; the Wave 3b audit confirmed zero matches in the config layer.
+- **No `Co-Authored-By` trailer.** Conventional-commit title `[T3b.1]` task tag included. No emojis. Single commit per the `feat(design-system)` scope.
+- **No `GlassCard.tsx` `glow` prop default migration.** The task instruction said `glow='cyan'` prop default → `'jade'` per portal-fase0a-base precedent, but the current `GlassCard.tsx` has no `glow` prop — the `interactive` variant's hover shadow is hard-coded inline at L20. There is no `glow='cyan'` default to migrate. The migration is limited to the inline cyan rgba at L20 (which the swap to neon jade at the same alpha covers). If a `glow` prop is added in a later wave, that work belongs there.
+
+---
+
+## Status
+
+- **Wave 1**: ✅ Complete (4 commits, 197/197 tests).
+- **Wave 2**: ✅ Complete (1 commit, 205/205 tests).
+- **Wave 3a**: ✅ Complete (1 commit, 229/229 tests, layout drift retired).
+- **Wave 3b**: ✅ Complete (1 commit, 272/272 tests, components drift retired).
+- **Wave 3c**: ⏳ Pending (Home / Pricing / Features drift).
+- **Wave 3d**: ⏳ Pending (Pages / Auth / Admin drift).
+- **Wave 4**: ⏳ Pending (11–12 primitives).
+- **Wave 5**: ⏳ Pending (12 migration commits).
+- **Wave 6**: ⏳ Pending (decor + styleguide).
+- **Wave 7**: ⏳ Pending (ESLint rule, stylelint, CI guard, docs).
+
+### Next recommended step
+
+Hand control back to the orchestrator. Per the strict TDD / work-unit-commits contract, the next move is independent SDD verification (`sdd-verify` for Wave 3b) followed by chained Wave 3c (Home / Pricing / Features drift). Review-budget impact for Wave 3b: well within the 400-line budget.
+
+### Rollback boundary
+
+Revert the single Wave 3b commit to restore the pre-Wave-3b state. The reverted files are:
+- `src/components/portal/SidebarNav.tsx` (1 old-jade rgba swap)
+- `src/components/portal/SidebarHeader.tsx` (1 old-jade rgba swap)
+- `src/components/portal/Modal.tsx` (1 old-jade rgba swap)
+- `src/components/portal/FundWithdrawModal.tsx` (1 cyan rgba swap)
+- `src/components/GlassCard.tsx` (1 cyan rgba swap)
+- `src/components/admin/AdminSidebar.tsx` (1 cyan rgba swap in code + 1 cyan rgba swap in docstring example)
+- `src/test/components-drift.test.ts` (delete new pin file)
+
+Revert is safe and isolated — no Wave 1, Wave 2, or Wave 3a work is touched.
+
+### Next recommended step (post-Wave-3b)
+
+Hand control back to the orchestrator. Per the strict TDD / work-unit-commits contract, the next move is independent SDD verification (`sdd-verify` for Wave 3b) followed by chained Wave 3c (Home / Pricing / Features drift). Review-budget impact for Wave 3b: **+315 / -7** in one feat commit — 79% of the 400-line budget (still within cap). The companion docs commit for this Wave 3b section adds ~141 lines to `apply-progress.md` only.
