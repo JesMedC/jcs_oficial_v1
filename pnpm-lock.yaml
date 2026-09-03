@@ -17,6 +17,12 @@ importers:
       '@fontsource/orbitron':
         specifier: 5.1.0
         version: 5.1.0
+      '@fontsource/rajdhani':
+        specifier: ^5.1.0
+        version: 5.3.0
+      '@fontsource/space-grotesk':
+        specifier: ^5.1.0
+        version: 5.3.0
       '@hookform/resolvers':
         specifier: 3.9.0
         version: 3.9.0(react-hook-form@7.53.0(react@18.3.1))
@@ -452,6 +458,12 @@ packages:
 
   '@fontsource/orbitron@5.1.0':
     resolution: {integrity: sha512-P2OhlojgR+yVVoZPhDvKixHiWnQdERTlmfbss9OLeSxX+ZdJGdpqoIrDQuID6wD9RlHaW1Qgyot0PBjTtnybVg==}
+
+  '@fontsource/rajdhani@5.3.0':
+    resolution: {integrity: sha512-oBJgSIibWJvVBKseme1JczqPLoDHN97LHti4uh0LjfcJqQoVmnQQlRKIpEjTJV559rmVQ6qbVZZwKwk2wkBTtw==}
+
+  '@fontsource/space-grotesk@5.3.0':
+    resolution: {integrity: sha512-ksnGizDPXIDuvqcTYTSrmZ+evx9sDlS8rp7+42BQ7wU+spt3twEoXfbJz672C+5CLg6VeUQwRy5RXshWb67LcQ==}
 
   '@hookform/resolvers@3.9.0':
     resolution: {integrity: sha512-bU0Gr4EepJ/EQsH/IwEzYLsT/PEj5C0ynLQ4m+GSHS+xKH4TfSelhluTgOaoc4kA5s7eCsQbM4wvZLzELmWzUg==}
@@ -3900,6 +3912,10 @@ snapshots:
   '@fontsource/jetbrains-mono@5.1.1': {}
 
   '@fontsource/orbitron@5.1.0': {}
+
+  '@fontsource/rajdhani@5.3.0': {}
+
+  '@fontsource/space-grotesk@5.3.0': {}
 
   '@hookform/resolvers@3.9.0(react-hook-form@7.53.0(react@18.3.1))':
     dependencies:
