@@ -120,7 +120,7 @@ export function FundWithdrawModal({
             type="submit"
             form="fund-withdraw-form"
             disabled={!valid || submitting}
-            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed" // design-system-v1 (Wave 3b, T3b.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
           >
             {submitting ? submittingLabel : submitLabel}
           </button>

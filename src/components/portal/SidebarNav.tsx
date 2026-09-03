@@ -157,7 +157,7 @@ export function SidebarNav({ isCollapsed }: SidebarNavProps) {
               'group flex items-center gap-3 pl-3 pr-3 py-2 rounded-r-lg',
               'border-l-4 transition-colors font-body text-sm',
               isActive
-                ? 'border-l-primary bg-primary/15 text-primary shadow-[0_0_12px_rgba(46,220,140,0.25)]'
+                ? 'border-l-primary bg-primary/15 text-primary shadow-[0_0_12px_rgba(0,255,157,0.25)]' // design-system-v1 (Wave 3b, T3b.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
                 : 'border-l-transparent text-text-secondary hover:bg-primary/10 hover:text-primary',
               isCollapsed ? 'justify-center pl-2 pr-2' : '',
             ].join(' ')

@@ -9,7 +9,8 @@
  * Visual language per mem #70 (cyan + Orbitron, glassmorphism):
  *   - Logo row uses `font-display uppercase tracking-[0.2em] text-primary`.
  *   - Active nav item gets the underline glow via `after:content-[""]
- *     after:bg-primary after:shadow-[0_0_8px_rgba(0,255,255,0.8)]`.
+ *     after:bg-primary after:shadow-[0_0_8px_rgba(0,255,157,0.8)]`.
+ *     [Wave 3b, T3b.1 — example literal swapped from cyan to neon jade.]
  *   - Inactive items fade to `text-text-secondary` and brighten on hover.
  *
  * Per mem #68, all user-visible labels are Spanish. Code identifiers
@@ -174,7 +175,7 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
           collapsed ? 'justify-center' : '',
         ].join(' ')}
       >
-        <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_rgba(0,255,255,0.6)] shrink-0" />
+        <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_rgba(0,255,157,0.6)] shrink-0" /> {/* design-system-v1 (Wave 3b, T3b.1) — cyan rgba swapped for neon jade rgba(0,255,157,*). */}
         {!collapsed ? (
           <div className="flex flex-col leading-tight min-w-0">
             <span className="font-display uppercase tracking-[0.2em] text-primary text-xs truncate">

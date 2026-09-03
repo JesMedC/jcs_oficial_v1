@@ -46,7 +46,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md bg-surface-el/60 backdrop-blur-md border border-primary/30 rounded-2xl shadow-[0_0_40px_rgba(46,220,140,0.18)] overflow-hidden">
+      <div className="w-full max-w-md bg-surface-el/60 backdrop-blur-md border border-primary/30 rounded-2xl shadow-[0_0_40px_rgba(0,255,157,0.18)] overflow-hidden"> {/* design-system-v1 (Wave 3b, T3b.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*). */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-primary/20">
           <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg">
             {title}
