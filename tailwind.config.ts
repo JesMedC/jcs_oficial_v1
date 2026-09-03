@@ -63,7 +63,7 @@ const config: Config = {
         },
       },
       fontFamily: {
-        display: ['Orbitron', 'ui-monospace', 'monospace'],
+        display: ['Orbitron', 'Rajdhani', 'Space Grotesk', 'ui-monospace', 'monospace'],
         body: ['Inter', 'system-ui', 'sans-serif'],
         mono: [
           '"JetBrains Mono"',
