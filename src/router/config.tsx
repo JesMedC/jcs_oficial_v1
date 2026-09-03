@@ -125,6 +125,14 @@ const GlassShowcasePage = lazy(() =>
   import('../styleguide/GlassShowcase').then((m) => ({ default: m.GlassShowcase })),
 );
 
+// design-system-v1 (Wave 6, T6.3) — Cyber-Jade styleguide route.
+// Mirrors the existing /styleguide/glass registration pattern: lazy
+// chunk, public (no auth gate), available to anyone reviewing the
+// design system.
+const JadeShowcasePage = lazy(() =>
+  import('../styleguide/JadeShowcase').then((m) => ({ default: m.JadeShowcase })),
+);
+
 const AdminLayout = lazy(() =>
   import('../layout/AdminLayout').then((m) => ({ default: m.AdminLayout })),
 );
@@ -147,6 +155,10 @@ export const routeChildren: RouteObject[] = [
   // p0ui.1 — glassmorphism styleguide. Public (no auth) so anyone
   // reviewing the slice can eyeball the tokens without login.
   { path: '/styleguide/glass', element: <GlassShowcasePage /> },
+  // design-system-v1 (Wave 6, T6.3) — Cyber-Jade styleguide. Public
+  // (no auth) so anyone reviewing the design system can eyeball the
+  // tokens + primitives + decor without login.
+  { path: '/styleguide/jade', element: <JadeShowcasePage /> },
   {
     element: <ProtectedRoute />,
     children: [
