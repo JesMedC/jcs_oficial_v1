@@ -30,7 +30,7 @@ describe('useCloseTrade', () => {
     const { result } = renderHook(() => useCloseTrade(), { wrapper });
     result.current.mutate({
       id: 't1',
-      payload: { type: 'BINARY', outcome: 'WIN' },
+      payload: { outcome: 'WIN' },
     });
     await waitFor(() => expect(result.current.isSuccess).toBe(true));
 

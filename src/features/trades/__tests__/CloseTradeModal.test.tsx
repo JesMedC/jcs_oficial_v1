@@ -158,11 +158,41 @@ describe('CloseTradeModal', () => {
     fireEvent.click(screen.getByTestId('close-submit'));
 
     await waitFor(() => {
+      // FOREX branch: payload must carry exit_price but NOT 'type'
+      // (TradeCloseIn has extra="forbid"; the backend discriminates
+      // by the loaded trade.type server-side).
       expect(spy).toHaveBeenCalledWith(
         't1',
-        expect.objectContaining({ type: 'FOREX', exit_price: '1.5' }),
+        expect.objectContaining({ exit_price: '1.5' }),
       );
+      const sent = spy.mock.calls[0]![1] as Record<string, unknown>;
+      expect(sent).not.toHaveProperty('type');
       expect(onClose).toHaveBeenCalled();
     });
+  });
+
+  it('no envía `type` en el payload (backend lo rechaza con extra=forbid)', async () => {
+    // Regression: la consigna del bug 422 — CloseTradeModal
+    // construía `{ type: 'BINARY', outcome: 'WIN', ... }` y el
+    // backend lo rechazaba con 422 VALIDATION_ERROR
+    // "Extra inputs are not permitted". El form sólo usa `type`
+    // como discriminator interno de Zod; el wire payload no lo
+    // debe incluir.
+    const spy = vi.spyOn(api, 'closeTradeApi').mockResolvedValue(
+      {} as Awaited<ReturnType<typeof api.closeTradeApi>>,
+    );
+    render(
+      <CloseTradeModal trade={binaryTrade} onClose={() => {}} />,
+      { wrapper: makeWrapper() },
+    );
+    await waitFor(() => screen.getByTestId('close-outcome-WIN'));
+    fireEvent.click(screen.getByTestId('close-outcome-WIN'));
+    fireEvent.click(screen.getByTestId('close-submit'));
+    await waitFor(() => expect(spy).toHaveBeenCalled());
+    const sent = spy.mock.calls[0]![1] as Record<string, unknown>;
+    expect(sent).not.toHaveProperty('type');
+    // Sanity: el discriminator interno del form se descarta, pero
+    // los campos propios del BINARY branch sí viajan.
+    expect(sent).toHaveProperty('outcome', 'WIN');
   });
 });

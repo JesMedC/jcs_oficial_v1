@@ -25,10 +25,13 @@
  * invariant across field shapes, so extracting it generically would
  * require an ``any`` cast).
  *
- * The wire payload is the form values verbatim — ``CloseTradePayload``
- * is the discriminated union, so we forward ``data`` directly (the
- * ``type`` literal is required for the backend to pick the right
- * validator).
+ * The form schemas (``schemas.ts``) keep ``type`` as the Zod
+ * discriminator for branching, but ``type`` is NOT forwarded to the
+ * backend — ``TradeCloseIn`` has ``model_config=extra="forbid"`` and
+ * the discriminator is the trade's own ``type`` already loaded
+ * server-side. Both ``onSubmit`` handlers destructure ``type`` out
+ * of the form values before passing to ``closeMutation.mutate`` so
+ * the wire payload matches ``CloseTradePayload``.
  *
  * data-testid hooks:
  *   - close-trade-modal: the form root.
@@ -86,8 +89,13 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
   });
 
   const onSubmit = (data: CloseForexFormValues) => {
+    // Strip the form-only `type` discriminator before forwarding.
+    // The backend's TradeCloseIn has extra="forbid" and the type
+    // is redundant — it already knows trade.type from the loaded row.
+    const { type: _type, ...payload } = data;
+    void _type;
     closeMutation.mutate(
-      { id: trade.id, payload: data as CloseTradePayload },
+      { id: trade.id, payload: payload as CloseTradePayload },
       { onSuccess: () => onClose() },
     );
   };
@@ -180,8 +188,13 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
   });
 
   const onSubmit = (data: CloseBinaryFormValues) => {
+    // Strip the form-only `type` discriminator before forwarding.
+    // The backend's TradeCloseIn has extra="forbid" and the type
+    // is redundant — it already knows trade.type from the loaded row.
+    const { type: _type, ...payload } = data;
+    void _type;
     closeMutation.mutate(
-      { id: trade.id, payload: data as CloseTradePayload },
+      { id: trade.id, payload: payload as CloseTradePayload },
       { onSuccess: () => onClose() },
     );
   };

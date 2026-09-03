@@ -155,21 +155,32 @@ export interface CreateBinaryTradePayload extends BinaryFields {
 export type CreateTradePayload = CreateForexTradePayload | CreateBinaryTradePayload;
 
 /**
- * Body for ``POST /trades/{id}/close``. Discriminated on ``type``:
- * FOREX needs an ``exit_price``, BINARY needs an ``outcome``.
- * ``post_trade_notes``, ``followed_plan`` and ``mistakes`` are the
- * journal triple — optional on both branches.
+ * Body for ``POST /trades/{id}/close``.
+ *
+ * Mirrors the backend ``TradeCloseIn`` exactly (no ``type`` field).
+ * The backend discriminates FOREX vs BINARY by the trade's own
+ * ``type`` already loaded server-side — sending ``type`` here makes
+ * the backend reject the request with 422 VALIDATION_ERROR
+ * ``"Extra inputs are not permitted"`` (``model_config=extra="forbid"``
+ * on ``TradeCloseIn``).
+ *
+ * The form types ``CloseForexFormValues`` / ``CloseBinaryFormValues``
+ * (see ``schemas.ts``) keep ``type`` as the Zod discriminator for
+ * branching the UI; ``CloseTradeModal.onSubmit`` strips it before
+ * forwarding to ``closeTradeApi``.
+ *
+ * FOREX needs an ``exit_price``; BINARY needs an ``outcome``. The
+ * journal triple (``post_trade_notes``, ``followed_plan``,
+ * ``mistakes``) is optional on both branches.
  */
 export type CloseTradePayload =
   | {
-      readonly type: 'FOREX';
       readonly exit_price: string;
       readonly post_trade_notes?: string;
       readonly followed_plan?: boolean;
       readonly mistakes?: string;
     }
   | {
-      readonly type: 'BINARY';
       readonly outcome: 'WIN' | 'LOSS';
       readonly post_trade_notes?: string;
       readonly followed_plan?: boolean;

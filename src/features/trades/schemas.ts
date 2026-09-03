@@ -100,12 +100,20 @@ export type TradeFormValues = z.infer<typeof TradeFormSchema>;
 /*
  * portal-fase0a-base / FASE 4A — Close-trade form schemas.
  *
- * Mirrors `CloseTradePayload` from `types.ts` (which mirrors backend
- * Pydantic `CloseTradeIn`): discriminated by `type`, FOREX branch
- * carries `exit_price`, BINARY branch carries `outcome: 'WIN'|'LOSS'`
- * (no BREAK — the backend computes CLOSED_BREAK server-side from the
- * payout when relevant, so the wire format only exposes the two
- * outcomes the user actually decides on).
+ * Discriminated by `type` so the UI can branch on it (FOREX vs BINARY).
+ * The `type` literal here is **internal to the form** — it is used by
+ * the Zod schema to validate the right field shape and by the React
+ * component to pick the right branch. It is NOT part of the wire
+ * payload: `CloseTradePayload` in `types.ts` (which mirrors backend
+ * Pydantic `TradeCloseIn`) omits `type` because the backend already
+ * knows the trade's type from the loaded row and `TradeCloseIn` has
+ * `model_config=extra="forbid"`. `CloseTradeModal.onSubmit` destructures
+ * `type` out before forwarding to `closeTradeApi`.
+ *
+ * FOREX branch carries `exit_price`, BINARY branch carries
+ * `outcome: 'WIN'|'LOSS'` (no BREAK — the backend computes
+ * CLOSED_BREAK server-side from the payout when relevant, so the wire
+ * format only exposes the two outcomes the user actually decides on).
  *
  * The journal triple (`post_trade_notes`, `followed_plan`,
  * `mistakes`) is optional on both branches and round-trips through

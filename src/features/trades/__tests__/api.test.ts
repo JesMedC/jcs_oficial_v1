@@ -191,13 +191,11 @@ describe('trades API', () => {
       },
     });
     await closeTradeApi('trade-1', {
-      type: 'FOREX',
       exit_price: '1.09000',
       post_trade_notes: 'Salida limpia',
       followed_plan: true,
     });
     expect(mockedPost).toHaveBeenCalledWith('/trades/trade-1/close', {
-      type: 'FOREX',
       exit_price: '1.09000',
       post_trade_notes: 'Salida limpia',
       followed_plan: true,
@@ -230,12 +228,10 @@ describe('trades API', () => {
       },
     });
     await closeTradeApi('trade-2', {
-      type: 'BINARY',
       outcome: 'LOSS',
       mistakes: 'Entré sin setup',
     });
     expect(mockedPost).toHaveBeenCalledWith('/trades/trade-2/close', {
-      type: 'BINARY',
       outcome: 'LOSS',
       mistakes: 'Entré sin setup',
     });
