@@ -13,10 +13,20 @@
  *   - DataTable (T4.10)
  *   - Tabs     (T4.9)
  *
- * Each subsequent Wave 4 commit (EmptyState, Skeleton, Toast,
- * [optional] PeriodoSplit) adds its primitive to this barrel in its
- * own commit so the barrel grows one export at a time and each
- * commit is a reviewable unit (per `tasks.md` T4.* acceptance).
+ * Wave 4c ships the three peripheral primitives:
+ *   - EmptyState (T4.7)
+ *   - Skeleton   (T4.8)
+ *   - Toast      (T4.11 — presentational only)
+ *
+ * NOT exported here (intentional — see commit notes for each):
+ *   - ToastContainer (T4.11-container) — mounted separately in
+ *     `AppShell` / `PortalShell` during Wave 7; consumers import
+ *     it directly from `src/components/ui/ToastContainer`.
+ *   - `useToastStore` (T4.11-store) — lives in `src/stores/` and
+ *     is imported directly by consumers because it carries
+ *     Zustand state, not UI chrome.
+ *   - PeriodoSplit (T4.12, optional) — not shipped (out of scope
+ *     per orchestrator brief).
  */
 export { Button } from './Button';
 export type {
@@ -51,3 +61,12 @@ export type {
 
 export { Tabs } from './Tabs';
 export type { TabItem, TabsProps } from './Tabs';
+
+export { EmptyState } from './EmptyState';
+export type { EmptyStateProps } from './EmptyState';
+
+export { Skeleton } from './Skeleton';
+export type { SkeletonProps, SkeletonVariant } from './Skeleton';
+
+export { Toast } from './Toast';
+export type { ToastProps } from './Toast';
