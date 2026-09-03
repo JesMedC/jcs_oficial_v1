@@ -23,12 +23,13 @@ from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
     AuditLog,
+    Trade,
     TradingAccount,
     TradingAccountType,
     User,
@@ -291,6 +292,14 @@ async def delete_account(
     sensitive). El set soft-delete es por ``deleted_at = now()`` para
     conservar la fila en ``audit_logs``/FKs futuras; ``list_user_accounts``
     ya la filtra.
+
+    Cascade soft-delete: también marca ``deleted_at`` en TODOS los
+    ``Trade`` de la cuenta (OPEN + CLOSED_*) en una sola UPDATE. Esto
+    preserva el audit trail (las filas siguen en la DB para futuros
+    ``trade.history`` / reportes) pero los esconde de ``list_trades``
+    (que filtra por ``deleted_at IS NULL``). El P&L ya fue computado
+    al cerrar cada trade, así que no se pierde info contable — sólo
+    dejamos de mostrarlos en el listado de operaciones del usuario.
     """
     if confirmation != "ELIMINAR":
         raise TradingAccountError(
@@ -304,7 +313,31 @@ async def delete_account(
     last_balance = account.balance_usd
     broker_name = account.broker_name
     name = account.name
-    account.deleted_at = datetime.now(timezone.utc)
+    # Cascade: marcar todos los trades de la cuenta como soft-deleted
+    # ANTES de marcar la cuenta. Una sola UPDATE masiva evita N round-
+    # trips por trade (importante cuando una cuenta tiene cientos de
+    # operaciones).
+    cascade_deleted_at = datetime.now(timezone.utc)
+    cascade_result = await db.execute(
+        update(Trade)
+        .where(
+            Trade.account_id == account_id,
+            Trade.deleted_at.is_(None),
+        )
+        .values(deleted_at=cascade_deleted_at)
+    )
+    cascaded_trades = cascade_result.rowcount or 0
+    # Log estructurado del cascade para trazabilidad operacional —
+    # el audit de ``account.delete`` mantiene su shape estable (no
+    # se agrega un campo ``trades_cascaded`` para no romper callers
+    # downstream que assertan el dict exacto).
+    log.info(
+        "account.delete cascade",
+        account_id=str(account_id),
+        user_id=str(user.id),
+        cascaded_trades=cascaded_trades,
+    )
+    account.deleted_at = cascade_deleted_at
     await _emit_audit(
         db,
         actor_user_id=user.id,

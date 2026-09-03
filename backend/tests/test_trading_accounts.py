@@ -815,3 +815,133 @@ async def test_create_account_workspace_id_matches_jwt_claim(
     p += "=" * (-len(p) % 4)
     claims = json.loads(base64.urlsafe_b64decode(p))
     assert expected_ws in claims["workspace_ids"]
+
+
+# ============================================================
+# delete_account cascade — soft-delete de trades asociados
+# ============================================================
+#
+# Bug 2 — ``delete_account`` (p0e.2) sólo marca ``deleted_at`` en
+# la fila de la cuenta. Los ``Trade`` asociados quedaban con
+# ``deleted_at IS NULL`` y aparecían en ``GET /trades`` aunque su
+# cuenta ya no existía para el usuario. El fix agrega una UPDATE
+# masiva sobre ``trades`` ANTES de marcar la cuenta: cascade
+# soft-delete preservando audit trail (las filas siguen en la DB).
+#
+# Test paralelo vive en ``test_trades.py`` (``test_list_trades_…
+# _from_deleted_account``) que valida el filtro defense-in-depth
+# en ``list_trades``.
+
+
+async def test_delete_account_cascades_to_trades(
+    client, valid_register_payload, db_session
+) -> None:
+    """DELETE /accounts/{id} → todos los trades de esa cuenta quedan
+    con ``deleted_at`` poblado y desaparecen de GET /trades.
+
+    Cubre el caso OPEN + CLOSED: la cascade marca TODO trade de la
+    cuenta, no sólo los abiertos (un trade cerrado sigue siendo un
+    trade de la cuenta, y si la cuenta se borró no queremos que
+    siga visible en el historial del usuario).
+    """
+    from app.models.trade import Trade
+
+    # Register + workspace + cuenta BINARY fondeada para poder abrir trades.
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, name="Cascade target")
+    account_id = account["id"]
+
+    # Fondear para que la deducción de inversión no falle por balance.
+    fund_resp = await client.post(
+        f"/api/v1/accounts/{account_id}/fund",
+        headers=headers,
+        json={"amount": "500.00"},
+    )
+    assert fund_resp.status_code == 200, fund_resp.text
+
+    # Abrir 2 trades BINARY.
+    trade_responses = []
+    for _ in range(2):
+        resp = await client.post(
+            "/api/v1/trades",
+            headers=headers,
+            json={
+                "account_id": account_id,
+                "instrument": "EUR/USD OTC",
+                "type": "BINARY",
+                "direction": "CALL",
+                "investment_usd": "10.00",
+                "payout_pct": "85.00",
+                "expiration_seconds": 60,
+            },
+        )
+        assert resp.status_code == 201, resp.text
+        trade_responses.append(resp.json())
+
+    trade_ids = [uuid.UUID(t["id"]) for t in trade_responses]
+
+    # Cerramos uno de los dos (WIN) para que el cascade cubra el caso
+    # mixto OPEN + CLOSED.
+    close_resp = await client.post(
+        f"/api/v1/trades/{trade_ids[0]}/close",
+        headers=headers,
+        json={"outcome": "WIN"},
+    )
+    assert close_resp.status_code == 200, close_resp.text
+
+    # Antes del delete: ambos trades visibles en GET /trades.
+    pre_list = await client.get("/api/v1/trades", headers=headers)
+    assert pre_list.status_code == 200, pre_list.text
+    pre_ids = {uuid.UUID(t["id"]) for t in pre_list.json()["items"]}
+    assert pre_ids == set(trade_ids), (
+        f"sanity check falló: esperaba {trade_ids}, recibí {pre_ids}"
+    )
+
+    # El delete con confirmation="ELIMINAR" → 204.
+    del_resp = await client.request(
+        "DELETE",
+        f"/api/v1/accounts/{account_id}",
+        headers=headers,
+        json={"confirmation": "ELIMINAR"},
+    )
+    assert del_resp.status_code == 204, del_resp.text
+
+    # DB-level: ambos trades tienen deleted_at populado.
+    db_trades = list(
+        (await db_session.execute(
+            select(Trade).where(Trade.account_id == uuid.UUID(account_id))
+        )).scalars().all()
+    )
+    assert len(db_trades) == 2, (
+        f"esperaba 2 trades en DB, encontré {len(db_trades)} "
+        "(el cascade no debe borrar filas, sólo soft-deleted)"
+    )
+    for t in db_trades:
+        assert t.deleted_at is not None, (
+            f"trade {t.id} quedó con deleted_at NULL tras cascade"
+        )
+
+    # Endpoint-level: GET /trades ya no incluye ninguno de los dos.
+    post_list = await client.get("/api/v1/trades", headers=headers)
+    assert post_list.status_code == 200, post_list.text
+    post_ids = {uuid.UUID(t["id"]) for t in post_list.json()["items"]}
+    assert post_ids.isdisjoint(trade_ids), (
+        f"GET /trades devolvió trades soft-deleted: {post_ids & trade_ids}"
+    )
+
+    # Audit del delete se sigue emitiendo con el shape estable (no se
+    # agrega ``trades_cascaded`` al payload para mantener compat con
+    # callers que assertan el dict exacto). La trazabilidad del
+    # count de cascade vive en el log estructurado.
+    audit_rows = list(
+        (await db_session.execute(
+            select(AuditLog).where(
+                AuditLog.action == "account.delete",
+                AuditLog.entity_id == account_id,
+            )
+        )).scalars().all()
+    )
+    assert len(audit_rows) == 1
+    # Shape estable — sólo ``deleted_at`` en ``new_value``.
+    assert set(audit_rows[0].new_value.keys()) == {"deleted_at"}

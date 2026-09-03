@@ -2064,3 +2064,190 @@ async def test_open_binary_with_exactly_one_usd_balance_succeeds(
         )
     ).scalar_one()
     assert db_acc.balance_usd == Decimal("0.00")
+
+
+async def test_three_sequential_binary_trades_deduct_cumulatively(
+    client, valid_register_payload, db_session
+) -> None:
+    """Regression — escenario reportado: 3 trades de 10 USD sobre
+    una cuenta fondeada con 100 USD deben dejar el balance en 70.
+
+    El test ``test_open_binary_trade_deducts_investment_from_balance``
+    cubre el caso de UN trade. Este cubre el caso de N trades
+    acumulativos (el flujo real del trader abre varios seguidos sin
+    cerrar entremedio) — el commit que agregó la deducción
+    (``account.balance_usd -= deduct_amount``) tenía que sobrevivir
+    iteraciones múltiples, no sólo la primera.
+
+    Lee directo de la DB (no de la respuesta JSON) para que un bug
+    silencioso tipo "stale uvicorn bytecode" no pase desapercibido:
+    si el endpoint retorna el balance correcto pero la fila en la DB
+    quedó en 100, este assert lo cazaría.
+    """
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    account = await _create_account(client, headers, type="BINARY", name="Binarias 1")
+    await _fund_account(client, headers, account["id"], "100.00")
+
+    payload = _binary_open_payload(account["id"])
+    payload["investment_usd"] = "10.00"
+
+    for _ in range(3):
+        open_resp = await client.post(
+            "/api/v1/trades", headers=headers, json=payload,
+        )
+        assert open_resp.status_code == 201, open_resp.text
+        assert open_resp.json()["status"] == "OPEN"
+
+    db_acc = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account["id"])
+            )
+        )
+    ).scalar_one()
+    # 100 − (3 × 10) = 70.
+    assert db_acc.balance_usd == Decimal("70.00")
+
+    # 3 audit logs ``trade.open`` con ``balance_delta_usd = -10.00`` y
+    # ``new_balance_usd`` decreciente (90 → 80 → 70).
+    audit_rows = list(
+        (await db_session.execute(
+            select(AuditLog)
+            .where(
+                AuditLog.action == "trade.open",
+                AuditLog.entity_type == "Trade",
+            )
+            .order_by(AuditLog.created_at.asc())
+        )).scalars().all()
+    )
+    assert len(audit_rows) == 3
+    expected_balances = [Decimal("90.00"), Decimal("80.00"), Decimal("70.00")]
+    for row, expected in zip(audit_rows, expected_balances):
+        assert Decimal(row.new_value["balance_delta_usd"]) == Decimal("-10.00")
+        assert Decimal(row.new_value["new_balance_usd"]) == expected
+
+
+# ============================================================
+# delete_account cascade — defense in depth en ``list_trades``
+# ============================================================
+#
+# El test ``test_delete_account_cascades_to_trades`` (en
+# ``test_trading_accounts.py``) cubre el camino primario: el
+# cascade del service marca los trades como soft-deleted y la
+# query ``deleted_at IS NULL`` los filtra. Este test cubre la red
+# de seguridad: aunque el cascade falle silenciosamente por una
+# inconsistencia de DB (race condition, fallo de FK parcial,
+# mantenimiento manual), ``list_trades`` debe seguir ocultando los
+# trades cuya cuenta haya sido soft-deleted.
+
+
+async def test_list_trades_excludes_trades_from_deleted_account(
+    client, valid_register_payload, db_session
+) -> None:
+    """GET /trades filtra trades de cuentas soft-deleted (defense in depth).
+
+    Setup: usuario con 2 cuentas (A y B) del mismo workspace, cada
+    una con 1 trade BINARY abierto. Borramos la cuenta A y
+    verificamos que el trade de A NO aparece en GET /trades pero el
+    de B sí.
+
+    Borramos via SQL directo (UPDATE) en vez de via el endpoint,
+    para simular el caso "el cascade falló pero la cuenta igual
+    quedó soft-deleted" — el filtro defense-in-depth tiene que
+    proteger incluso en ese path.
+    """
+    from datetime import datetime, timezone
+
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+
+    # 2 cuentas del mismo workspace (el usuario recién registrado
+    # vive en 1 workspace OWNER, así que ambas cuentas caen ahí).
+    account_a = await _create_account(
+        client, headers, type="BINARY", name="A"
+    )
+    account_b = await _create_account(
+        client, headers, type="BINARY", name="B"
+    )
+
+    # Fondear las dos para que la deducción de inversión no falle.
+    for acc in (account_a, account_b):
+        fund_resp = await client.post(
+            f"/api/v1/accounts/{acc['id']}/fund",
+            headers=headers,
+            json={"amount": "200.00"},
+        )
+        assert fund_resp.status_code == 200, fund_resp.text
+
+    # Abrir 1 trade en cada cuenta.
+    trade_a = (await client.post(
+        "/api/v1/trades",
+        headers=headers,
+        json=_binary_open_payload(account_a["id"]),
+    )).json()
+    trade_b = (await client.post(
+        "/api/v1/trades",
+        headers=headers,
+        json=_binary_open_payload(account_b["id"]),
+    )).json()
+
+    # Sanity: ambos visibles antes del delete.
+    pre_list = await client.get("/api/v1/trades", headers=headers)
+    assert pre_list.status_code == 200, pre_list.text
+    pre_ids = {t["id"] for t in pre_list.json()["items"]}
+    assert trade_a["id"] in pre_ids
+    assert trade_b["id"] in pre_ids
+
+    # Soft-delete la cuenta A directamente en la DB (sin cascade),
+    # simulando el escenario "cascade no se ejecutó pero la cuenta
+    # está borrada". El filtro defense-in-depth en list_trades
+    # debe igual ocultar el trade de A.
+    acc_a_row = (
+        await db_session.execute(
+            select(TradingAccount).where(
+                TradingAccount.id == uuid.UUID(account_a["id"])
+            )
+        )
+    ).scalar_one()
+    acc_a_row.deleted_at = datetime.now(timezone.utc)
+    await db_session.commit()
+
+    # El trade de A sigue con deleted_at IS NULL (no cascade), pero
+    # su cuenta ya está soft-deleted. GET /trades debe ocultarlo.
+    db_trade_a = (
+        await db_session.execute(
+            select(Trade).where(Trade.id == uuid.UUID(trade_a["id"]))
+        )
+    ).scalar_one()
+    assert db_trade_a.deleted_at is None, (
+        "sanity: el trade de A NO debe tener deleted_at poblado "
+        "(estamos testeando el filtro defense-in-depth, no el cascade)"
+    )
+
+    # El filtro defense-in-depth oculta el trade de A.
+    post_list = await client.get("/api/v1/trades", headers=headers)
+    assert post_list.status_code == 200, post_list.text
+    post_ids = {t["id"] for t in post_list.json()["items"]}
+
+    assert trade_a["id"] not in post_ids, (
+        f"trade de cuenta soft-deleted (A) sigue visible: "
+        f"{trade_a['id']} ∈ {post_ids}"
+    )
+    assert trade_b["id"] in post_ids, (
+        f"trade de cuenta activa (B) no debe ocultarse: "
+        f"{trade_b['id']} ∉ {post_ids}"
+    )
+
+    # Filtro explícito por account_id también respeta la regla:
+    # pedir trades de la cuenta borrada devuelve lista vacía.
+    a_filter = await client.get(
+        "/api/v1/trades",
+        headers=headers,
+        params={"account_id": account_a["id"]},
+    )
+    assert a_filter.status_code == 200, a_filter.text
+    assert a_filter.json()["items"] == [], (
+        f"GET /trades?account_id={account_a['id']} no debe devolver "
+        f"trades de una cuenta soft-deleted"
+    )

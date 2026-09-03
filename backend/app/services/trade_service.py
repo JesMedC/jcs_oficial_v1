@@ -768,6 +768,16 @@ async def list_trades(
     Excluye soft-deleted (que en p0e.4 nadie borra pero la regla
     queda por simetría con el módulo ``TradingAccount``).
 
+    Defense in depth: también excluye trades cuya cuenta haya sido
+    soft-deleted, aunque ``delete_account`` ya cascade-marque los
+    trades de la cuenta. Cubre casos donde el cascade haya fallado
+    silenciosamente (race condition, fallo de FK parcial, etc.) o
+    donde un trade haya quedado asociado a una cuenta soft-deleted
+    por otra vía (workspace distinto, mantenimiento manual de DB).
+    La subquery es O(N) accounts deleted, pero esa tabla es chica
+    (cada usuario tiene unas pocas cuentas) y se computa una vez
+    por request.
+
     p0f.1 (multi-tenant): filtra también por el ``workspace_id``
     activo del usuario (derivado del JWT o, en fallback, del lookup
     DB de la membership OWNER más antigua). Esto aísla los trades
@@ -783,10 +793,19 @@ async def list_trades(
             message=str(exc),
             status=422,
         ) from exc
+    # Subquery de IDs de cuentas soft-deleted. ``deleted_at IS NOT
+    # NULL`` es la marca de soft-delete (TimestampMixin). Subquery
+    # correlacionada con ``NOT IN`` es portable y suficiente para
+    # el tamaño esperado de la tabla (``TradingAccount`` por
+    # usuario son del orden de unidades/bajas decenas).
+    deleted_account_ids_subq = select(TradingAccount.id).where(
+        TradingAccount.deleted_at.is_not(None)
+    )
     base_where = [
         Trade.user_id == user_id,
         Trade.workspace_id == workspace_id,
         Trade.deleted_at.is_(None),
+        Trade.account_id.notin_(deleted_account_ids_subq),
     ]
     if account_id is not None:
         base_where.append(Trade.account_id == account_id)
