@@ -45,7 +45,7 @@ export function PlanRow({ tier, plan, loading, saving, onSave }: PlanRowProps) {
 
   return (
     <GlassCard variant="default" className="flex flex-col gap-4">
-      <h3 className="font-display uppercase tracking-wide text-primary text-2xl">
+      <h3 className="font-display uppercase tracking-wide text-2xl">
         {TIER_LABELS[tier]}
       </h3>
       {loading ? (

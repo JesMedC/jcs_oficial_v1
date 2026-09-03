@@ -20,8 +20,8 @@ interface HeroProps {
 export function Hero({ preview }: HeroProps) {
   return (
     <section className="relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-12 md:pb-20 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
-        <div className="flex flex-col gap-6">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-4 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+        <div className="order-last md:order-first flex flex-col gap-6">
           <h1
             className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl lg:text-5xl"
             style={{ textShadow: '0 0 28px rgba(0,255,157,0.65)' }} // Wave 6.5 (Nivel 1 bump): spread 20→28px, opacity 0.4→0.65 for stronger jade glow on the hero H1.

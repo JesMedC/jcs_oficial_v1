@@ -10,6 +10,8 @@ const config: Config = {
     extend: {
       colors: {
         bg: '#060B10',
+        abyssal: '#060B10',
+        jade: '#00FF9D',
         surface: '#0D151E',
         'surface-el': '#111B24',
         border: '#1C2A35',

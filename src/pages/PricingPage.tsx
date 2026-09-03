@@ -25,7 +25,7 @@ export function PricingPage() {
         canonicalPath="/pricing"
         jsonLd={offers}
       />
-      <section className="max-w-7xl mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-8 text-center">
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-4 text-center">
         <h1
           className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
           style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
@@ -39,17 +39,17 @@ export function PricingPage() {
           <BillingCycleToggle cycle={cycle} onChange={setCycle} />
         </div>
       </section>
-      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-16 md:pb-24">
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-4">
         <PricingTiersGrid cycle={cycle} />
       </section>
-      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-16 md:pb-24">
-        <h2 className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl text-center mb-6 md:mb-8">
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-4">
+        <h2 className="font-display uppercase tracking-wide text-2xl md:text-3xl text-center mb-6 md:mb-8">
           Compara los planes
         </h2>
         <ComparisonTable />
       </section>
-      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-20 md:pb-28">
-        <h2 className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl text-center mb-6 md:mb-8">
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pb-4">
+        <h2 className="font-display uppercase tracking-wide text-2xl md:text-3xl text-center mb-6 md:mb-8">
           Preguntas frecuentes
         </h2>
         <FaqAccordion />

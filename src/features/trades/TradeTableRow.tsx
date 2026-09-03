@@ -1,23 +1,22 @@
 /*
- * FASE 4A — TradeTableRow.
+ * FASE 4A / FASE 4E — TradeTableRow.
  *
- * Single dense row in the operations log. Two render branches
- * driven by ``trade.type``:
+ * Single dense row in the operations log. Branches driven by
+ * ``trade.type``:
  *
- *   - FOREX: pair + lot_size + entry_price / exit_price + r-mult.
- *   - BINARY: instrument + investment_usd + payout_pct (r-mult is
- *     usually null on binary because there's no stop to risk).
+ *   - FOREX:     pair + lot_size + entry_price / exit_price + r-mult
+ *   - BINARY:    instrument + investment_usd + payout_pct (r-mult
+ *                usually null on binary because there's no stop)
+ *   - FUND /     single amount column with a delta-vs-balance
+ *     WITHDRAW   indicator (these are not "trades" per se, they're
+ *                capital movements — the user filters them in or out
+ *                via the Tipo dropdown)
  *
- * OPEN trades show ``—`` for exit price, size-weighted P&L and
- * r-mult — those columns only make sense once the position closes.
+ * OPEN trades show ``—`` for the exit price, r-mult columns.
  *
- * ``pnl_usd`` is the only column that carries color; everything else
- * is text-primary or text-secondary so the eye lands on the P&L line
- * first.
- *
- * Ola 5: an inline `Cerrar` action appears only for OPEN trades and
- * mounts the per-row ``CloseTradeModal``. The modal is scoped to the
- * row via a local `closing` flag so each row owns its own instance.
+ * The "balance" prev/post columns come from a precomputed timeline
+ * (see ``balanceTimeline.ts``) so each row is a constant-time
+ * lookup — we don't recompute the walk on every render.
  */
 import { useState } from 'react';
 
@@ -25,16 +24,29 @@ import { CloseTradeModal } from './CloseTradeModal';
 import { formatMoney, formatNumber, pnlColor } from './format';
 import { TradeStatusBadge } from './TradeStatusBadge';
 import { TradeTypeBadge } from './TradeTypeBadge';
+import type { BalancePair } from './balanceTimeline';
 import type { TradeOut } from './types';
 
 interface Props {
   readonly trade: TradeOut;
+  readonly balance: BalancePair | null;
 }
 
-export function TradeTableRow({ trade }: Props) {
+function formatUsd(n: number): string {
+  return new Intl.NumberFormat('en-US', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(n);
+}
+
+export function TradeTableRow({ trade, balance }: Props) {
   const [closing, setClosing] = useState(false);
   const isOpen = trade.status === 'OPEN';
   const isForex = trade.type === 'FOREX';
+  const isFundLike = trade.type === 'FUND' || trade.type === 'WITHDRAW';
+
   const date = new Date(trade.opened_at).toLocaleString('es-AR', {
     day: '2-digit',
     month: '2-digit',
@@ -42,6 +54,7 @@ export function TradeTableRow({ trade }: Props) {
     hour: '2-digit',
     minute: '2-digit',
   });
+
   return (
     <>
       <tr
@@ -59,15 +72,27 @@ export function TradeTableRow({ trade }: Props) {
           {isForex ? trade.pair ?? trade.instrument : trade.instrument}
         </td>
         <td className="px-3 py-2 text-text-secondary">{trade.direction ?? '—'}</td>
-        <td className="px-3 py-2 text-right">{formatNumber(trade.entry_price)}</td>
         <td className="px-3 py-2 text-right">
-          {isOpen ? '—' : formatNumber(trade.exit_price)}
+          {isFundLike ? '—' : formatNumber(trade.entry_price)}
         </td>
         <td className="px-3 py-2 text-right">
-          {isForex ? formatNumber(trade.lot_size) : formatMoney(trade.investment_usd)}
+          {isFundLike ? '—' : isOpen ? '—' : formatNumber(trade.exit_price)}
+        </td>
+        <td className="px-3 py-2 text-right">
+          {isFundLike
+            ? formatMoney(trade.pnl_usd)
+            : isForex
+              ? formatNumber(trade.lot_size)
+              : formatMoney(trade.investment_usd)}
         </td>
         <td className={`px-3 py-2 text-right font-semibold ${pnlColor(trade.pnl_usd)}`}>
           {isOpen ? '—' : formatMoney(trade.pnl_usd)}
+        </td>
+        <td className="px-3 py-2 text-right font-mono text-text-secondary">
+          {balance ? formatUsd(balance.prev) : '—'}
+        </td>
+        <td className="px-3 py-2 text-right font-mono text-text-primary">
+          {balance ? formatUsd(balance.post) : '—'}
         </td>
         <td className="px-3 py-2 text-right">{formatNumber(trade.r_multiple)}</td>
         <td className="px-3 py-2 text-right">

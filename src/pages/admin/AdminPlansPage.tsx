@@ -138,7 +138,7 @@ export function AdminPlansPage() {
         </div>
 
         <section className="mt-10">
-          <h2 className="font-display uppercase tracking-wide text-primary text-xl mb-3">
+          <h2 className="font-display uppercase tracking-wide text-xl mb-3">
             Historial de precios
           </h2>
           <GlassCard variant="default" className="overflow-x-auto p-0">

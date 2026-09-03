@@ -15,7 +15,7 @@
  * because they are tightly coupled to the type literal).
  */
 
-export type TradeType = 'FOREX' | 'BINARY';
+export type TradeType = 'FOREX' | 'BINARY' | 'FUND' | 'WITHDRAW';
 
 export type TradeStatus = 'OPEN' | 'CLOSED_WIN' | 'CLOSED_LOSS' | 'CLOSED_BREAK';
 
@@ -243,6 +243,14 @@ export const TRADE_TYPE_BADGE: Record<
   BINARY: {
     label: 'Binarias',
     className: 'bg-info/15 text-info border-info/40',
+  },
+  FUND: {
+    label: 'Deposito',
+    className: 'bg-profit/15 text-profit border-profit/40',
+  },
+  WITHDRAW: {
+    label: 'Retiro',
+    className: 'bg-warning/15 text-warning border-warning/40',
   },
 };
 

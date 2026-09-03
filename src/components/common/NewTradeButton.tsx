@@ -26,7 +26,7 @@ export function NewTradeButton() {
       data-testid="new-trade-button"
       onClick={onClick}
       data-glow-primary
-      className="inline-flex items-center gap-2 px-4 py-1.5 rounded-lg bg-primary text-primary-fg font-display uppercase tracking-wide text-sm hover:shadow-glow-jade transition-shadow"
+      className="btn-cyber-jade inline-flex items-center gap-1.5 px-2.5 py-1 md:px-4 md:py-1.5 rounded-md md:rounded-lg text-xs md:text-sm"
       aria-label="Abrir formulario de nuevo trade"
     >
       <span aria-hidden="true">+</span>

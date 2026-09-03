@@ -43,7 +43,7 @@ export function AdminTopBar({ title = 'Panel de administracion' }: AdminTopBarPr
 
   return (
     <header className="sticky top-0 z-30 bg-surface/40 backdrop-blur-xl backdrop-saturate-150 border-b border-primary/30 h-16 flex items-center px-4 md:px-8 gap-4">
-      <h1 className="font-display uppercase tracking-[0.2em] text-primary text-sm md:text-base truncate">
+      <h1 className="font-display uppercase tracking-[0.2em] text-sm md:text-base truncate">
         {title}
       </h1>
       <div className="ml-auto flex items-center gap-3">
@@ -76,7 +76,7 @@ export function AdminTopBar({ title = 'Panel de administracion' }: AdminTopBarPr
                 role="menu"
                 className="absolute right-0 top-12 z-40 min-w-[220px] bg-surface-el/95 backdrop-blur-md border border-primary/30 rounded-xl py-2 shadow-elevated"
               >
-                <div className="px-4 py-2 text-text-muted font-body text-xs uppercase tracking-wide">
+                <div className="px-4 py-4 text-text-muted font-body text-xs uppercase tracking-wide">
                   {user.email}
                 </div>
                 {canSwitchPortal ? (

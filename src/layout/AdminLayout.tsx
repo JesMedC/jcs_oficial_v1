@@ -57,7 +57,7 @@ export function AdminLayout() {
           <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed((prev) => !prev)} />
           <div className="flex-1 flex flex-col min-w-0">
             <AdminTopBar />
-            <main className="flex-1 px-4 md:px-8 py-6 md:py-8 overflow-x-auto">
+            <main className="flex-1 px-4 md:px-8 py-4 overflow-x-auto">
               <Outlet />
             </main>
           </div>

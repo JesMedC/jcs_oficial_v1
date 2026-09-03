@@ -33,7 +33,7 @@ export function RiskSemaphore() {
       data-testid="risk-semaphore"
       aria-label={`Riesgo: ${level} (P&L hoy: $${dailyPnl})`}
       title={data?.message ?? 'Sin datos de hoy'}
-      className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/20 bg-surface-el/40 backdrop-blur-sm"
+      className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[rgba(0,255,157,0.30)] bg-transparent"
     >
       <span
         className={`inline-block w-2 h-2 rounded-full ${COLOR_CLASS[level]}`}

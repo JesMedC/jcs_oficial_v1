@@ -251,7 +251,7 @@ export function GlassDrawer({
             </button>
           </div>
         ) : null}
-        <div className="flex-1 overflow-y-auto px-5 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-5 py-4">{children}</div>
         {footer !== undefined ? (
           <div className="px-5 py-4 border-t border-glass-border flex justify-end gap-2">
             {footer}

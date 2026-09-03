@@ -1,22 +1,20 @@
 /*
- * FASE 4A — TradeFilters.
+ * FASE 4A / FASE 4E — TradeFilters.
  *
  * Controlled filter row for the Operations table. Three selects
- * (status, type, account_id) plus an inline "clear all" affordance.
+ * (status, type, account_id) plus two date inputs (from / to) and
+ * an inline "clear all" affordance. The export button is rendered
+ * alongside so the user has a single place to apply filters and
+ * dump the result.
  *
  * Scope notes:
- * - State is fully controlled via the ``filters`` + ``onChange`` props
- *   (no URL sync in FASE 4A — the page that mounts this component
- *   owns the canonical state and feeds it into ``useTrades``).
- * - The "ALL" pseudo-value is normalised to an absent field before
- *   the patch is emitted, so the backend never receives an invalid
- *   status/type literal.
- * - Date range is intentionally omitted: ``ListTradesParams`` does
- *   not expose ``opened_after`` / ``closed_after`` (see
- *   ``backend/app/api/trades.py``), so a date picker would either
- *   be a no-op or require extending the contract — out of scope for
- *   FASE 4A. The "today" KPI is already covered by
- *   ``OperationsKPIsHeader`` via ``useRiskSummary``.
+ * - Status, type and account_id are sent to the backend.
+ * - The date range is filtered CLIENT-SIDE because the public
+ *   ``GET /trades`` endpoint doesn't expose ``opened_after`` /
+ *   ``closed_after`` (only the risk-summary endpoint takes
+ *   ``from`` / ``to``). We still surface the date inputs because
+ *   they feel natural alongside the other filters and let the
+ *   user narrow the table before exporting CSV.
  */
 import { useAccounts } from '../accounts/hooks';
 import type { ListTradesParams, TradeStatus, TradeType } from './types';
@@ -24,9 +22,21 @@ import type { ListTradesParams, TradeStatus, TradeType } from './types';
 type StatusFilter = TradeStatus | 'ALL';
 type TypeFilter = TradeType | 'ALL';
 
+export interface DateRangeFilter {
+  readonly from: string; // YYYY-MM-DD or ''
+  readonly to: string; // YYYY-MM-DD or ''
+}
+
 interface Props {
   filters: ListTradesParams;
+  /** Optional client-side date window. Empty strings mean "no bound". */
+  dateRange: DateRangeFilter;
   onChange: (next: ListTradesParams) => void;
+  onDateRangeChange: (next: DateRangeFilter) => void;
+  /** Total trades that match the current filters (for the export label). */
+  matchCount: number;
+  /** Triggered with the currently visible rows when the user clicks export. */
+  onExport: () => void;
 }
 
 const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
@@ -38,19 +48,23 @@ const STATUS_OPTIONS: { value: StatusFilter; label: string }[] = [
 ];
 
 const TYPE_OPTIONS: { value: TypeFilter; label: string }[] = [
-  { value: 'ALL', label: 'Ambos' },
+  { value: 'ALL', label: 'Todos' },
   { value: 'FOREX', label: 'FOREX' },
   { value: 'BINARY', label: 'BINARY' },
+  { value: 'FUND', label: 'Deposito' },
+  { value: 'WITHDRAW', label: 'Retiro' },
 ];
 
-export function TradeFilters({ filters, onChange }: Props) {
+export function TradeFilters({
+  filters,
+  dateRange,
+  onChange,
+  onDateRangeChange,
+  matchCount,
+  onExport,
+}: Props) {
   const { data: accountsData } = useAccounts();
 
-  // Patch type is intentionally wider than ``Partial<ListTradesParams>``
-  // so callers can pass the 'ALL' pseudo-value for status/type and an
-  // ``undefined`` account_id (which the empty-option select emits).
-  // The normalisation below strips both back to "absent" before the
-  // patch is forwarded to ``onChange``.
   const update = (patch: {
     status?: StatusFilter | undefined;
     type?: TypeFilter | undefined;
@@ -61,8 +75,6 @@ export function TradeFilters({ filters, onChange }: Props) {
       type?: TypeFilter;
       account_id?: string;
     };
-    // Normalise pseudo-values to absence so the backend never sees
-    // ``status=ALL`` (which would 400 — the enum has no ALL member).
     if (next.status === 'ALL') delete next.status;
     if (next.type === 'ALL') delete next.type;
     if (!next.account_id) delete next.account_id;
@@ -70,7 +82,11 @@ export function TradeFilters({ filters, onChange }: Props) {
   };
 
   const hasActiveFilter = Boolean(
-    filters.status || filters.type || filters.account_id,
+    filters.status ||
+      filters.type ||
+      filters.account_id ||
+      dateRange.from ||
+      dateRange.to,
   );
 
   return (
@@ -135,16 +151,61 @@ export function TradeFilters({ filters, onChange }: Props) {
         </select>
       </div>
 
-      {hasActiveFilter && (
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-wide text-text-secondary">
+          Desde
+        </label>
+        <input
+          type="date"
+          data-testid="filter-from"
+          className="bg-bg border border-primary/30 rounded px-2 py-1 text-sm font-mono"
+          value={dateRange.from}
+          max={dateRange.to || undefined}
+          onChange={(e) => onDateRangeChange({ ...dateRange, from: e.target.value })}
+        />
+      </div>
+
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-wide text-text-secondary">
+          Hasta
+        </label>
+        <input
+          type="date"
+          data-testid="filter-to"
+          className="bg-bg border border-primary/30 rounded px-2 py-1 text-sm font-mono"
+          value={dateRange.to}
+          min={dateRange.from || undefined}
+          onChange={(e) => onDateRangeChange({ ...dateRange, to: e.target.value })}
+        />
+      </div>
+
+      <div className="flex items-center gap-3 ml-auto">
+        <span className="font-mono text-[11px] text-text-muted">
+          {matchCount} resultado{matchCount === 1 ? '' : 's'}
+        </span>
+        {hasActiveFilter ? (
+          <button
+            type="button"
+            data-testid="filter-clear"
+            onClick={() => {
+              onChange({});
+              onDateRangeChange({ from: '', to: '' });
+            }}
+            className="text-xs text-primary hover:text-primary/80 underline"
+          >
+            Limpiar filtros
+          </button>
+        ) : null}
         <button
           type="button"
-          data-testid="filter-clear"
-          onClick={() => onChange({})}
-          className="text-xs text-primary hover:text-primary/80 underline"
+          data-testid="trade-export-csv"
+          onClick={onExport}
+          disabled={matchCount === 0}
+          className="btn-cyber-jade px-3 py-1.5 rounded text-xs disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Limpiar filtros
+          Exportar CSV
         </button>
-      )}
+      </div>
     </div>
   );
 }

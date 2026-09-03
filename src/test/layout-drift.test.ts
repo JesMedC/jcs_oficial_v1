@@ -60,14 +60,16 @@ describe('src/layout — Wave 3a drift cleanup contract', () => {
       expect(TOPNAV).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade brand-dot shadow on both the authenticated + public brand mark', () => {
-      // The brand dot is rendered twice (signed-in span + public Link);
-      // each instance must carry the new jade glow shadow.
+    it('pins the neon-jade brand-dot shadow on the public brand mark', () => {
+      // header-public-auth-aware — the brand mark is a single Link to
+      // `/` regardless of auth state (signed-out and signed-in
+      // visitors see the same chrome), so the jade glow shadow
+      // appears exactly once in the source.
       const occurrences = TOPNAV.match(
         /shadow-\[0_0_12px_rgba\(0,255,157,0\.6\)\]/g,
       );
       expect(occurrences).not.toBeNull();
-      expect(occurrences?.length).toBe(2);
+      expect(occurrences?.length).toBe(1);
     });
 
     it('pins the neon-jade underline shadow on the active NavLink', () => {

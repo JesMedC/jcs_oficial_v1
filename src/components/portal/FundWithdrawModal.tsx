@@ -112,7 +112,7 @@ export function FundWithdrawModal({
             type="button"
             onClick={onClose}
             disabled={submitting}
-            className="inline-flex items-center justify-center border border-primary/30 text-primary font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:bg-primary/10 transition-colors text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-cyber-jade px-3 py-1.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             Cancelar
           </button>
@@ -120,7 +120,7 @@ export function FundWithdrawModal({
             type="submit"
             form="fund-withdraw-form"
             disabled={!valid || submitting}
-            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed" // design-system-v1 (Wave 3b, T3b.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
+            className="btn-cyber-jade px-3 py-1.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {submitting ? submittingLabel : submitLabel}
           </button>
@@ -153,7 +153,7 @@ export function FundWithdrawModal({
             onChange={(e) => setAmountStr(e.target.value)}
             placeholder="0.00"
             disabled={submitting}
-            className="w-full bg-surface-el/50 border border-primary/30 rounded-lg px-3 py-2 text-text-primary font-body focus:border-primary focus:outline-none focus:ring-2 focus:ring-primary/40 disabled:opacity-60"
+            className="w-full font-body focus:outline-none disabled:opacity-60"
           />
           <span className="text-text-muted font-body text-xs">
             Formato USD — máximo 2 decimales.

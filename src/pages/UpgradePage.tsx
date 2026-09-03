@@ -109,7 +109,7 @@ export function UpgradePage() {
         canonicalPath="/portal/upgrade"
         noindex
       />
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">
+      <div className="max-w-5xl mx-auto px-4 md:px-8 py-4">
         <header className="text-center max-w-2xl mx-auto">
           <h1
             className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
@@ -149,7 +149,7 @@ export function UpgradePage() {
             </section>
 
             <GlassCard variant="default" className="mt-10 max-w-2xl mx-auto">
-              <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg">
+              <h2 className="font-display uppercase tracking-wide text-base md:text-lg">
                 Pago seguro
               </h2>
               <p className="text-text-secondary font-body text-sm mt-2">

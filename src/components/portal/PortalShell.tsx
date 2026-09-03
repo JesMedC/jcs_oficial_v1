@@ -9,25 +9,31 @@
  * keeps the preference and the value survives a hard reload
  * (sessionStorage per the `zustand-stores` spec).
  *
- * The auth guard sits ABOVE this shell in the route tree
- * (router/config.tsx) so we don't repeat the role check here. By the
- * time we render, `useAuth().user` is guaranteed non-null.
+ * Cyber-Jade spec — fondo global #060B10 puro. Sin lineas ni redes.
+ * La textura de puntos blancos la aporta #root::before.
  *
- * No aurora background: portal pages are dense data surfaces, not
- * landing pages, so the bg-bg fill matches AdminLayout's calm style
- * (per mem #70 — same visual language as admin).
+ * FloatingActionButton + global modals (NewTradeDrawer +
+ * QuickActionModals for fund/withdraw with account picker) live
+ * here (shell-level) so the shortcut menu and its dialogs are
+ * present on every /portal/* route without each page importing them.
  */
 import { Outlet } from 'react-router-dom';
 
 import { PortalSidebar } from './PortalSidebar';
+import { FloatingActionButton } from './FloatingActionButton';
+import { NewTradeDrawer } from '../../features/trades/NewTradeDrawer';
+import { QuickActionModals } from './QuickActionModals';
 
 export function PortalShell() {
   return (
-    <div className="min-h-dvh flex bg-bg text-text-primary">
+    <div className="relative min-h-dvh flex bg-[#060B10] text-text-primary">
       <PortalSidebar />
-      <main className="flex-1 px-4 md:px-8 py-6 md:py-8 overflow-x-auto min-w-0">
+      <main className="relative z-10 flex-1 px-4 md:px-6 py-4 overflow-x-auto min-w-0">
         <Outlet />
       </main>
+      <NewTradeDrawer />
+      <QuickActionModals />
+      <FloatingActionButton />
     </div>
   );
 }

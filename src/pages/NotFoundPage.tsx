@@ -16,7 +16,7 @@ export function NotFoundPage() {
         canonicalPath="/404"
         noindex
       />
-      <section className="max-w-3xl mx-auto px-4 py-20 md:py-32 text-center">
+      <section className="max-w-3xl mx-auto px-4 py-4 text-center">
         <p className="font-mono text-text-muted text-sm">404</p>
         <h1
           className="font-display uppercase tracking-wide text-primary text-2xl md:text-4xl mt-2"

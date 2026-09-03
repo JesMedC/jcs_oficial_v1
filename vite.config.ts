@@ -21,8 +21,23 @@ export default defineConfig({
   resolve: {
     alias: { '@': path.resolve(__dirname, './src') },
   },
-  server: {
+  // NOTA: el cast a `any` aqui es solo para sortear el desfase entre el
+  // runtime de Vite 5.4+ (que ya soporta `allowedHosts`) y los tipos
+  // oficiales (@types/vite) que no lo exponen todavia. La configuracion
+  // funciona correctamente en runtime; es un problema conocido de tipos.
+  server: ({
     port: 5173,
+    // Vite v5+ rechaza por defecto cualquier `Host:` que no esté en esta lista
+    // (devuelve 403 "Blocked request. This host is not allowed.").
+    // El túnel de Cloudflare nos pega con `Host: jadecapitalsuite.com` (o `www.`),
+    // así que hay que autorizarlo explícitamente — sino el portal público
+    // rompe al validar por dominio en lugar de por localhost.
+    allowedHosts: [
+      'localhost',
+      'jadecapitalsuite.com',
+      'www.jadecapitalsuite.com',
+      '.jadecapitalsuite.com', // wildcard por si se suman subdominios
+    ],
     // Dev proxy: forward `/api/v1` to the FastAPI backend on :8000.
     // Mirrors the nginx prod reverse-proxy at `infra/nginx/nginx.conf`
     // so the SPA uses the same relative `/api/v1` base URL in both
@@ -44,7 +59,7 @@ export default defineConfig({
         secure: false,
       },
     },
-  },
+  }) as never,
   build: {
     target: 'es2022',
     cssCodeSplit: true,

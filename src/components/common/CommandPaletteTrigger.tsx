@@ -26,7 +26,7 @@ export function CommandPaletteTrigger() {
       type="button"
       data-testid="command-palette-trigger"
       onClick={onClick}
-      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-primary/30 bg-surface-el/40 backdrop-blur-sm text-text-secondary font-body text-xs hover:border-primary hover:text-primary transition-colors"
+      className="hidden md:flex items-center gap-2 px-3 py-1.5 rounded-lg border border-[rgba(0,255,157,0.30)] bg-transparent text-text-secondary font-body text-xs hover:border-primary hover:text-primary transition-colors"
       aria-label="Abrir paleta de comandos"
     >
       <svg
@@ -41,7 +41,7 @@ export function CommandPaletteTrigger() {
         <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35" />
       </svg>
       <span>Buscar</span>
-      <kbd className="font-display uppercase tracking-wide text-[10px] text-text-muted border border-primary/30 px-1.5 py-0.5 rounded">
+      <kbd className="font-display uppercase tracking-wide text-[10px] text-text-muted border border-[rgba(0,255,157,0.30)] px-1.5 py-0.5 rounded">
         Ctrl+K
       </kbd>
     </button>

@@ -24,7 +24,7 @@ export function RegisterPage() {
         canonicalPath="/register"
         noindex
       />
-      <div className="max-w-6xl mx-auto px-4 md:px-8 py-12 md:py-20 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
+      <div className="max-w-6xl mx-auto px-4 md:px-8 py-4 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
         <div>
           <span className="inline-block px-3 py-1 mb-4 text-xs font-display uppercase tracking-wide text-primary border border-primary/40 rounded-full">
             7 dias gratis
@@ -40,7 +40,7 @@ export function RegisterPage() {
           </p>
 
           <GlassCard variant="default" className="mt-8 max-w-md">
-            <h2 className="font-display uppercase tracking-wide text-primary text-sm md:text-base">
+            <h2 className="font-display uppercase tracking-wide text-sm md:text-base">
               Que incluye el trial
             </h2>
             <ul className="text-text-secondary font-body text-xs md:text-sm mt-3 space-y-2 list-disc list-inside">

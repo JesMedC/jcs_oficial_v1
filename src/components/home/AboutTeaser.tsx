@@ -8,11 +8,11 @@ import { GlassCard } from '../GlassCard';
  */
 export function AboutTeaser() {
   return (
-    <section className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
+    <section className="max-w-7xl mx-auto px-4 md:px-8 py-4">
       <GlassCard variant="elevated" className="p-6 md:p-8">
         <div className="grid md:grid-cols-3 gap-6 items-center">
           <div className="md:col-span-2 flex flex-col gap-3">
-            <h2 className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl">
+            <h2 className="font-display uppercase tracking-wide text-2xl md:text-3xl">
               Nosotros
             </h2>
             <p className="text-text-secondary font-body text-sm md:text-base leading-relaxed">

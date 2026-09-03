@@ -30,10 +30,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.models import (
     AuditLog,
     Trade,
+    TradeStatus,
+    TradeType,
     TradingAccount,
     TradingAccountType,
     User,
 )
+from app.models.trade import TradeStatus as _TradeStatus  # noqa: F401
 from app.observability.logging import get_logger
 from app.services.workspace_service import (
     WorkspaceRequiredError,

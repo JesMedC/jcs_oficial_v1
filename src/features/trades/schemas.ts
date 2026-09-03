@@ -68,9 +68,14 @@ export const ForexFormSchema = z.object({
   emotional_tags: z.array(EmotionalTagSchema).optional(),
 });
 
+// FASE 4E — `pair` is required for both FOREX and BINARY (every
+// trade must declare its actual instrument). We extend the base
+// BINARY schema with the same `pair` field so the picker renders
+// for both branches.
 export const BinaryFormSchema = z.object({
   account_id: Uuid,
   type: z.literal('BINARY'),
+  pair: z.string().min(1, 'Instrumento requerido').max(16),
   direction: z.enum(['CALL', 'PUT']),
   investment_usd: DecimalString({ min: 1, max: 10000, label: 'Inversion USD' }),
   payout_pct: DecimalString({ min: 70, max: 1000, label: 'Payout %' }),

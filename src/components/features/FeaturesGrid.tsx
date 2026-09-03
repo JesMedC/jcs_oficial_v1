@@ -8,7 +8,7 @@ import { FeatureCard } from './FeatureCard';
  */
 export function FeaturesGrid() {
   return (
-    <section className="max-w-7xl mx-auto px-4 md:px-8 py-12 md:py-20">
+    <section className="max-w-7xl mx-auto px-4 md:px-8 py-4">
       <div className="grid grid-cols-1 md:grid-cols-2 gap-5 md:gap-6">
         {features.map((f) => (
           <FeatureCard key={f.title} icon={f.icon} title={f.title} description={f.description} />

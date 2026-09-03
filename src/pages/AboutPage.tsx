@@ -17,7 +17,7 @@ export function AboutPage() {
         description="Trading Journal Pro nacio de la necesidad real de los traders de tener claridad y disciplina. Hecho por traders, para traders."
         canonicalPath="/about"
       />
-      <section className="max-w-7xl mx-auto px-4 md:px-8 pt-16 md:pt-24 pb-4 text-center">
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-4 text-center">
         <h1
           className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
           style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}

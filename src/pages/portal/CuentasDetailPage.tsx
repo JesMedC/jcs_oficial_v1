@@ -123,7 +123,7 @@ export function CuentasDetailPage() {
     return (
       <>
         <SeoHead title="Cuenta" noindex />
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">
+        <div className="w-full px-2 md:px-4 py-3 md:py-4">
           <p className="text-text-muted font-body">Cargando cuenta...</p>
         </div>
       </>
@@ -134,19 +134,16 @@ export function CuentasDetailPage() {
     return (
       <>
         <SeoHead title="Cuenta no encontrada" noindex />
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">
-          <h1
-            className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
-          >
+        <div className="w-full px-2 md:px-4 py-3 md:py-4">
+          <h1 className="font-display uppercase tracking-wide text-2xl md:text-3xl">
             Cuenta no encontrada
           </h1>
-          <p className="text-text-secondary font-body text-sm md:text-base mt-4">
+          <p className="text-text-secondary font-body text-sm md:text-base mt-3">
             La cuenta que buscás no existe o ya fue eliminada.
           </p>
           <Link
             to="/portal/cuentas"
-            className="inline-block mt-6 text-primary font-display uppercase tracking-wide text-sm hover:underline"
+            className="inline-block mt-4 text-primary font-display uppercase tracking-wide text-sm hover:underline"
           >
             ← Volver a Cuentas
           </Link>
@@ -164,7 +161,7 @@ export function CuentasDetailPage() {
   return (
     <>
       <SeoHead title={account.name} noindex />
-      <div className="max-w-5xl mx-auto px-4 md:px-8 py-12 md:py-16">
+      <div className="w-full px-2 md:px-4 py-3 md:py-4">
         <Link
           to="/portal/cuentas"
           className="text-primary font-display uppercase tracking-wide text-xs hover:underline"
@@ -264,7 +261,7 @@ function ResumenTab({ account }: ResumenTabProps) {
   const badge = ACCOUNT_TYPE_BADGE[account.type];
   return (
     <GlassCard variant="default">
-      <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg mb-4">
+      <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
         Resumen
       </h2>
       <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
@@ -317,7 +314,7 @@ interface SaldoTabProps {
 function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
   return (
     <GlassCard variant="default">
-      <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg mb-4">
+      <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
         Saldo
       </h2>
       <div className="flex items-baseline gap-3">
@@ -357,7 +354,7 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
 function OperacionesTab() {
   return (
     <GlassCard variant="default">
-      <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg mb-4">
+      <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
         Operaciones
       </h2>
       <p className="text-text-secondary font-body text-sm md:text-base">

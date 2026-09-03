@@ -25,6 +25,7 @@ import { TradeFormSchema, type TradeFormValues } from './schemas';
 import { useCreateTrade } from './useCreateTrade';
 import { DisciplineSoftBlock } from './DisciplineSoftBlock';
 import { EmotionalTagsChips } from './EmotionalTagsChips';
+import { getAvailableInstruments } from './availableInstruments';
 import type { EmotionalTag } from './types';
 
 export interface NewTradeFormProps {
@@ -177,7 +178,11 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     // discriminated-union specific fields. We derive it from `pair`
     // (FOREX) or fall back to the literal "BINARY" so the create
     // payload matches the wire format exactly.
-    const instrument = values.type === 'FOREX' ? values.pair : 'BINARY';
+    // Both FOREX and BINARY now flow the user-selected pair into
+    // `instrument` — this is what shows up in the Operaciones table
+    // and the Top Pairs leaderboard, so it has to match what the
+    // trader actually clicked.
+    const instrument = values.pair;
     const notesRaw = values.pre_trade_notes ?? '';
     const notes = notesRaw.length > 0 ? notesRaw : '';
     if (values.type === 'FOREX') {
@@ -244,16 +249,40 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         />
       </Field>
 
-      {selectedType === 'FOREX' ? (
-        <>
-          <Field label="Par" error={(errors as Record<string, { message?: string } | undefined>)['pair']?.message}>
-            <input
-              {...control.register('pair')}
+      {/* Both FOREX and BINARY need the user to specify the instrument
+          (the actual pair traded). Previously the BINARY branch
+          hard-coded the value to the literal string "BINARY" which
+          made every binary trade indistinguishable in the Operaciones
+          table. Now both branches share the same "Par" picker, and
+          the available options come from `availableInstruments.ts`
+          so the picker + the "Activos permitidos" settings panel
+          stay in sync — change one, change both. */}
+      <Field
+        label={selectedType === 'FOREX' ? 'Par (FOREX)' : 'Instrumento (BINARY)'}
+        error={(errors as Record<string, { message?: string } | undefined>)['pair']?.message}
+      >
+        <Controller
+          control={control}
+          name="pair"
+          render={({ field }) => (
+            <select
+              {...field}
               data-testid="new-trade-pair"
               className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary uppercase"
-              placeholder="EURUSD"
-            />
-          </Field>
+            >
+              <option value="">— Selecciona par —</option>
+              {getAvailableInstruments(selectedType).map((instrument) => (
+                <option key={instrument.symbol} value={instrument.symbol}>
+                  {instrument.symbol} · {instrument.name}
+                </option>
+              ))}
+            </select>
+          )}
+        />
+      </Field>
+
+      {selectedType === 'FOREX' ? (
+        <>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Direccion" error={errors.direction?.message}>
               <Controller

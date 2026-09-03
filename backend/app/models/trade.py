@@ -66,6 +66,14 @@ if TYPE_CHECKING:
 class TradeType(str, enum.Enum):
     FOREX = "FOREX"
     BINARY = "BINARY"
+    # FASE 4E — Deposit / withdrawal are written into the trades
+    # table so the Operaciones tab can show a unified ledger
+    # alongside FOREX/BINARY entries. The frontend filters them out
+    # of the P&L/win-rate aggregations (they aren't trading
+    # outcomes, they're capital movements), but they still show up
+    # in the table so the user has a full audit trail.
+    FUND = "FUND"
+    WITHDRAW = "WITHDRAW"
 
 
 class TradeStatus(str, enum.Enum):

@@ -65,7 +65,7 @@ describe('TradeTable', () => {
     vi.spyOn(api, 'listTradesApi').mockImplementation(
       () => new Promise(() => {}),
     );
-    render(<TradeTable />, { wrapper: makeWrapper() });
+    render(<TradeTable tradesForBalance={[fakeTrade]} />, { wrapper: makeWrapper() });
     expect(screen.getByTestId('trade-table-loading')).toBeInTheDocument();
   });
 
@@ -76,7 +76,7 @@ describe('TradeTable', () => {
       skip: 0,
       limit: 50,
     });
-    render(<TradeTable />, { wrapper: makeWrapper() });
+    render(<TradeTable tradesForBalance={[]} />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId('trade-table-empty')).toBeInTheDocument();
     });
@@ -89,7 +89,7 @@ describe('TradeTable', () => {
       skip: 0,
       limit: 50,
     });
-    render(<TradeTable />, { wrapper: makeWrapper() });
+    render(<TradeTable tradesForBalance={[fakeTrade]} />, { wrapper: makeWrapper() });
     await waitFor(() => {
       expect(screen.getByTestId(`trade-row-${fakeTrade.id}`)).toBeInTheDocument();
     });

@@ -40,8 +40,9 @@ export function PortalSidebar() {
         // previously hidden lg:hidden while PortalNav drew the horizontal
         // nav; PortalNav is archived now, so this rail is visible on
         // lg+ screens (240px expanded / 64px collapsed).
-        'shrink-0 sticky top-0 self-start h-dvh border-r border-primary/20',
-        'bg-surface-el/40 backdrop-blur-md',
+        // Cyber-Jade: sidebar plana, fondo #060B10 puro, sin glass fuerte.
+        'shrink-0 sticky top-0 self-start h-dvh border-r border-[rgba(0,255,157,0.15)]',
+        'bg-[#060B10]',
         'flex flex-col transition-[width] duration-200',
         isCollapsed ? 'w-16' : 'w-60',
       ].join(' ')}

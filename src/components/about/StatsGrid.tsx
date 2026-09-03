@@ -8,7 +8,7 @@ import { GlassCard } from '../GlassCard';
  */
 export function StatsGrid() {
   return (
-    <section className="max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
+    <section className="max-w-7xl mx-auto px-4 md:px-8 py-4">
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 md:gap-6">
         {stats.map((s) => (
           <GlassCard key={s.label} variant="default" className="text-center p-6 md:p-8">

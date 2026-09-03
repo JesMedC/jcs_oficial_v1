@@ -50,8 +50,8 @@ export function Footer() {
   }
 
   return (
-    <footer className="border-t border-primary/20 bg-surface/40 backdrop-blur-md mt-auto">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 py-12 md:py-16">
+    <footer className="border-t border-[rgba(0,255,157,0.15)] bg-[rgb(6_11_16_/_0.13)] backdrop-blur-xl backdrop-saturate-150 mt-auto">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
           <div className="col-span-2 md:col-span-1 flex flex-col gap-4">
             <h3 className="font-display uppercase tracking-[0.2em] text-primary text-sm">
@@ -164,7 +164,7 @@ export function Footer() {
           </div>
         </div>
 
-        <div className="mt-12 pt-6 border-t border-primary/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-text-muted text-xs">
+        <div className="mt-12 pt-4 border-t border-primary/10 flex flex-col md:flex-row items-start md:items-center justify-between gap-3 text-text-muted text-xs">
           <p>© 2026 Tecnología Jade — Todos los derechos reservados</p>
           <ul className="flex items-center gap-4">
             {legalLinks.map((link) => (

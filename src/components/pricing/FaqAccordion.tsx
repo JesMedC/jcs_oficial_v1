@@ -46,7 +46,7 @@ export function FaqAccordion() {
               </span>
             </button>
             {isOpen ? (
-              <div className="px-5 pb-5 -mt-1 text-text-secondary font-body text-sm">
+              <div className="px-5 pb-4 -mt-1 text-text-secondary font-body text-sm">
                 <span>{item.a}</span>
               </div>
             ) : null}

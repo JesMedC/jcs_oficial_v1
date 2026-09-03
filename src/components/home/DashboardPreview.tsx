@@ -13,7 +13,7 @@ export function DashboardPreview() {
         <div className="flex items-center justify-between gap-4 mb-5">
           <div>
             <p className="font-display uppercase tracking-wide text-text-muted text-xs">Resumen</p>
-            <h3 className="font-display uppercase tracking-wide text-primary text-sm md:text-base">
+            <h3 className="font-display uppercase tracking-wide text-sm md:text-base">
               Todas las cuentas
             </h3>
           </div>

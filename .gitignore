@@ -25,3 +25,7 @@ backend/*.egg-info/
 test-results/
 playwright-report/
 blob-report/
+.playwright-mcp/
+
+# Internal tooling / debug artefacts (not source)
+.atl/
