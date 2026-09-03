@@ -173,7 +173,7 @@ export function GlassShowcase() {
           <button
             type="button"
             onClick={() => setModalOpen(true)}
-            className="font-display uppercase tracking-wide text-sm bg-primary text-bg px-5 py-2 rounded-lg hover:shadow-glow-cyan-sm transition-shadow"
+            className="font-display uppercase tracking-wide text-sm bg-primary text-bg px-5 py-2 rounded-lg hover:shadow-glow-jade-sm transition-shadow"
           >
             Abrir GlassModal
           </button>
@@ -193,7 +193,7 @@ export function GlassShowcase() {
                 <button
                   type="button"
                   onClick={() => setModalOpen(false)}
-                  className="font-display uppercase tracking-wide bg-primary text-bg px-4 py-2 rounded-lg hover:shadow-glow-cyan-sm transition-shadow text-sm"
+                  className="font-display uppercase tracking-wide bg-primary text-bg px-4 py-2 rounded-lg hover:shadow-glow-jade-sm transition-shadow text-sm"
                 >
                   Confirmar
                 </button>

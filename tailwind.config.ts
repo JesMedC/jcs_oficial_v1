@@ -111,8 +111,8 @@ const config: Config = {
           '100%': { backgroundPosition: '200% 50%' },
         },
         'auth-pulse': {
-          '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,255,255,0.5)' },
-          '50%': { transform: 'scale(1.05)', boxShadow: '0 0 0 12px rgba(0,255,255,0)' },
+          '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,255,157,0.5)' },
+          '50%': { transform: 'scale(1.05)', boxShadow: '0 0 0 12px rgba(0,255,157,0)' },
         },
       },
       animation: {
@@ -124,11 +124,11 @@ const config: Config = {
       },
       backgroundImage: {
         'aurora-static':
-          'radial-gradient(60% 50% at 20% 30%, rgba(0,255,255,0.18), transparent 70%), radial-gradient(50% 40% at 80% 70%, rgba(77,163,255,0.12), transparent 70%)',
+          'radial-gradient(60% 50% at 20% 30%, rgba(0,255,157,0.18), transparent 70%), radial-gradient(50% 40% at 80% 70%, rgba(0,184,255,0.12), transparent 70%)',
         'site-gradient':
-          'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,255,255,0.10) 50%, rgba(255,255,255,0.03) 100%)',
+          'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,255,157,0.10) 50%, rgba(255,255,255,0.03) 100%)',
         'portal-selector':
-          'radial-gradient(60% 50% at 50% 30%, rgba(0,255,255,0.16), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(77,163,255,0.10), transparent 70%)',
+          'radial-gradient(60% 50% at 50% 30%, rgba(0,255,157,0.16), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(0,184,255,0.10), transparent 70%)',
       },
       backdropBlur: {
         'glass-sm': '8px',
@@ -143,15 +143,12 @@ const config: Config = {
       },
       boxShadow: {
         // design-system-v1 — neon Cyber-Jade glow utilities. The rgba
-        // values track the new primary.DEFAULT (#00FF9D = 0,255,157),
-        // not the pre-pivot soft-jade (rgb 46,220,140). The legacy
-        // `glow-cyan*` aliases are visual-equivalent duplicates scheduled
-        // for removal in Wave 2 (T2.1) — left in place here so consumers
-        // migrate first.
+        // values track primary.DEFAULT (#00FF9D = 0,255,157). The
+        // legacy cyan-era aliases that duplicated these values with
+        // pre-pivot soft-jade rgb (46,220,140) were retired in Wave 2
+        // (T2.1); consumers migrated to the jade utilities below.
         'glow-jade': '0 0 40px rgba(0,255,157,0.30)',
         'glow-jade-sm': '0 0 20px rgba(0,255,157,0.20)',
-        'glow-cyan': '0 0 40px rgba(46,220,140,0.30)',
-        'glow-cyan-sm': '0 0 20px rgba(46,220,140,0.20)',
         glass: '0 8px 32px 0 rgba(6,11,16,0.45)',
         elevated: '0 12px 48px 0 rgba(6,11,16,0.60)',
         'glass-panel':
