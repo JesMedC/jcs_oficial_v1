@@ -108,10 +108,10 @@ textarea {
   }
 }
 
-@keyframes pulse-cyan {
+@keyframes status-dot-pulse {
   0%,
   100% {
-    opacity: 0.6;
+    opacity: 0.5;
   }
   50% {
     opacity: 1;

@@ -33,4 +33,21 @@ describe('PaymentSuccessPage', () => {
     expect(screen.getByText(/Tu suscripcion esta activa/i)).toBeInTheDocument();
     expect(screen.getByText(/Ref: 12345/)).toBeInTheDocument();
   });
+
+  // design-system-v1 (Wave 1, T1.4) — verify the loading spinner
+  // references the renamed animate-status-dot-pulse utility (the
+  // page is the second consumer of the legacy pulse-cyan keyframe).
+  it('renders the loading spinner with animate-status-dot-pulse and no pulse-cyan', () => {
+    vi.useRealTimers();
+    const { container } = render(
+      <HelmetProvider>
+        <MemoryRouter initialEntries={['/payment/success?payment_id=12345']}>
+          <PaymentSuccessPage />
+        </MemoryRouter>
+      </HelmetProvider>,
+    );
+    const spinner = container.querySelector('.animate-status-dot-pulse');
+    expect(spinner).not.toBeNull();
+    expect(container.innerHTML).not.toMatch(/pulse-cyan/);
+  });
 });

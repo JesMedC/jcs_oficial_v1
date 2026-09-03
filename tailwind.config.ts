@@ -94,8 +94,16 @@ const config: Config = {
           '0%': { transform: 'translate3d(0,0,0)' },
           '100%': { transform: 'translate3d(40px,-30px,0)' },
         },
-        'pulse-cyan': {
-          '0%, 100%': { opacity: '0.6' },
+        // design-system-v1 (Wave 1, T1.4) — replaces the legacy
+        // cyan-era spinner keyframe and is tightened per the
+        // decorative-system spec: opacity 0.5 -> 1.0 -> 0.5 in a
+        // 1.5s ease-in-out infinite loop. The predecessor keyframe
+        // used a 0.6 minimum and a 2.4s cycle; both are gone. This
+        // new keyframe is the halo animation inside <StatusDot>
+        // (Wave 4) and the route-fallback spinner (consumed via the
+        // generated `animate-status-dot-pulse` utility).
+        'status-dot-pulse': {
+          '0%, 100%': { opacity: '0.5' },
           '50%': { opacity: '1' },
         },
         'shimmer-glass': {
@@ -110,7 +118,7 @@ const config: Config = {
       animation: {
         'aurora-drift': 'aurora-drift 18s ease-in-out infinite',
         'particle-drift': 'particle-drift 12s ease-in-out infinite alternate',
-        'pulse-cyan': 'pulse-cyan 2.4s ease-in-out infinite',
+        'status-dot-pulse': 'status-dot-pulse 1.5s ease-in-out infinite',
         'shimmer-glass': 'shimmer-glass 8s linear infinite',
         'auth-pulse': 'auth-pulse 1.2s ease-in-out infinite',
       },

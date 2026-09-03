@@ -97,7 +97,7 @@ export function PaymentSuccessPage() {
             <p className="text-text-muted font-mono text-xs mt-3">Ref: {paymentId.slice(0, 16)}</p>
           ) : null}
           <div
-            className="mt-6 mx-auto w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-[pulse-cyan_1.2s_ease-in-out_infinite]"
+            className="mt-6 mx-auto w-10 h-10 rounded-full border-2 border-primary/30 border-t-primary animate-status-dot-pulse"
             role="status"
             aria-label="Verificando el pago"
           />
