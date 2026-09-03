@@ -769,3 +769,104 @@ Revert the single Wave 3d feat commit `3811325` to restore the pre-Wave-3d state
 
 Revert is safe and isolated — no Wave 1, Wave 2, Wave 3a, Wave 3b, or Wave 3c work is touched.
 
+---
+
+## Wave 4a Complete
+
+Wave 4a ships the four foundational form primitives for the Cyber-Jade design system: `Button`, `Input`, `Select`, `Textarea`. Each primitive is a `forwardRef`-wrapped React component that renders a native HTML element (`<button>`, `<input>`, `<select>`, `<textarea>`) under cyber-jade class composition (per `design.md` §4.1–4.4 and `specs/primitive-library/spec.md`). Every primitive ships with a colocated `__tests__/<Name>.test.tsx` file written FIRST in strict-TDD RED → GREEN → REFACTOR order; the implementation follows in the same commit, then a barrel re-export commit aggregates the four primitives.
+
+### Per-Primitive Audit
+
+| Task | Commit SHA | Component | Test File | Tests | Description |
+|------|------------|-----------|-----------|-------|-------------|
+| T4a.1 | `5c10822` | `src/components/ui/Button.tsx` | `src/components/ui/__tests__/Button.test.tsx` | 19 | Variants × sizes × loading × disabled + forwardRef + focus-visible + type defaults |
+| T4a.2 | `0071a56` | `src/components/ui/Input.tsx` | `src/components/ui/__tests__/Input.test.tsx` | 12 | label/hint/error wiring (useId + htmlFor ↔ id), jade focus glow, error-tinted focus glow, disabled opacity, forwardRef, placeholder/type/autoComplete passthrough |
+| T4a.3 | `d59d77c` | `src/components/ui/Select.tsx` | `src/components/ui/__tests__/Select.test.tsx` | 12 | Native `<select>` rendering, `options[].disabled` propagation, chevron SVG affordance, controlled + uncontrolled value, identical field chrome + focus glow to Input |
+| T4a.4 | `43b8928` | `src/components/ui/Textarea.tsx` | `src/components/ui/__tests__/Textarea.test.tsx` | 13 | `rows` default of 4 + custom rows passthrough, label/hint/error wiring, jade focus glow, error-tinted focus glow, `resize-y` handle, disabled opacity, forwardRef |
+| (barrel) | `e3b68c2` | `src/components/ui/index.ts` | — | — | Re-exports `Button`, `Input`, `Select`, `Textarea` + their public types |
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| T4a.1 | `src/components/ui/__tests__/Button.test.tsx` | Unit (RTL) | ✅ 417/417 | ✅ Written (19 tests failed at module-resolution → "Failed to resolve import ../Button") | ✅ Passed (19/19) | ✅ 4 variants + 3 sizes + 5 behaviour/state groups (loading, disabled, forwardRef, focus, passthrough) | ➖ None needed — first-pass composition was clean |
+| T4a.2 | `src/components/ui/__tests__/Input.test.tsx` | Unit (RTL) | ✅ 436/436 (post-T4a.1) | ✅ Written (12 tests failed at module-resolution) | ✅ Passed (12/12) | ✅ 7 describe blocks (label-association, hint, error, focus-glow, disabled, forwardRef, passthrough); error-beats-hint pre-empted as a triangulating case | ➖ One refactor: dropped unused `ReactNode` import flagged by ESLint `--max-warnings 0` |
+| T4a.3 | `src/components/ui/__tests__/Select.test.tsx` | Unit (RTL) | ✅ 448/448 (post-T4a.2) | ✅ Written (12 tests failed at module-resolution) | ✅ Passed (12/12) | ✅ 7 describe blocks (options rendering with disabled propagation, chevron SVG, label-association, hint+error, onChange via userEvent.selectOptions, focus-glow, disabled, forwardRef, passthrough) | ➖ None needed — first-pass composition was clean |
+| T4a.4 | `src/components/ui/__tests__/Textarea.test.tsx` | Unit (RTL) | ✅ 460/460 (post-T4a.3) | ✅ Written (13 tests failed at module-resolution) | ✅ Passed (13/12) | ✅ 8 describe blocks (label-association, rows default + custom, hint, error + error-beats-hint, focus-glow, resize-y, disabled, forwardRef, passthrough) | ➖ None needed — first-pass composition was clean |
+
+- **Total tests written (Wave 4a)**: 56 (19 Button + 12 Input + 12 Select + 13 Textarea).
+- **Total tests passing (Wave 4a)**: 56.
+- **Layers used**: Unit (RTL + userEvent for click/selectOptions) — 4 primitives × focused tests.
+- **Approval tests** (refactoring): 0 — no pre-existing production code was refactored; all primitives are net-new.
+- **Pure functions created**: 0 — React components with internal logic only.
+- **Mock/assertion ratios**: 0 mocks across all four test files — every assertion runs against rendered DOM via RTL queries, no spies except `vi.fn()` for `onClick` / `onChange` handler assertions (4 spies total across Button + Select; ratio of 4/56 = 7%, well within the 3-mocks-per-test-file guideline).
+
+### Workload / PR Boundary
+
+- **Mode**: single PR (the orchestrator's prompt scoped Wave 4a as one chained PR slice within the `stacked-to-main` chain strategy).
+- **Current work unit**: Wave 4a — Foundational form primitives (T4a.1 → T4a.4 + barrel).
+- **Boundary**: starts from `5150208` (Wave 3d's tail end — the apply-progress docs commit) and lands at `e3b68c2` (the barrel commit).
+- **Estimated review budget impact**: **+1,349 / -0** across 5 commits (T4a.1: +353, T4a.2: +297, T4a.3: +371, T4a.4: +298, barrel: +30). Cumulative ~3.4× the 400-line review budget across 5 commits — average ~270 lines per commit, well within the per-commit cap. No single commit exceeds the 400-line budget.
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm vitest run src/components/ui/__tests__/` → 4 files / 56 tests passed in ~390ms (single per-file run: Button 19/19 in 147ms, Input 12/12 in 72ms, Select 12/12 in 128ms, Textarea 13/13 in 45ms). Full suite `pnpm test` → 473/473 passed across 52 test files in 12.97s. |
+| Runtime harness command/scenario and exact result | `pnpm build` → succeeded in 2.16s; built CSS bundle (`dist/assets/index-*.css`) emits the new `animate-spin` utility (used by the Button loading spinner) plus the existing `focus:shadow-[0_0_5px_rgba(0,255,157,0.5)]` arbitrary value referenced by Input/Select/Textarea focus glow (verified via Tailwind JIT class scan from the source). No production bundle regression — bundle sizes remain within the Wave 3d envelope (e.g., `vendor-forms-*.js` 81.93kB unchanged). |
+| Rollback boundary | Revert the four primitive commits + barrel in reverse chronological order (`e3b68c2` → `43b8928` → `d59d77c` → `0071a56` → `5c10822`). Reverted files: `src/components/ui/Button.tsx` + `Button.test.tsx`, `src/components/ui/Input.tsx` + `Input.test.tsx`, `src/components/ui/Select.tsx` + `Select.test.tsx`, `src/components/ui/Textarea.tsx` + `Textarea.test.tsx`, `src/components/ui/index.ts`. No Wave 1, Wave 2, Wave 3a, Wave 3b, Wave 3c, or Wave 3d work is touched. |
+
+### Wave 4a Deviations / Notes
+
+- **No `clsx` dependency — template literals used per orchestrator's instruction.** The orchestrator's task brief explicitly stated: "NO `clsx` dependency was added (per Wave 1 rule). Use template literals for className composition." All four primitives compose classNames via `[...].filter(Boolean).join(' ')` chains. Behavioural outcomes (disabled, aria-busy, click suppression, focus glow, error states) are pinned by the test file, not by the className join — so a future refactor to `clsx` would be a no-op for the test suite.
+- **No `FieldShell` extraction shipped — the label/hint/error chrome is inlined in each primitive.** The orchestrator's task brief gave the Input contract directly without requiring a `FieldShell.tsx` shared component. Each of Input/Select/Textarea owns its own copy of the field chrome (label `flex flex-col` + label element + control + error/hint message). The duplication is intentional and minimal (~30 lines per primitive), and a future wave can extract `FieldShell.tsx` if a 4th form primitive joins the family. The T4.2 acceptance criterion in `tasks.md` calls for the extraction; the orchestrator's Wave 4a scope explicitly narrowed this to "create 4 new primitive components" without the FieldShell step. Future Wave 4 commits (T4.5+ — Badge, StatusDot, etc.) are not consumers of the field chrome, so the duplication is contained to the three field controls.
+- **Loading spinner is an inline `<span>` with `animate-spin`, not a `<StatusDot>`.** The design.md spec calls for `<StatusDot color="jade" pulse>` in `loading` state, but `StatusDot` ships in T4.6. The inline ring is intentionally minimal — a 4×4 ring with `border-current border-r-transparent` that inherits the button's text colour and stays visible on every variant (primary/ghost/danger/icon). When T4.6 lands, a one-line swap of `<Spinner />` for `<StatusDot ... />` migrates to the shared primitive without behavioural change (both have `aria-hidden`).
+- **`Select` chevron is a decorative SVG with `aria-hidden="true"`.** Native `<select>` dropdown arrows cannot be styled consistently, so the chevron is rendered absolutely-positioned over the right edge of the select. `pointer-events-none` ensures it never intercepts clicks, and `aria-hidden` keeps it out of the accessibility tree — the visual signal is decorative, not interactive.
+- **`Textarea` `rows` default is 4.** The orchestrator's task brief said "defaulting to 4" — Wave 5 migration will override this per-call-site (e.g., `pre_trade_notes` currently uses `rows={3}` in `NewTradeForm.tsx`). The default is the "comfortable reading" baseline; consumer forms pass an explicit `rows` when they want a tighter field.
+- **TypeScript `JSX.Element` explicit return type used in nested helpers (`Spinner`, `Chevron`).** The project's `tsconfig` has `"jsx": "react-jsx"` + `"strict": true` so React 18's automatic JSX runtime is enabled, but explicit `JSX.Element` annotations on the two private helpers make the helper-return contracts legible. `tsc -b` and ESLint both pass without complaint.
+- **`@ts-expect-error` was NOT needed.** None of the four primitives touched existing TypeScript type signatures or required escape hatches; the only lint warning during development was an unused `ReactNode` import in `Input.tsx` (caught by `pnpm lint --max-warnings 0`), which was fixed before commit by removing the unused import. All subsequent lint runs return exit 0.
+- **No `Co-Authored-By` trailer.** Conventional-commit titles `[T4a.1]`, `[T4a.2]`, `[T4a.3]`, `[T4a.4]` included. No emojis. Five commits total (4 primitives + 1 barrel).
+- **`tasks.md` NOT updated.** The orchestrator's hard rule explicitly excluded `openspec/changes/design-system-v1/tasks.md` from the edit scope ("DO NOT modify `openspec/changes/design-system-v1/proposal.md`, `specs/*/spec.md`, `design.md`, or `tasks.md`"). Per the SDD skill's Step 7 "mark tasks complete in tasks.md" rule, the conflict resolves in favour of the orchestrator's scope guardrail — `tasks.md` retains its `- [ ]` checkboxes for T4a.1 → T4a.4 even though the work is fully complete. Future Wave 4 commits (T4.5+) will see the same scope guardrail; the orchestrator that handles the verification step can resolve the bookkeeping checkboxes retroactively if it wishes.
+- **Coverage threshold (80/75/80/80) maintained.** All four primitives ship with full behavioural test coverage; the new code in `src/components/ui/` is not in any vitest exclude path. The new tests themselves contribute to coverage as well (test files are not in the exclude list; only `src/test/**` and a handful of bootstraps are excluded). No coverage threshold breach detected.
+- **No consumer migration.** Per the orchestrator's hard rule ("DO NOT migrate any consumer to the new primitives (that's Wave 5)"), `LoginForm.tsx`, `RegisterForm.tsx`, `NewTradeForm.tsx`, and every other consumer of the old inline `<input>`/`<select>`/`<textarea>`/`button>` patterns is left untouched. Wave 5.4 (LoginForm + RegisterForm Inputs → `<Input>`), Wave 5.5 (Trade form modals Inputs/Selects), and Wave 5.7 (page-level buttons) own those migrations.
+
+### Wave 4a Scope Boundaries
+
+- **OUT OF SCOPE — explicitly excluded by the orchestrator's prompt or the spec's wave-4a scope.**
+  - `src/components/ui/Badge.tsx` + test — Wave 4 T4.5.
+  - `src/components/ui/StatusDot.tsx` + test — Wave 4 T4.6 (Button's loading spinner will be refactored to consume it).
+  - `src/components/ui/EmptyState.tsx` + test — Wave 4 T4.7.
+  - `src/components/ui/Skeleton.tsx` + test — Wave 4 T4.8.
+  - `src/components/ui/Tabs.tsx` + test — Wave 4 T4.9.
+  - `src/components/ui/DataTable.tsx` + test — Wave 4 T4.10 (largest primitive).
+  - `src/components/ui/Toast.tsx` + `ToastContainer.tsx` + `src/stores/useToastStore.ts` + tests — Wave 4 T4.11 (3 files in one commit).
+  - `src/components/ui/PeriodoSplit.tsx` + test (optional) — Wave 4 T4.12.
+  - `src/components/ui/focusGlow.ts` constant — design.md §4 references this co-located constant; the orchestrator's Wave 4a brief does not require it. The focus glow string is inlined in each of Input/Select/Textarea (3 sites). A future T4.5+ commit can extract it if a 4th form primitive joins, but the duplication is contained.
+  - Wave 5 consumer migration (T5.1–T5.12).
+  - Wave 6 decor + styleguide.
+  - Wave 7 enforcement + docs.
+
+---
+
+## Status
+
+- **Wave 1**: ✅ Complete (4 commits, 197/197 tests).
+- **Wave 2**: ✅ Complete (1 commit, 205/205 tests).
+- **Wave 3a**: ✅ Complete (1 commit, 229/229 tests, layout drift retired).
+- **Wave 3b**: ✅ Complete (1 commit, 272/272 tests, components drift retired).
+- **Wave 3c**: ✅ Complete (1 commit, 334/334 tests, home/pricing/features drift retired).
+- **Wave 3d**: ✅ Complete (1 commit, 417/417 tests, pages/auth/about drift retired).
+- **Wave 4a**: ✅ Complete (5 commits, 473/473 tests, foundational form primitives shipped).
+- **Wave 4b+**: ⏳ Pending (7 more Wave 4 commits — Badge, StatusDot, EmptyState, Skeleton, Tabs, DataTable, Toast; optional PeriodoSplit).
+- **Wave 5**: ⏳ Pending (12 migration commits).
+- **Wave 6**: ⏳ Pending (decor + styleguide).
+- **Wave 7**: ⏳ Pending (ESLint rule, stylelint, CI guard, docs).
+
+### Next recommended step
+
+Hand control back to the orchestrator. Per the strict TDD / work-unit-commits contract, the next move is independent SDD verification (`sdd-verify` for Wave 4a) followed by the next Wave 4 sub-wave (T4.5 — Badge, or whichever primitive the orchestrator schedules next). Review-budget impact for Wave 4a: 5 commits averaging +270 lines each — well under the 400-line per-commit cap. Cumulative test count: **473/473** across **52 test files** (+56 tests over the Wave 3d 417/417 baseline; +4 test files over the Wave 3d 48-file baseline).
+
+### Rollback boundary
+
+Revert the five Wave 4a commits in reverse chronological order (`e3b68c2` → `43b8928` → `d59d77c` → `0071a56` → `5c10822`). Reverted files: `src/components/ui/index.ts`, `src/components/ui/Textarea.tsx` + `__tests__/Textarea.test.tsx`, `src/components/ui/Select.tsx` + `__tests__/Select.test.tsx`, `src/components/ui/Input.tsx` + `__tests__/Input.test.tsx`, `src/components/ui/Button.tsx` + `__tests__/Button.test.tsx`. Revert is safe and isolated — no Wave 1, Wave 2, Wave 3a, Wave 3b, Wave 3c, or Wave 3d work is touched.
+
