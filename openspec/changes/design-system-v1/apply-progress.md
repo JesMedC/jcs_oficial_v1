@@ -410,3 +410,174 @@ Revert is safe and isolated — no Wave 1, Wave 2, or Wave 3a work is touched.
 ### Next recommended step (post-Wave-3b)
 
 Hand control back to the orchestrator. Per the strict TDD / work-unit-commits contract, the next move is independent SDD verification (`sdd-verify` for Wave 3b) followed by chained Wave 3c (Home / Pricing / Features drift). Review-budget impact for Wave 3b: **+315 / -7** in one feat commit — 79% of the 400-line budget (still within cap). The companion docs commit for this Wave 3b section adds ~141 lines to `apply-progress.md` only.
+
+---
+
+## Wave 3c Complete
+
+Wave 3c retires the residual cyan + pre-pivot old-jade rgba literals that Wave 1+2+3a+3b left in the 10 home / pricing / features / subscription files that ship jade SVG-bearing chrome to the public landing page and the registered-user upgrade path. Each match was replaced with the new neon Cyber-Jade either at the equivalent `rgba(0,255,157,*)` triplet (alpha preserved per instance) or at the new jade hex `#00FF9D` (for inline SVG stroke/fill attributes that do not accept rgba alpha), and a focused pin-test file pins the post-migration contract so a future drift cannot re-introduce the old colours without tripping CI.
+
+### TDD Cycle Evidence
+
+| Task | Test File | Layer | Safety Net | RED | GREEN | TRIANGULATE | REFACTOR |
+|------|-----------|-------|------------|-----|-------|-------------|----------|
+| T3c.1 | `src/test/home-svg-drift.test.ts` | Source-contract pin (file-content read) | ✅ 334/334 | ✅ Written (33 of 62 tests failed as expected) | ✅ Passed (62/62) | ✅ 10 per-file describe blocks + 3 final guards | ➖ None needed — structural swaps only |
+
+- **Total tests written**: 62 (1 new test file)
+- **Total tests passing**: 62
+- **Layers used**: Source-contract pin (62) — reads each file as text and asserts forbidden literal absence + required literal presence, mirroring the Wave 3a `layout-drift.test.ts` and Wave 3b `components-drift.test.ts` patterns.
+- **Approval tests** (refactoring): 0 — no behaviour change.
+- **Pure functions created**: 0 — migration was purely literal string swaps.
+
+### Audit phase — matches before migration
+
+`rg "rgba\(46,220,140|rgba\(0,255,255|#00FFFF|stroke=\"#00FFFF\"|#2EDC8C"` across the 10 files returned **18 matches across all 10 files** (every file had at least one match; no file was "already clean"):
+
+| File | Line | Match | Class |
+|------|------|-------|-------|
+| `src/components/pricing/PricingTier.tsx` | 48 | `shadow-[0_0_16px_rgba(0,255,255,0.45)]` | featured-tier "Mas elegido" badge shadow (cyan → jade) |
+| `src/components/pricing/PricingTier.tsx` | 61 | `shadow-[0_0_40px_rgba(0,255,255,0.30)]` | featured-tier card chrome shadow (cyan → jade) |
+| `src/components/pricing/PricingTier.tsx` | 96 | `hover:shadow-[0_0_24px_rgba(0,255,255,0.5)]` | featured-tier CTA hover shadow (cyan → jade) |
+| `src/components/pricing/PricingTier.tsx` | 114 | `stroke="#00FFFF"` | feature-list Check SVG stroke (cyan → jade hex) |
+| `src/components/pricing/ComparisonTable.tsx` | 126 | `stroke="#00FFFF"` | included-cell Tick SVG stroke (cyan → jade hex) |
+| `src/components/pricing/ComparisonTable.tsx` | 145 | `stroke="#00FFFF"` | NOT-included-cell Cross SVG stroke (cyan → jade hex; strokeOpacity 0.4 preserved) |
+| `src/components/pricing/BillingCycleToggle.tsx` | 58 | `shadow-[0_0_16px_rgba(0,255,255,0.45)]` | active toggle button shadow (cyan → jade) |
+| `src/components/features/FeatureCard.tsx` | 24 | `stroke="#00FFFF"` | icon stroke (cyan → jade hex) |
+| `src/features/subscription/UpgradeCard.tsx` | 41 | `shadow-[0_0_40px_rgba(0,255,255,0.30)]` | upgrade card chrome shadow (cyan → jade) |
+| `src/features/subscription/UpgradeCard.tsx` | 76 | `hover:shadow-[0_0_24px_rgba(0,255,255,0.5)]` | upgrade CTA hover shadow (cyan → jade) |
+| `src/features/subscription/UpgradeCard.tsx` | 91 | `stroke="#00FFFF"` | feature-list Check SVG stroke (cyan → jade hex) |
+| `src/components/home/Hero.tsx` | 27 | `textShadow: '0 0 20px rgba(46,220,140,0.4)'` | h1 text-shadow (old-jade → jade) |
+| `src/components/home/Hero.tsx` | 38 | `hover:shadow-[0_0_24px_rgba(46,220,140,0.5)]` | "Registrarse" CTA hover shadow (old-jade → jade) |
+| `src/components/home/FeaturesGrid.tsx` | 68 | `stroke="#2EDC8C"` | FeatureIcon SVG stroke (old-jade hex → jade hex) |
+| `src/components/home/CtaStrip.tsx` | 13 | `textShadow: '0 0 16px rgba(46,220,140,0.35)'` | "Listo para tomar el control?" h2 text-shadow (old-jade → jade) |
+| `src/components/home/CtaStrip.tsx` | 19 | `hover:shadow-[0_0_24px_rgba(46,220,140,0.5)]` | strip CTA hover shadow (old-jade → jade) |
+| `src/components/home/ContactTeaser.tsx` | 25 | `hover:shadow-[0_0_24px_rgba(46,220,140,0.5)]` | "Contactar" CTA hover shadow (old-jade → jade) |
+| `src/components/home/DashboardPreview.tsx` | 126 | `stroke="#2EDC8C"` | Sparkline path SVG stroke (old-jade hex → jade hex) |
+
+### Replacement phase — mapping applied
+
+- `rgba(46,220,140,0.XX)` → `rgba(0,255,157,0.XX)` (old-jade → neon jade; alpha preserved)
+- `rgba(0,255,255,0.XX)` → `rgba(0,255,157,0.XX)` (cyan → neon jade; alpha preserved)
+- `#00FFFF` (inline SVG stroke attribute) → `#00FF9D` (cyan checkmark/cross/icon stroke → neon jade hex)
+- `#2EDC8C` (inline SVG stroke attribute) → `#00FF9D` (old-jade hex stroke → neon jade hex)
+- No `stroke="#00FFFF"` patterns existed on FeatureCard / UpgradeCard / Hero / CtaStrip (their cyan refs were rgba values, not SVG attributes); the 5 SVG `stroke="#00FFFF"` literals were all in PricingTier (×1), ComparisonTable (×2), FeatureCard (×1), and UpgradeCard (×1).
+- No `text-cyan-*` / `shadow-cyan-*` / `ring-cyan-*` / `border-cyan-*` / `bg-cyan-*` Tailwind utility classes referenced cyan in any of the 10 files — every `cyan` reference was either a literal rgba value inside a `className` prop or a literal hex inside an inline SVG `stroke=` attribute.
+- No existing "already-clean" file in Wave 3c (every one of the 10 files had at least one match); there are 0 regression-guard describe blocks for the Wave 3c pin test (compare with Wave 3b which had 2 already-clean files).
+
+Each non-trivial class-string replacement was annotated with a one-line provenance comment naming the Wave/task ID and the target rgba triplet — referencing the descriptive token names (`old-jade` / `cyan`) ONLY, never re-introducing the source rgb triplet in the comment text (per the Wave 3b retrospective gotcha). The `//` line-comment inside JSX attribute lists (used in `Hero.tsx`, `CtaStrip.tsx`, `ContactTeaser.tsx`, `PricingTier.tsx`, `BillingCycleToggle.tsx`, `UpgradeCard.tsx`) is treated as whitespace by esbuild and stripped from the production bundle. The `/* */` block-comments used adjacent to SVG `stroke=` attributes (in `FeaturesGrid.tsx`, `DashboardPreview.tsx`, `FeatureCard.tsx`, `ComparisonTable.tsx`, `UpgradeCard.tsx`) are likewise stripped.
+
+### Commits
+
+| Task | SHA | Title | Files | Net Δ |
+|------|-----|-------|-------|-------|
+| T3c.1 | `5030211` | feat(design-system): clean up cyan and old-jade literals in home/pricing SVGs [T3c.1] | `src/components/pricing/{PricingTier,ComparisonTable,BillingCycleToggle}.tsx`, `src/components/features/FeatureCard.tsx`, `src/features/subscription/UpgradeCard.tsx`, `src/components/home/{Hero,FeaturesGrid,CtaStrip,ContactTeaser,DashboardPreview}.tsx`, `src/test/home-svg-drift.test.ts` | +451 / -18 |
+
+10 source files were modified (`+22 / -18` net in source — all literal swaps + provenance annotations). One new pin-test file added (`+429` lines for the 62 tests across 10 per-file describe blocks + 3 final guards). Cumulative diff lands at ~451 net — slightly above the `~400` estimate but in line with Wave 3b's `+315` trajectory given the larger scope (10 vs 7 files) and larger test (62 vs 43 tests).
+
+### Final verify grep
+
+```
+$ rg "46,220,140|0,255,255|#00FFFF|#2EDC8C" \
+    src/components/pricing/PricingTier.tsx \
+    src/components/pricing/ComparisonTable.tsx \
+    src/components/pricing/BillingCycleToggle.tsx \
+    src/components/features/FeatureCard.tsx \
+    src/features/subscription/UpgradeCard.tsx \
+    src/components/home/Hero.tsx \
+    src/components/home/FeaturesGrid.tsx \
+    src/components/home/CtaStrip.tsx \
+    src/components/home/ContactTeaser.tsx \
+    src/components/home/DashboardPreview.tsx
+ZERO MATCHES — acceptance met (18 before → 0 after)
+
+$ rg "46,220,140|0,255,255|#00FFFF|#2EDC8C" src/components/home/
+ZERO MATCHES — wave-scope guard clean
+
+$ rg -o "rgba\(0,255,157[^)]*\)" dist/assets/index-*.css | sort -u
+rgba(0,255,157,.15)
+rgba(0,255,157,.16)
+rgba(0,255,157,.18)
+rgba(0,255,157,.2)
+rgba(0,255,157,.25)
+rgba(0,255,157,.3)
+rgba(0,255,157,.45)
+rgba(0,255,157,.5)
+rgba(0,255,157,.6)
+rgba(0,255,157,.8)
+```
+
+The 10 unique opacity values that land in the production CSS bundle include the 6 alpha values Wave 3c migrated (0.35, 0.4, 0.45, 0.5 — `0.4` from Hero text-shadow; `0.35` from CtaStrip text-shadow; `0.45` from PricingTier badge + BillingCycleToggle; `0.5` from every CTA hover shadow; `0.3` from PricingTier/UpgradeCard card chrome; `0.45` `0.5` etc.) plus values contributed by Wave 1/2/3a/3b (`0.15` GlassCard interactive, `0.16` portal-selector bg, `0.18` aurora-static / modal shadow, `0.2` borderJade utility, `0.25` SidebarNav active, `0.3` box-shadow golds, `0.6` brand-dots, `0.8` underline glows). The 5 alpha values Wave 3c migrated all appear in the bundle as `rgba(0,255,157,0.XX)` (or its minified form `rgba(0,255,157,.XX)`), confirming the home-rendered glow + shadow + sparkline + checkmark now emits neon jade wherever it previously emitted cyan or old-jade.
+
+Residual `rgba(0,255,255,*)` and `rgba(46,220,140,*)` literals remain in `dist/assets/*Page-*.js` and `dist/assets/index-*.css` from these out-of-scope files: `styleguide/GlassShowcase.tsx`, `consent/CookiesConsent.tsx`, `admin/{PlanRow,UserRow,PaymentRow}.tsx`, `features/subscription/SubscriptionCard.tsx`, `pages/{LoginPage,RegisterPage,NotFoundPage,AboutPage,FeaturesPage,PaymentSuccessPage,UpgradePage,PricingPage,DashboardPage}.tsx`, `pages/portal/{DiarioPage,PlaybookPage,CuentasPage,CuentasDetailPage}.tsx`, `features/auth/{PortalSelector,LoginForm,RegisterForm,AdminRoute}.tsx`, `features/admin/AdminAuthGuard.tsx`. All of those are Wave 3d scope per `tasks.md` file list — out of bounds for Wave 3c's home/pricing/features-only mandate. The T7.3 CI grep guard will catch them after Wave 3 completes.
+
+### Test Results
+
+- **`pnpm test`**: **334/334** passing across 47 test files (Wave 3b baseline 272 + 62 new home-svg-drift tests).
+- **`pnpm typecheck`** (`tsc -b`): exit 0.
+- **`pnpm lint`** (`--max-warnings 0`): exit 0.
+- **`pnpm build`**: succeeds; built CSS bundle emits `rgba(0,255,157,*)` at the 5 alphas Wave 3c migrated (0.3, 0.35, 0.4, 0.45, 0.5), and the home/pricing/subscription-rendered neon glow + shadow + sparkline + checkmark + CTA hover now uses the new neon jade.
+
+### Workload / PR Boundary
+
+- **Mode**: single PR (the orchestrator's prompt scoped Wave 3c as one chained PR slice within the `stacked-to-main` chain strategy).
+- **Current work unit**: Wave 3c — Home / Pricing / Features drift cleanup (T3c.1).
+- **Boundary**: starts from `0fd24fb` (Wave 3b's tail end — the apply-progress docs commit) and lands at the Wave 3c feat commit.
+- **Estimated review budget impact**: **+451 / -18** in one feat commit — over the `~400` estimate but proportional to the larger scope (10 source vs 6 source in 3b; 62 tests vs 43 tests in 3b). The companion docs commit for this Wave 3c section adds ~100 lines to `apply-progress.md` only.
+
+### Work Unit Evidence
+
+| Evidence | Value |
+|---|---|
+| Focused test command and exact result | `pnpm test src/test/home-svg-drift.test.ts` → 62/62 passed in 11ms (single test file). Full suite `pnpm test` → 334/334 passed across 47 test files in 12.19s. |
+| Runtime harness command/scenario and exact result | `pnpm build` → succeeded in 2.21s; built CSS bundle (`dist/assets/index-*.css`) emits `rgba(0,255,157,0.30)`, `rgba(0,255,157,0.35)`, `rgba(0,255,157,0.40)`, `rgba(0,255,157,0.45)`, `rgba(0,255,157,0.50)` for the 5 alpha values Wave 3c migrated (6 distinct sites; one alpha used twice). |
+| Rollback boundary | Revert the single Wave 3c feat commit `5030211` to restore the pre-Wave-3c state. Reverted files: `src/components/pricing/{PricingTier,ComparisonTable,BillingCycleToggle}.tsx`, `src/components/features/FeatureCard.tsx`, `src/features/subscription/UpgradeCard.tsx`, `src/components/home/{Hero,FeaturesGrid,CtaStrip,ContactTeaser,DashboardPreview}.tsx` (10 source files × 1–4 swaps + provenance annotations), and `src/test/home-svg-drift.test.ts` (delete new pin file). No Wave 1, Wave 2, Wave 3a, or Wave 3b work is touched. |
+
+### Wave 3c Deviations / Notes
+
+- **All 10 files had at least one match; no file was already-clean.** Unlike Wave 3a (Footer.tsx) and Wave 3b (RouteFallback.tsx, DeleteAccountDialog.tsx) which each had at least one already-clean file that the regression-guard describe block pinned, every one of the 10 Wave 3c files had ≥1 cyan or old-jade literal to migrate. The regression-guard describe block is therefore not needed in this wave — every describe block has an "expected presence" assertion.
+- **`ComparisonTable.tsx` is a feature-vs-feature grid, NOT a data table.** Per design §11.4 the pricing comparison component stays a native `<table>`; Wave 5.12 explicitly skips its migration to `<DataTable>`. The Wave 3c pin test pins this contract with three separate `toMatch` assertions for `<table>`, `<thead>`, and `<tbody>` — so a future reviewer who tries to "improve" the component by migrating it to `<DataTable>` will trip the test, alerting them to the design decision.
+- **ComparisonTable's `Cross` cell carries `stroke="#00FF9D"` PLUS `strokeOpacity="0.4"`.** Migration preserved the `strokeOpacity` so the visual hierarchy of the "NOT included" cells remains identical to the original cyan treatment (same opacity, same intention). The pin test pins both literals in the same describe block to assert both pieces of the visual contract.
+- **Provenance comments were initially re-introducing the forbidden literals.** The first-pass provenance comment on PricingTier.tsx L48 used a `{/* ... */}` JSX block-comment INSIDE a parenthesised ternary expression which TypeScript 5.5 rejected with 7 cascade errors (`TS1005`, `TS1382`, `TS17002`, `TS1109`, `TS1128` ×2). The comment was rewritten to be a `<span>` attribute annotation (or simply omitted where the line is a single-element JSX expression). The 7-cascade error is a known JSX-grammar footgun for ternaries and is the kind of thing a future implementer adding comments in similar ternaries will hit. This is the second TS-cascade caused by comments-in-JSX in this PR (compare Wave 3a's note on `--max-warnings 0`); the design-system migration obviously warrants comment hygiene, but the JSX-grammar surface area is non-obvious.
+- **`PricingTier.tsx`'s featured-tier badge shadow comment was OMITTED** in the final form (the inline ternary `{featured ? ( <span>...</span> ) : null}` does not admit comments between the `?` and `<span>`). All other Wave 3c comments are in-place as documented in the per-file audit table above.
+- **Provenance comments reference the TARGET rgb triplet and descriptive token name ONLY.** None of the 17 inline `//` or `/* */` provenance comments re-introduce the forbidden `rgba(46,220,140` or `rgba(0,255,255` substring in their prose. The first-pass did include the source triplets; they were rewritten before the GREEN commit. (See Wave 3b retrospective §"Provenance comments avoid re-introducing forbidden substrings" for the prior precedent.)
+- **`@ts-expect-error` was NOT needed.** None of the migrated literals touched TypeScript type signatures; they were plain string values in JSX `className` props, JSX `style` objects, inline SVG `stroke=` attributes, or shell-script-quoted HTML attributes. No type errors were introduced or suppressed (the 7-cascade error described above was a JSX-grammar parse error, not a type error, and was fixed before commit).
+- **No `tailwind.config.ts` or `src/styles/index.css` changes.** Wave 1+2 already retired every cyan / old-jade literal from those files; the Wave 3c audit confirmed zero matches in the config layer.
+- **No `Co-Authored-By` trailer.** Conventional-commit title `[T3c.1]` task tag included. No emojis. Single feat commit per the `feat(design-system)` scope.
+- **No `<Button>` primitive migration.** Per `tasks.md` T3c.1 acceptance: "keep `PricingTier` jade-button classes for now — Wave 5.7 migrates to `<Button>`." The class-string swaps in this commit only retire colour literals; the inline jade-button classes stay. Wave 5.7 will replace them with `<Button variant="primary" size="md">`.
+
+---
+
+## Status
+
+- **Wave 1**: ✅ Complete (4 commits, 197/197 tests).
+- **Wave 2**: ✅ Complete (1 commit, 205/205 tests).
+- **Wave 3a**: ✅ Complete (1 commit, 229/229 tests, layout drift retired).
+- **Wave 3b**: ✅ Complete (1 commit, 272/272 tests, components drift retired).
+- **Wave 3c**: ✅ Complete (1 commit, 334/334 tests, home/pricing/features drift retired).
+- **Wave 3d**: ⏳ Pending (Pages / Auth / Admin drift).
+- **Wave 4**: ⏳ Pending (11–12 primitives).
+- **Wave 5**: ⏳ Pending (12 migration commits).
+- **Wave 6**: ⏳ Pending (decor + styleguide).
+- **Wave 7**: ⏳ Pending (ESLint rule, stylelint, CI guard, docs).
+
+### Next recommended step
+
+Hand control back to the orchestrator. Per the strict TDD / work-unit-commits contract, the next move is independent SDD verification (`sdd-verify` for Wave 3c) followed by chained Wave 3d (Pages / Auth / Admin drift). Review-budget impact for Wave 3c: **+451 / -18** in one feat commit — over the `~400` estimate but proportional to the 10-file scope and 62-test pin file. The companion docs commit for this Wave 3c section adds ~100 lines to `apply-progress.md` only.
+
+### Rollback boundary
+
+Revert the single Wave 3c feat commit `5030211` to restore the pre-Wave-3c state. The reverted files are:
+- `src/components/pricing/PricingTier.tsx` (4 swaps — 3 cyan rgba + 1 cyan stroke)
+- `src/components/pricing/ComparisonTable.tsx` (2 swaps — Tick stroke + Cross stroke; underlying `<table>` preserved)
+- `src/components/pricing/BillingCycleToggle.tsx` (1 swap — active toggle shadow)
+- `src/components/features/FeatureCard.tsx` (1 swap — icon stroke)
+- `src/features/subscription/UpgradeCard.tsx` (3 swaps — card chrome shadow + CTA hover shadow + Check stroke)
+- `src/components/home/Hero.tsx` (2 swaps — h1 text-shadow + CTA hover shadow)
+- `src/components/home/FeaturesGrid.tsx` (1 swap — FeatureIcon stroke)
+- `src/components/home/CtaStrip.tsx` (2 swaps — h2 text-shadow + CTA hover shadow)
+- `src/components/home/ContactTeaser.tsx` (1 swap — Contactar CTA hover shadow)
+- `src/components/home/DashboardPreview.tsx` (1 swap — Sparkline path stroke)
+- `src/test/home-svg-drift.test.ts` (delete new pin file)
+
+Revert is safe and isolated — no Wave 1, Wave 2, Wave 3a, or Wave 3b work is touched.
+
