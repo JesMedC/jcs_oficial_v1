@@ -257,11 +257,14 @@ describe('home / pricing / features / subscription — Wave 3c drift cleanup con
       expect(HERO).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade h1 text-shadow (0.4 alpha)', () => {
-      // The hero heading carried a soft jade text-shadow at 0.4 alpha; the
-      // migration swaps it to neon jade at the same alpha.
+    it('pins the neon-jade h1 text-shadow (0.65 alpha, bumped for hero prominence)', () => {
+      // design-system-v1 Wave 6.5 (Nivel 1 bump) — hero H1 glow bumped from
+      // 0.4 alpha / 20px spread to 0.65 alpha / 28px spread so the landing
+      // hero reads with stronger jade neon presence (closer to the
+      // Cyber-Jade inspiration screenshots). Other page H1s keep the
+      // gentler 0.4 alpha / 20px glow.
       expect(HERO).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 28px rgba(0,255,157,0.65)' }}",
       );
     });
 

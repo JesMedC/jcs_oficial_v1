@@ -24,7 +24,7 @@ export function Hero({ preview }: HeroProps) {
         <div className="flex flex-col gap-6">
           <h1
             className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl lg:text-5xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // Wave 3c (T3c.1): old-jade text-shadow → neon jade rgba(0,255,157,*).
+            style={{ textShadow: '0 0 28px rgba(0,255,157,0.65)' }} // Wave 6.5 (Nivel 1 bump): spread 20→28px, opacity 0.4→0.65 for stronger jade glow on the hero H1.
           >
             Convierte cada operacion en una decision mas inteligente
           </h1>
