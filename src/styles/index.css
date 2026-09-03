@@ -5,27 +5,30 @@
 /*
  * CSS variables mirror the design tokens from tailwind.config.ts.
  * Var names keep the "jade-" prefix for compatibility with later slices
- * (p1b+) that consume these names directly. VALUES are jade per
- * portal-fase0a-base (cyan -> jade primary pivot).
+ * (p1b+) that consume these names directly. VALUES are Cyber-Jade
+ * per design-system-v1 (neon-jade primary pivot + abyssal bg).
  */
 :root {
-  --color-jade-bg: #080d12;
-  --color-jade-surface: #0d141b;
+  --color-jade-bg: #060b10;
+  --color-jade-surface: #0d151e;
   --color-jade-surface-el: #111b24;
   --color-jade-border: #1c2a35;
-  --color-jade: #2edc8c;
-  --color-jade-dk: #25b070;
-  --color-jade-light: #7fe9b5;
-  --color-jade-glow: #2edc8c;
+  --color-jade-input: #0a1017;
+  --color-jade: #00ff9d;
+  --color-jade-dk: #00cc7e;
+  --color-jade-light: #5cffbe;
+  --color-jade-glow: #00ff9d;
+  --color-jade-fg: #060b10;
+  --color-jade-border-line: rgba(0, 255, 157, 0.2);
   --color-jade-profit: #35d07f;
-  --color-jade-loss: #ff5c5c;
+  --color-jade-loss: #ff2a55;
   --color-jade-warning: #f3b94e;
-  --color-jade-info: #4da3ff;
-  --color-jade-text-pri: #e9f1f7;
-  --color-jade-text-sec: #8fa1b2;
+  --color-jade-info: #00b8ff;
+  --color-jade-text-pri: #e0e6ed;
+  --color-jade-text-sec: #8a9ba8;
   --color-jade-text-mut: #607080;
-  --shadow-jade-glass: 0 8px 32px 0 rgba(8, 13, 18, 0.45);
-  --shadow-jade-elevated: 0 12px 48px 0 rgba(8, 13, 18, 0.6);
+  --shadow-jade-glass: 0 8px 32px 0 rgba(6, 11, 16, 0.45);
+  --shadow-jade-elevated: 0 12px 48px 0 rgba(6, 11, 16, 0.6);
 }
 
 /*

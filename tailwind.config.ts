@@ -1,32 +1,43 @@
 import type { Config } from 'tailwindcss';
 
-// Tokens locked per design override (mem #70): primary cyan #00FFFF,
-// display font Orbitron (500/700/900), 3-tier pricing structure.
+// Tokens locked per Cyber-Jade spec (design-system-v1): primary #00FF9D,
+// display font Orbitron + Rajdhani + Space Grotesk (500/700/900),
+// 3-tier pricing structure.
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        bg: '#080D12',
-        surface: '#0D141B',
+        bg: '#060B10',
+        surface: '#0D151E',
         'surface-el': '#111B24',
         border: '#1C2A35',
-        // portal-fase0a-base — primary pivoted cyan -> jade.
-        // Same five-step ladder as the cyan theme had (#2EDC8C +
+        // design-system-v1 — form control background. Distinct from
+        // `surface` so inputs sit visibly below cards on the same
+        // surface stack (surface = cards, input = controls).
+        input: '#0A1017',
+        // design-system-v1 — primary pivoted to neon Cyber-Jade.
+        // Same five-step ladder as the jade era (#00FF9D +
         // mid-tone, lighter highlight, glow fallback) plus a
         // foreground token for text/iconography that sits on top of
         // primary surfaces.
         primary: {
-          DEFAULT: '#2EDC8C',
-          dk: '#25B070',
-          light: '#7FE9B5',
-          glow: '#2EDC8C',
+          DEFAULT: '#00FF9D',
+          dk: '#00CC7E',
+          light: '#5CFFBE',
+          glow: '#00FF9D',
         },
         // Foreground color used for text/icons rendered ON primary
         // surfaces (buttons, badges, etc.). Dark to keep contrast
-        // acceptable against the bright jade.
-        'primary-fg': '#080D12',
+        // acceptable against the bright neon jade.
+        'primary-fg': '#060B10',
+        // design-system-v1 — default jade border utility. The
+        // camelCase key emits the Tailwind utility `border-borderJade`
+        // (Tailwind 3's nested-key trap would mangle a flat hyphen
+        // key like `border-jade` into `border-glass-border-jade`).
+        // See design.md §9.8 / §11.7 for the rationale.
+        borderJade: 'rgba(0, 255, 157, 0.2)',
         // Glassmorphism tokens (p0ui.1) — translucent surfaces with
         // backdrop blur. Applied selectively to chrome (sidebar,
         // modals, account cards, topbar). NEVER on financial tables,
@@ -51,14 +62,14 @@ const config: Config = {
             strong: 'rgb(255 255 255 / 0.22)',
           },
         },
-        // Semantic finance colors (kept):
+        // Semantic finance colors (pivoted to neon variants):
         profit: '#35D07F',
-        loss: '#FF5C5C',
+        loss: '#FF2A55',
         warning: '#F3B94E',
-        info: '#4DA3FF',
+        info: '#00B8FF',
         text: {
-          primary: '#E9F1F7',
-          secondary: '#8FA1B2',
+          primary: '#E0E6ED',
+          secondary: '#8A9BA8',
           muted: '#607080',
         },
       },
@@ -123,18 +134,20 @@ const config: Config = {
         'glass-lg': '1.25rem',
       },
       boxShadow: {
-        // portal-fase0a-base — jade glow utilities. Old `glow-cyan*`
-        // entries are intentionally retained as visual-equivalent
-        // aliases; they are removed in Waves 1c/1d when their consumers
-        // (styleguide + page-level CTA hooks) pivot to jade tokens.
-        'glow-jade': '0 0 40px rgba(46,220,140,0.30)',
-        'glow-jade-sm': '0 0 20px rgba(46,220,140,0.20)',
+        // design-system-v1 — neon Cyber-Jade glow utilities. The rgba
+        // values track the new primary.DEFAULT (#00FF9D = 0,255,157),
+        // not the pre-pivot soft-jade (rgb 46,220,140). The legacy
+        // `glow-cyan*` aliases are visual-equivalent duplicates scheduled
+        // for removal in Wave 2 (T2.1) — left in place here so consumers
+        // migrate first.
+        'glow-jade': '0 0 40px rgba(0,255,157,0.30)',
+        'glow-jade-sm': '0 0 20px rgba(0,255,157,0.20)',
         'glow-cyan': '0 0 40px rgba(46,220,140,0.30)',
         'glow-cyan-sm': '0 0 20px rgba(46,220,140,0.20)',
-        glass: '0 8px 32px 0 rgba(8,13,18,0.45)',
-        elevated: '0 12px 48px 0 rgba(8,13,18,0.60)',
+        glass: '0 8px 32px 0 rgba(6,11,16,0.45)',
+        elevated: '0 12px 48px 0 rgba(6,11,16,0.60)',
         'glass-panel':
-          '0 8px 32px 0 rgba(8,13,18,0.55), inset 0 1px 0 0 rgb(255 255 255 / 0.06)',
+          '0 8px 32px 0 rgba(6,11,16,0.55), inset 0 1px 0 0 rgb(255 255 255 / 0.06)',
       },
       fontSize: {
         'display-2xl': [
