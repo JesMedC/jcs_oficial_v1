@@ -55,7 +55,8 @@ function ToggleButton({
       className={[
         'px-5 py-2 rounded-full font-display uppercase tracking-wide text-xs md:text-sm transition-all',
         active
-          ? 'bg-primary text-bg shadow-[0_0_16px_rgba(0,255,255,0.45)]'
+          // Wave 3c (T3c.1): cyan toggle shadow → neon jade rgba(0,255,157,*).
+          ? 'bg-primary text-bg shadow-[0_0_16px_rgba(0,255,157,0.45)]'
           : 'text-text-secondary hover:text-primary',
       ].join(' ')}
     >

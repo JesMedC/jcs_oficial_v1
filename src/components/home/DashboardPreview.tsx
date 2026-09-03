@@ -123,7 +123,7 @@ function Sparkline() {
         <path
           d="M0,15 L8,12 L16,14 L24,9 L32,11 L40,6 L48,8 L56,3 L60,5"
           fill="none"
-          stroke="#2EDC8C"
+          stroke="#00FF9D" // Wave 3c (T3c.1): old-jade hex stroke → neon jade hex.
           strokeWidth="1.5"
           strokeLinecap="round"
           strokeLinejoin="round"

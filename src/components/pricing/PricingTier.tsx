@@ -45,7 +45,7 @@ export function PricingTier({ tier, cycle }: PricingTierProps) {
   return (
     <div className="relative h-full">
       {featured ? (
-        <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-primary text-bg font-display uppercase tracking-wide text-[10px] md:text-xs shadow-[0_0_16px_rgba(0,255,255,0.45)]">
+        <span className="absolute -top-3 left-1/2 -translate-x-1/2 z-10 px-3 py-1 rounded-full bg-primary text-bg font-display uppercase tracking-wide text-[10px] md:text-xs shadow-[0_0_16px_rgba(0,255,157,0.45)]">
           Mas elegido
         </span>
       ) : null}
@@ -58,7 +58,8 @@ export function PricingTier({ tier, cycle }: PricingTierProps) {
         variant={featured ? 'elevated' : 'default'}
         className={[
           'h-full flex flex-col gap-4',
-          featured ? 'border-primary shadow-[0_0_40px_rgba(0,255,255,0.30)]' : '',
+          // Wave 3c (T3c.1): cyan border-glow shadow → neon jade rgba(0,255,157,*).
+          featured ? 'border-primary shadow-[0_0_40px_rgba(0,255,157,0.30)]' : '',
         ].join(' ')}
       >
         <header className="flex flex-col gap-1">
@@ -93,7 +94,8 @@ export function PricingTier({ tier, cycle }: PricingTierProps) {
           className={[
             'mt-4 inline-flex justify-center font-display uppercase tracking-wide px-3 py-2 rounded-lg text-sm transition-all',
             featured
-              ? 'bg-primary text-bg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)]'
+              // Wave 3c (T3c.1): cyan CTA hover shadow → neon jade rgba(0,255,157,*).
+              ? 'bg-primary text-bg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]'
               : 'border-2 border-primary text-primary hover:bg-primary hover:text-bg',
           ].join(' ')}
         >
@@ -111,7 +113,8 @@ function Check() {
       height="16"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#00FFFF"
+      /* Wave 3c (T3c.1): cyan checkmark stroke → neon jade hex. */
+      stroke="#00FF9D"
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"

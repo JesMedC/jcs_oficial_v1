@@ -38,7 +38,7 @@ export function UpgradeCard({
   return (
     <GlassCard
       variant="elevated"
-      className="h-full flex flex-col gap-4 border-primary shadow-[0_0_40px_rgba(0,255,255,0.30)]"
+      className="h-full flex flex-col gap-4 border-primary shadow-[0_0_40px_rgba(0,255,157,0.30)]" // Wave 3c (T3c.1): cyan card chrome shadow → neon jade rgba(0,255,157,*).
     >
       <header className="flex flex-col gap-1">
         <h3 className="font-display uppercase tracking-wide text-primary text-xl md:text-2xl">
@@ -73,7 +73,7 @@ export function UpgradeCard({
         onClick={() => onSelect(tier)}
         disabled={loading}
         aria-busy={loading}
-        className="mt-4 inline-flex justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+        className="mt-4 inline-flex justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow text-sm disabled:opacity-50 disabled:cursor-not-allowed" // Wave 3c (T3c.1): cyan CTA hover shadow → neon jade rgba(0,255,157,*).
       >
         {loading ? 'Redirigiendo...' : ctaLabel}
       </button>
@@ -88,7 +88,7 @@ function Check() {
       height="16"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#00FFFF"
+      stroke="#00FF9D" /* Wave 3c (T3c.1): cyan checkmark stroke → neon jade hex. */
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"

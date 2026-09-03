@@ -123,7 +123,7 @@ function Tick() {
       height="20"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#00FFFF"
+      stroke="#00FF9D" /* Wave 3c (T3c.1): cyan checkmark stroke → neon jade hex. */
       strokeWidth="2.5"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -142,7 +142,7 @@ function Cross() {
       height="18"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#00FFFF"
+      stroke="#00FF9D" /* Wave 3c (T3c.1): cyan cross stroke → neon jade hex (opacity 0.4 preserved). */
       strokeOpacity="0.4"
       strokeWidth="2.5"
       strokeLinecap="round"

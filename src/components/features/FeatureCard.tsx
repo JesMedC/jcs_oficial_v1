@@ -21,7 +21,7 @@ export function FeatureCard({ icon, title, description }: FeatureCardProps) {
         height="32"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="#00FFFF"
+        stroke="#00FF9D" /* Wave 3c (T3c.1): cyan icon stroke → neon jade hex. */
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"

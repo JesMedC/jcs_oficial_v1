@@ -65,7 +65,7 @@ function FeatureIcon({ d }: { readonly d: string }) {
       height="32"
       viewBox="0 0 24 24"
       fill="none"
-      stroke="#2EDC8C"
+      stroke="#00FF9D" // Wave 3c (T3c.1): old-jade hex stroke → neon jade hex.
       strokeWidth="1.6"
       strokeLinecap="round"
       strokeLinejoin="round"
