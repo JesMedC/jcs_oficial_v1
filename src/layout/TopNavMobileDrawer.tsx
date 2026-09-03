@@ -120,7 +120,8 @@ export function TopNavMobileDrawer({ open, onClose }: TopNavMobileDrawerProps) {
               <a
                 href="/login"
                 onClick={onClose}
-                className="inline-flex justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow"
+                // design-system-v1 (Wave 3a, T3a.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
+                className="inline-flex justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow"
               >
                 Iniciar sesión
               </a>

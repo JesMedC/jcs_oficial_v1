@@ -154,16 +154,18 @@ export function AuroraBackground() {
         const offsetY = Math.cos(t * blob.speed * 0.85 + blob.phase) * blob.radiusY * 0.18;
         const x = blob.baseX + offsetX;
         const y = blob.baseY + offsetY;
+        // design-system-v1 (Wave 3a, T3a.1) — cyan rgba swapped for neon jade.
         const gradient = ctx.createRadialGradient(x, y, 0, x, y, blob.radiusX);
-        gradient.addColorStop(0, 'rgba(0,255,255,0.18)');
-        gradient.addColorStop(1, 'rgba(0,255,255,0)');
+        gradient.addColorStop(0, 'rgba(0,255,157,0.18)');
+        gradient.addColorStop(1, 'rgba(0,255,157,0)');
         ctx.fillStyle = gradient;
         ctx.beginPath();
         ctx.arc(x, y, blob.radiusX, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      ctx.fillStyle = 'rgba(0,255,255,0.4)';
+      // design-system-v1 (Wave 3a, T3a.1) — particle fill uses neon jade (was cyan).
+      ctx.fillStyle = 'rgba(0,255,157,0.4)';
       for (const particle of particles) {
         const angleX = t * particle.speedX + particle.phaseX;
         const angleY = t * particle.speedY + particle.phaseY;
