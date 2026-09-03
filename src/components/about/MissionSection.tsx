@@ -47,7 +47,7 @@ function ChartLine() {
       height="180"
       viewBox="0 0 240 180"
       fill="none"
-      stroke="#2EDC8C"
+      stroke="#00FF9D" // design-system-v1 (Wave 3d, T3d.1) — old-jade hex stroke swapped for neon jade hex.
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
@@ -57,14 +57,14 @@ function ChartLine() {
     >
       <defs>
         <linearGradient id="jadeFill" x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0%" stopColor="#2EDC8C" stopOpacity="0.4" />
-          <stop offset="100%" stopColor="#2EDC8C" stopOpacity="0" />
+          <stop offset="0%" stopColor="#00FF9D" stopOpacity="0.4" /> {/* design-system-v1 (Wave 3d, T3d.1) — old-jade hex stopColor swapped for neon jade hex. */}
+          <stop offset="100%" stopColor="#00FF9D" stopOpacity="0" /> {/* design-system-v1 (Wave 3d, T3d.1) — old-jade hex stopColor swapped for neon jade hex. */}
         </linearGradient>
       </defs>
       <path
         d="M10,140 L40,120 L70,130 L100,100 L130,110 L160,80 L190,70 L220,40 L230,30"
         fill="none"
-        stroke="#2EDC8C"
+        stroke="#00FF9D" // design-system-v1 (Wave 3d, T3d.1) — old-jade hex stroke swapped for neon jade hex.
         strokeWidth="2.5"
       />
       <path
@@ -72,8 +72,8 @@ function ChartLine() {
         fill="url(#jadeFill)"
         stroke="none"
       />
-      <circle cx="160" cy="80" r="3" fill="#2EDC8C" />
-      <circle cx="220" cy="40" r="3" fill="#2EDC8C" />
+      <circle cx="160" cy="80" r="3" fill="#00FF9D" /> {/* design-system-v1 (Wave 3d, T3d.1) — old-jade hex fill swapped for neon jade hex. */}
+      <circle cx="220" cy="40" r="3" fill="#00FF9D" /> {/* design-system-v1 (Wave 3d, T3d.1) — old-jade hex fill swapped for neon jade hex. */}
     </svg>
   );
 }

@@ -63,7 +63,7 @@ export function DashboardPage() {
       <div className="max-w-4xl mx-auto px-4 md:px-8 py-12 md:py-16">
         <h1
           className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
-          style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
+          style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
         >
           Hola, {user?.first_name ?? 'trader'}
         </h1>
@@ -107,7 +107,7 @@ export function DashboardPage() {
           <button
             type="button"
             onClick={() => void logout()}
-            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,255,0.5)] transition-shadow text-sm"
+            className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-3 py-1.5 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow text-sm" // design-system-v1 (Wave 3d, T3d.1) — cyan hover-shadow swapped for neon jade rgba(0,255,157,*).
           >
             Cerrar sesion
           </button>

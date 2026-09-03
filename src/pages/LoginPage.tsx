@@ -25,7 +25,7 @@ export function LoginPage() {
         <div>
           <h1
             className="font-display uppercase tracking-wide text-primary text-2xl md:text-4xl"
-            style={{ textShadow: '0 0 20px rgba(46,220,140,0.4)' }}
+            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
           >
             Bienvenido de nuevo
           </h1>

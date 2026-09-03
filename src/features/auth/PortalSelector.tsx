@@ -53,7 +53,7 @@ export function PortalSelector() {
       <div className="max-w-3xl w-full">
         <h1
           className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl text-center mb-3"
-          style={{ textShadow: '0 0 20px rgba(0,255,255,0.4)' }}
+          style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
         >
           A donde queres entrar?
         </h1>
