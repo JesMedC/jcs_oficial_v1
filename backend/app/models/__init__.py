@@ -1,4 +1,5 @@
 """SQLAlchemy 2.x typed models — exported via ``app.models``."""
+from app.models.account_movement import AccountMovement, AccountMovementType
 from app.models.audit_log import AuditLog
 from app.models.page_view import PageView
 from app.models.payment import Payment, PaymentStatus
@@ -42,4 +43,6 @@ __all__ = [
     "TradeStatus",
     "ForexDirection",
     "BinaryDirection",
+    "AccountMovement",
+    "AccountMovementType",
 ]

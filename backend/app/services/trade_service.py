@@ -57,7 +57,12 @@ from app.models import (
     TradingAccount,
     User,
 )
-from app.schemas.trade import EquityPoint, MetricsOut, RiskSummaryOut
+from app.schemas.trade import EquityPoint, MetricsOut, RiskSummaryOut, SessionStatsOut, SessionTile, TradeCreateIn
+from app.services.discipline_engine import (
+    DisciplineError,
+    validate_open_trade,
+)
+from app.services.session_service import Band, session_for_timestamp
 from app.services.workspace_service import (
     WorkspaceRequiredError,
     infer_workspace_id,
@@ -296,6 +301,9 @@ async def open_trade(
     emotional_tags: list[str] | None = None,
     pre_trade_notes: str | None = None,
     screenshots: list[str] | None = None,
+    # discipline (one-by-one-thousand-discipline PR-1)
+    interest: str | None = None,
+    analysis_image_url: str | None = None,
     # multi-tenant
     jwt_workspace_ids: list[uuid.UUID] | None = None,
     correlation_id: str | None = None,
@@ -436,6 +444,9 @@ async def open_trade(
         investment_usd=investment_usd,
         payout_pct=payout_pct,
         expiration_seconds=expiration_seconds,
+        # discipline (one-by-one-thousand-discipline PR-1)
+        interest=interest if interest is not None else "PLAN",
+        analysis_image_url=analysis_image_url,
     )
     db.add(trade)
     try:
@@ -478,6 +489,42 @@ async def open_trade(
     # Una cuenta en 0 (recién creada) o sub-1 USD NO puede abrir
     # trade — sólo fondear. La regla vive acá y no en ``fund_account``
     # porque es el ``open_trade`` el que la dispara como pre-condición.
+    #
+    # discipline (one-by-one-thousand-discipline PR-1): rules 3-6
+    # (``broker cap``, ``capital-inicial``, ``daily``, ``session cap``)
+    # run BEFORE the balance gates below so that ``importe=10000`` is
+    # rejected with ``BROKER_CAP_EXCEEDED`` even when the balance is
+    # too low (per spec REQ-DISC-010 test case). The engine wraps any
+    # rejection in ``TradeError`` so the envelope is uniform.
+    discipline_payload = TradeCreateIn(
+        account_id=account_id,
+        instrument=instrument,
+        type=type.value,
+        interest=interest if interest is not None else "PLAN",
+        strategy_id=strategy_id,
+        emotional_tags=emotional_tags,
+        pre_trade_notes=pre_trade_notes,
+        screenshots=screenshots,
+        analysis_image_url=analysis_image_url,
+        pair=pair,
+        lot_size=lot_size,
+        direction=direction,
+        entry_price=entry_price,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        investment_usd=investment_usd,
+        payout_pct=payout_pct,
+        expiration_seconds=expiration_seconds,
+    )
+    try:
+        await validate_open_trade(db, user=user, account=account, payload=discipline_payload)
+    except DisciplineError as exc:
+        raise TradeError(
+            code=exc.code,
+            message=exc.message,
+            status=exc.status,
+        ) from exc
+
     if account.balance_usd < MIN_BALANCE_TO_TRADE:
         raise TradeError(
             code="INSUFFICIENT_BALANCE",
@@ -522,6 +569,10 @@ async def open_trade(
         new_snapshot["risk_pct"] = str(risk_pct)
     if investment_usd is not None:
         new_snapshot["investment_usd"] = str(investment_usd)
+    if interest is not None:
+        new_snapshot["interest"] = interest
+    if analysis_image_url is not None:
+        new_snapshot["analysis_image_url"] = analysis_image_url
     await _emit_audit(
         db,
         actor_user_id=user.id,
@@ -547,6 +598,7 @@ async def close_trade(
     post_trade_notes: str | None = None,
     followed_plan: bool | None = None,
     mistakes: str | None = None,
+    close_image_url: str | None = None,
     correlation_id: str | None = None,
 ) -> Trade:
     """Cierra un Trade ``OPEN``: computa ``pnl_usd``, muta el saldo,
@@ -704,6 +756,8 @@ async def close_trade(
         trade.followed_plan = followed_plan
     if mistakes is not None:
         trade.mistakes = mistakes
+    if close_image_url is not None:
+        trade.close_image_url = close_image_url
 
     # Mutamos el saldo de la cuenta (aditiva). Modelo "margen reservado":
     # al cerrar devolvemos el margen que se descontó al abrir y sumamos
@@ -1252,5 +1306,102 @@ __all__ = [
     "get_trade",
     "get_risk_summary",
     "get_metrics",
+    "get_session_stats",
 ]
+
+
+# ---------- session stats (one-by-one-thousand-discipline PR-1) ----------
+_SESSION_BANDS: tuple[Band, ...] = ("ASIA", "EUROPA", "NY_AMERICA", "NY_PM")
+
+
+async def get_session_stats(
+    db: AsyncSession,
+    *,
+    user: User,
+    workspace_id: uuid.UUID,
+    date_from: date,
+    date_to: date,
+    account_id: uuid.UUID | None = None,
+    jwt_workspace_ids: list[uuid.UUID] | None = None,
+) -> SessionStatsOut:
+    """Per-session winrate tiles + general tile (REQ-WRS-001..005).
+
+    Counts trades grouped by 4-band session using the user's local
+    timezone. Excludes ``outcome=BREAK`` from the denominator (REQ-WRS-002)
+    and ``AccountMovement`` rows (REQ-WRS-003) by reading only the
+    ``Trade`` table. Empty sessions return zero tiles.
+
+    The window is converted to UTC bounds using the same ``_day_bounds``
+    helper used by ``get_metrics``: ``date_from <= opened_at <
+    date_to + 1 day``. The session bucket itself is computed in
+    Python after the fetch (``session_for_timestamp`` over
+    ``opened_at`` in the user's TZ) so the predicate stays portable
+    across SQLite (test) and Postgres (prod).
+
+    Multi-tenant: same ``WORKSPACE_REQUIRED`` envelope as the other
+    service-layer functions.
+    """
+    # Workspace resolution — use the explicit ``workspace_id`` query
+    # param if provided; fall through to JWT-or-DB inference otherwise.
+    if workspace_id is None:
+        try:
+            workspace_id = await infer_workspace_id(
+                db, user.id, jwt_workspace_ids=jwt_workspace_ids
+            )
+        except WorkspaceRequiredError as exc:
+            raise TradeError(
+                code="WORKSPACE_REQUIRED",
+                message=str(exc),
+                status=422,
+            ) from exc
+
+    tz = user.timezone or "UTC"
+    start, end = _day_bounds(date_from, date_to)
+    where = [
+        Trade.workspace_id == workspace_id,
+        Trade.deleted_at.is_(None),
+        Trade.status != TradeStatus.OPEN,
+    ]
+    if account_id is not None:
+        where.append(Trade.account_id == account_id)
+    if start is not None:
+        where.append(Trade.opened_at >= start)
+    if end is not None:
+        where.append(Trade.opened_at < end)
+
+    rows = list(
+        (await db.execute(select(Trade).where(*where))).scalars().all()
+    )
+
+    # Bucket in Python: ``opened_at`` → session band.
+    buckets: dict[Band, list[Trade]] = {b: [] for b in _SESSION_BANDS}
+    general: list[Trade] = []
+    for t in rows:
+        # BREAK trades are excluded from BOTH numerator and
+        # denominator (REQ-WRS-002).
+        if t.status == TradeStatus.CLOSED_BREAK:
+            continue
+        band = session_for_timestamp(t.opened_at, tz)
+        buckets[band].append(t)
+        general.append(t)
+
+    def _tile(trades: list[Trade]) -> SessionTile:
+        wins = sum(
+            1 for t in trades if t.status == TradeStatus.CLOSED_WIN
+        )
+        n = len(trades)
+        pct = int((wins / n) * 100) if n > 0 else 0
+        return SessionTile(trades=n, wins=wins, winrate_pct=pct)
+
+    sessions_out: dict[str, SessionTile] = {
+        b: _tile(buckets[b]) for b in _SESSION_BANDS
+    }
+    return SessionStatsOut(
+        workspace_id=workspace_id,
+        date_from=date_from,
+        date_to=date_to,
+        account_id=account_id,
+        sessions=sessions_out,
+        general=_tile(general),
+    )
 

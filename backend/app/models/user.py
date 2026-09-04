@@ -53,6 +53,16 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )
+    # IANA timezone string (e.g. ``"America/Buenos_Aires"``). Used by
+    # ``session_service`` to bucket trades into 4 sessions
+    # (ASIA/EUROPA/NY_AMERICA/NY_PM). Default UTC keeps existing
+    # users' session math correct until they PATCH their TZ.
+    timezone: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="UTC",
+        server_default="UTC",
+    )
 
     refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
         back_populates="user", cascade="all, delete-orphan", lazy="selectin"

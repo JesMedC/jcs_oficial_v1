@@ -42,6 +42,7 @@ from typing import TYPE_CHECKING, Any, Optional
 from sqlalchemy import (
     JSON,
     Boolean,
+    CheckConstraint,
     DateTime,
     Enum,
     ForeignKey,
@@ -51,6 +52,7 @@ from sqlalchemy import (
     String,
     Text,
     func,
+    text,
 )
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -205,6 +207,21 @@ class Trade(Base, TimestampMixin):
         Integer, nullable=True
     )
 
+    # --- discipline (one-by-one-thousand-discipline PR-1) ---
+    # ``interest`` is write-once, NOT NULL on every new row. Backfilled
+    # to ``"PLAN"`` for legacy rows by Alembic ``0011_*``. CHECK
+    # constraint mirrors the Pydantic Literal.
+    interest: Mapped[str] = mapped_column(
+        String(16), nullable=False, default="PLAN", server_default="PLAN"
+    )
+    # Image URLs (singular nullable per decision #6 #178).
+    analysis_image_url: Mapped[Optional[str]] = mapped_column(
+        String(512), nullable=True
+    )
+    close_image_url: Mapped[Optional[str]] = mapped_column(
+        String(512), nullable=True
+    )
+
     user: Mapped["User"] = relationship()
     account: Mapped["TradingAccount"] = relationship()
     workspace: Mapped["Workspace"] = relationship()
@@ -220,6 +237,21 @@ class Trade(Base, TimestampMixin):
         # "todas las trades de una cuenta específica dentro del
         # workspace" sigue siendo relevante.
         Index("ix_trades_account_opened", "account_id"),
+        # ``ix_trades_account_status_opened`` — disciplina: el endpoint
+        # ``GET /trades/session-stats`` filtra por ``(account_id,
+        # status, opened_at)``; este índice compuesto evita el full
+        # scan sobre el workspace cuando se pasa ``account_id``.
+        Index(
+            "ix_trades_account_status_opened",
+            "account_id",
+            "status",
+            text("opened_at DESC"),
+        ),
+        # ``interest`` CHECK constraint (mirrors the Pydantic Literal).
+        CheckConstraint(
+            "interest IN ('FOMO', 'PLAN', 'REVENGE', 'IMPULSE')",
+            name="ck_trades_interest",
+        ),
     )
 
     def __repr__(self) -> str:

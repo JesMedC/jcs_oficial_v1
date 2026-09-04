@@ -122,6 +122,15 @@ class TradeCreateIn(BaseModel):
     pre_trade_notes: str | None = Field(default=None, max_length=4000)
     screenshots: list[str] | None = None
 
+    # discipline (one-by-one-thousand-discipline PR-1)
+    # ``interest`` is REQUIRED at create time. Single-select tag
+    # chosen from the chip group on the frontend. Schema literal
+    # mirrors the CHECK constraint in ``Trade.interest``.
+    interest: Literal["FOMO", "PLAN", "REVENGE", "IMPULSE"]
+    # Image URLs (singular nullable per decision #6 #178). Optional;
+    # bound after a presigned-upload flow (T1.13 endpoint).
+    analysis_image_url: str | None = Field(default=None, max_length=512)
+
     # FOREX-specific (opcionales acá; ``open_trade`` los enforza)
     pair: str | None = Field(default=None, min_length=3, max_length=20)
     lot_size: Decimal | None = Field(
@@ -145,7 +154,7 @@ class TradeCreateIn(BaseModel):
     payout_pct: Decimal | None = Field(
         default=None,
         ge=Decimal("70"),
-        le=Decimal("100"),
+        le=Decimal("99"),
         max_digits=5,
         decimal_places=2,
     )
@@ -182,6 +191,10 @@ class TradeCloseIn(BaseModel):
     post_trade_notes: str | None = Field(default=None, max_length=4000)
     followed_plan: bool | None = None
     mistakes: str | None = Field(default=None, max_length=4000)
+    # discipline (one-by-one-thousand-discipline PR-1) — singular
+    # nullable close screenshot URL (decision #6 #178). Bound via
+    # the same presigned-upload flow as ``analysis_image_url``.
+    close_image_url: str | None = Field(default=None, max_length=512)
 
 
 # ---- read ----
@@ -218,6 +231,11 @@ class TradeOut(BaseModel):
     followed_plan: bool | None = None
     mistakes: str | None = None
     screenshots: list[str] | None = None
+
+    # discipline (one-by-one-thousand-discipline PR-1)
+    interest: str | None = None
+    analysis_image_url: str | None = None
+    close_image_url: str | None = None
 
     # FOREX-specific
     pair: str | None = None
@@ -332,3 +350,62 @@ class MetricsOut(BaseModel):
     avg_loss_usd: Decimal  # negativo o cero
 
     equity_curve: list[EquityPoint]
+
+
+# ---- session-stats (one-by-one-thousand-discipline PR-1) ----
+class SessionTile(BaseModel):
+    """One band tile of ``GET /trades/session-stats``.
+
+    ``winrate_pct`` is integer-rounded (``floor(wins / trades × 100)``
+    if ``trades > 0``, else ``0``).
+    """
+
+    trades: int
+    wins: int
+    winrate_pct: int
+
+
+class SessionStatsOut(BaseModel):
+    """Per-session + general winrate tiles (REQ-WRS-001..005).
+
+    Keys in ``sessions`` are the four band literals
+    (``ASIA | EUROPA | NY_AMERICA | NY_PM``). ``general`` aggregates
+    across all bands. Empty sessions return zero tiles.
+    """
+
+    workspace_id: uuid.UUID
+    date_from: date_type
+    date_to: date_type
+    account_id: uuid.UUID | None = None
+    sessions: dict[str, SessionTile]
+    general: SessionTile
+
+
+# ---- calendar / PnL (one-by-one-thousand-discipline PR-1) ----
+class DayEntryOut(BaseModel):
+    """One day of the month grid (REQ-PNL-001).
+
+    ``day_start_balance`` is computed via the provisional Python walk
+    over ``Trade`` (calendar_service). ``pnl_pct`` is
+    ``Σ pnl_usd today / day_start_balance × 100``, rounded to 0.01.
+    """
+
+    date: date_type
+    ops_count: int
+    day_start_balance: Decimal
+    pnl_pct: float
+
+
+class CalendarPnlOut(BaseModel):
+    """Response shape for ``GET /api/v1/calendar/pnl``.
+
+    ``cumple`` is MONTHLY only — there is no per-day indicator
+    (REQ-PNL-006). The frontend renders this as a header pill.
+    """
+
+    workspace_id: uuid.UUID
+    month: str
+    month_start_balance: Decimal
+    month_end_balance: Decimal
+    cumple: bool
+    days: list[DayEntryOut]

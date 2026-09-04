@@ -37,6 +37,7 @@ from app.schemas.envelope import ErrorCode
 from app.schemas.trade import (
     MetricsOut,
     RiskSummaryOut,
+    SessionStatsOut,
     TradeCloseIn,
     TradeCreateIn,
     TradeListOut,
@@ -47,6 +48,7 @@ from app.services.trade_service import (
     close_trade,
     get_metrics,
     get_risk_summary,
+    get_session_stats,
     get_trade,
     list_trades,
     open_trade,
@@ -100,7 +102,7 @@ async def list_trades_endpoint(
     status_filter: Annotated[TradeStatus | None, Query(alias="status")] = None,
     type_filter: Annotated[TradeType | None, Query(alias="type")] = None,
     skip: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+    limit: Annotated[int, Query(ge=1, le=500)] = 50,
 ) -> TradeListOut:
     """Lista paginada de trades del usuario autenticado.
 
@@ -164,6 +166,8 @@ async def open_trade_endpoint(
             emotional_tags=payload.emotional_tags,
             pre_trade_notes=payload.pre_trade_notes,
             screenshots=payload.screenshots,
+            interest=payload.interest,
+            analysis_image_url=payload.analysis_image_url,
             jwt_workspace_ids=user.workspace_ids,
             correlation_id=_correlation_id(request),
         )
@@ -243,6 +247,44 @@ async def get_metrics_endpoint(
         _raise_trade_error(exc)
 
 
+@router.get("/session-stats", response_model=SessionStatsOut)
+async def get_session_stats_endpoint(
+    user: CurrentUser,
+    db: DbSession,
+    workspace_id: Annotated[uuid.UUID, Query()],
+    date_from: Annotated[date, Query()],
+    date_to: Annotated[date, Query()],
+    account_id: Annotated[uuid.UUID | None, Query()] = None,
+) -> SessionStatsOut:
+    """Per-session winrate tiles + general tile.
+
+    ``GET /api/v1/trades/session-stats?workspace_id=&date_from=&date_to=``
+
+    Counts trades by 4-band session (REQ-WRS-001..005). Excludes
+    ``outcome=BREAK`` from the denominator and ignores
+    ``AccountMovement`` rows (the query only reads from ``Trade``).
+    ``date_from`` / ``date_to`` are interpreted in the user's
+    ``timezone`` from ``users.timezone`` (REQ-DISC-001).
+
+    Se registra ANTES de ``/{trade_id}`` por la misma razon que
+    ``/risk-summary`` y ``/metrics``: FastAPI matchea en orden de
+    declaracion y si cayera despues seria capturado como
+    ``trade_id="session-stats"``.
+    """
+    try:
+        return await get_session_stats(
+            db,
+            user=user,
+            workspace_id=workspace_id,
+            date_from=date_from,
+            date_to=date_to,
+            account_id=account_id,
+            jwt_workspace_ids=user.workspace_ids,
+        )
+    except TradeError as exc:
+        _raise_trade_error(exc)
+
+
 @router.get("/{trade_id}", response_model=TradeOut)
 async def get_trade_endpoint(
     trade_id: uuid.UUID,
@@ -300,6 +342,7 @@ async def close_trade_endpoint(
             post_trade_notes=payload.post_trade_notes,
             followed_plan=payload.followed_plan,
             mistakes=payload.mistakes,
+            close_image_url=payload.close_image_url,
             correlation_id=_correlation_id(request),
         )
     except TradeError as exc:
