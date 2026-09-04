@@ -79,11 +79,49 @@ async def _create_account(
 
 async def _fund_account(client, headers: dict, account_id: str, amount: str) -> None:
     """Helper: fondea ``account_id`` con ``amount`` para que la cuenta
-    tenga saldo al momento de cerrar trades y verificar deltas."""
+    tenga saldo al momento de cerrar trades y verificar deltas.
+
+    The discipline-engine (one-by-one-thousand-discipline PR-1)
+    enforces ``ceil_to_next_dollar(importe) ≤ 0.25% × capital_inicial``
+    and ``Σ daily ≤ 0.10% × capital_inicial``. To keep the p0e.4
+    baseline tests passing without rewriting each one, "mid-sized"
+    amounts are bumped to $50000. Small amounts (≤ $100) are
+    preserved as-is so the edge-case tests (``INSUFFICIENT_BALANCE``
+    paths, exact $1.00 thresholds) still exercise the balance
+    gates as written. The risk-summary tests that need
+    ``Σ daily > $50`` use a dedicated helper below.
+    """
+    base = amount
+    try:
+        base_num = float(amount)
+    except (TypeError, ValueError):
+        base_num = 0.0
+    if 100.0 < base_num < 50000.0:
+        base = "50000.00"
     resp = await client.post(
         f"/api/v1/accounts/{account_id}/fund",
         headers=headers,
-        json={"amount": amount},
+        json={"amount": base},
+    )
+    assert resp.status_code == 200, resp.text
+
+
+async def _fund_account_large(
+    client, headers: dict, account_id: str, amount: str
+) -> None:
+    """Fund with a large amount that clears the discipline daily-cap.
+
+    Used by tests that intentionally need ``Σ daily > $50`` to
+    exercise the risk-summary aggregation paths
+    (``test_risk_summary_big_loss_red`` and
+    ``test_risk_summary_many_open_yellow``). Caps at $200000 so the
+    0.25% capital-inicial ceiling ($500) covers any single trade the
+    tests open.
+    """
+    resp = await client.post(
+        f"/api/v1/accounts/{account_id}/fund",
+        headers=headers,
+        json={"amount": "200000.00"},
     )
     assert resp.status_code == 200, resp.text
 
@@ -91,8 +129,11 @@ async def _fund_account(client, headers: dict, account_id: str, amount: str) -> 
 def _forex_open_payload(account_id: str) -> dict:
     """Body válido para abrir un trade FOREX.
 
-    entry=1.1000, SL=1.0950, lot=0.10, dir=LONG.
-    risk_amount = |1.1000 − 1.0950| × 0.10 × 100 = $0.05
+    entry=1.1000, SL=1.0950, lot=0.02, dir=LONG.
+    notional = 0.02 × 1.10 × 100 = $2.20
+    lot_size lowered from 0.10 → 0.02 so the discipline-engine cap
+    (``ceil_to_next_dollar(importe) ≤ 0.25% × capital_inicial``)
+    clears with the $50000 funding above.
     """
     return {
         "account_id": account_id,
@@ -100,28 +141,32 @@ def _forex_open_payload(account_id: str) -> dict:
         "type": "FOREX",
         "direction": "LONG",
         "pair": "EUR/USD",
-        "lot_size": "0.1000",
+        "lot_size": "0.0200",
         "entry_price": "1.10000000",
         "stop_loss": "1.09500000",
         "take_profit": "1.11000000",
         "pre_trade_notes": "setup pre-trading",
+        "interest": "PLAN",
     }
 
 
 def _binary_open_payload(account_id: str) -> dict:
     """Body válido para abrir un trade BINARY.
 
-    investment=100 USD, payout=85%.
+    investment=$2, payout=85% — sized so the discipline-engine cap
+    (``ceil_to_next_dollar(importe) ≤ 0.25% × capital_inicial``)
+    clears with the $50000 funding above.
     """
     return {
         "account_id": account_id,
         "instrument": "EUR/USD OTC",
         "type": "BINARY",
         "direction": "CALL",
-        "investment_usd": "100.00",
+        "investment_usd": "2.00",
         "payout_pct": "85.00",
         "expiration_seconds": 60,
         "pre_trade_notes": "binary OTC",
+        "interest": "PLAN",
     }
 
 
@@ -160,7 +205,7 @@ async def test_open_forex_trade_returns_201_and_open_status(
 
     # FOREX-specific echo.
     assert body["pair"] == "EUR/USD"
-    assert Decimal(body["lot_size"]) == Decimal("0.1000")
+    assert Decimal(body["lot_size"]) == Decimal("0.0200")
     assert body["direction"] == "LONG"
     assert Decimal(body["entry_price"]) == Decimal("1.10000000")
     assert Decimal(body["stop_loss"]) == Decimal("1.09500000")
@@ -168,11 +213,14 @@ async def test_open_forex_trade_returns_201_and_open_status(
 
     # Risk computado contra el saldo PRE-open (semántica: "riesgo
     # como % del capital antes de la posición").
-    # risk_amount = |1.1000 − 1.0950| × 0.10 × 100 = 0.05
-    assert Decimal(body["risk_amount_usd"]) == Decimal("0.05")
-    # risk_pct = (0.05 / 1000) × 100 = 0.005, quantize 0.01 → 0.00
-    # (ROUND_HALF_EVEN: 0.005 → 0.00).
+    # risk_amount = |1.1000 − 1.0950| × 0.02 × 100 = 0.01
+    assert Decimal(body["risk_amount_usd"]) == Decimal("0.01")
+    # risk_pct = (0.01 / 50000) × 100 ≈ 0.00002, quantize 0.01 → 0.00.
     assert Decimal(body["risk_pct"]) == Decimal("0.00")
+
+    # discipline (one-by-one-thousand-discipline PR-1) — interest echoes.
+    assert body["interest"] == "PLAN"
+    assert body["analysis_image_url"] is None
 
     # BINARY-specific vacío.
     assert body["investment_usd"] is None
@@ -183,13 +231,13 @@ async def test_open_forex_trade_returns_201_and_open_status(
     assert body["pnl_usd"] is None
 
     # Re-fetch account → balance reducido por el nocional.
-    # notional = 0.10 × 1.1000 × 100 = 11.00 → balance 989.00.
+    # notional = 0.02 × 1.1000 × 100 = 2.20 → balance 49997.80.
     acc_resp = await client.get(
         f"/api/v1/accounts", headers=headers
     )
     assert acc_resp.status_code == 200
     fetched = next(a for a in acc_resp.json()["items"] if a["id"] == account_id)
-    assert Decimal(fetched["balance_usd"]) == Decimal("989.00")
+    assert Decimal(fetched["balance_usd"]) == Decimal("49997.80")
 
     # Audit log emitido con action "trade.open".
     audit_q = await client.get("/api/v1/accounts", headers=headers)
@@ -205,8 +253,8 @@ async def test_open_binary_trade_returns_201(
     """POST /trades BINARY → 201, status=OPEN, balance reducido por inversión.
 
     p0e.4 hardening (7 business rules): al abrir un trade BINARY se
-    descuenta ``investment_usd`` (= 100.00 USD) del balance de la
-    cuenta. Se devuelve al cerrar (ver ``test_close_binary_*``).
+    descuenta ``investment_usd`` del balance de la cuenta. Se devuelve
+    al cerrar (ver ``test_close_binary_*``).
     """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
@@ -223,7 +271,8 @@ async def test_open_binary_trade_returns_201(
     assert body["type"] == "BINARY"
     assert body["instrument"] == "EUR/USD OTC"
     assert body["direction"] == "CALL"
-    assert Decimal(body["investment_usd"]) == Decimal("100.00")
+    assert Decimal(body["investment_usd"]) == Decimal("2.00")
+    assert body["interest"] == "PLAN"
     assert Decimal(body["payout_pct"]) == Decimal("85.00")
     assert body["expiration_seconds"] == 60
 
@@ -379,11 +428,10 @@ async def test_close_forex_win_updates_balance_and_status(
 ) -> None:
     """Close FOREX WIN → CLOSED_WIN, pnl positivo, balance += pnl, r_multiple.
 
-    setup: entry=1.1000, exit=1.1100, lot=0.10, dir=LONG.
-    pnl = (1.1100 − 1.1000) × +1 × 0.10 × 100 = $0.10
-    risk_amount = |1.1000 − 1.0950| × 0.10 × 100 = $0.05
-    r_multiple = pnl / risk_amount = 0.10 / 0.05 = 2.00
-    risk_pct = (0.05 / 1000) × 100 = 0.005 → quantize 0.01 = 0.00
+    setup: entry=1.1000, exit=1.1100, lot=0.02, dir=LONG.
+    pnl = (1.1100 − 1.1000) × +1 × 0.02 × 100 = $0.02
+    risk_amount = |1.1000 − 1.0950| × 0.02 × 100 = $0.01
+    r_multiple = pnl / risk_amount = 0.02 / 0.01 = 2.00
     """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
@@ -402,8 +450,7 @@ async def test_close_forex_win_updates_balance_and_status(
     assert resp.status_code == 201, resp.text
     trade = resp.json()
     assert trade["status"] == "OPEN"
-    # risk_pct = (0.05 / 1000) × 100 = 0.005, quantize 0.01 → 0.00
-    # (ROUND_HALF_EVEN: 0.005 → 0.00).
+    # risk_pct = (0.01 / 50000) × 100 ≈ 0.00002, quantize 0.01 → 0.00
     assert Decimal(trade["risk_pct"]) == Decimal("0.00")
 
     # Close WIN
@@ -418,15 +465,15 @@ async def test_close_forex_win_updates_balance_and_status(
     assert body["status"] == "CLOSED_WIN"
     assert body["closed_at"] is not None
     pnl = Decimal(body["pnl_usd"])
-    assert pnl == Decimal("0.10")
-    # r_multiple = 0.10 / 0.05 = 2.00
+    assert pnl == Decimal("0.02")
+    # r_multiple = 0.02 / 0.01 = 2.00
     assert Decimal(body["r_multiple"]) == Decimal("2.00")
 
-    # Balance 1000 + 0.10 = 1000.10
+    # Balance 50000 − 2.20 + 2.20 + 0.02 = 50000.02 (margin model)
     acc_resp = await client.get("/api/v1/accounts", headers=headers)
     assert acc_resp.status_code == 200
     acc = next(a for a in acc_resp.json()["items"] if a["id"] == account["id"])
-    assert Decimal(acc["balance_usd"]) == Decimal("1000.10")
+    assert Decimal(acc["balance_usd"]) == Decimal("50000.02")
 
     # Audit log emitido con action "trade.close".
     audit_rows = list(
@@ -439,8 +486,8 @@ async def test_close_forex_win_updates_balance_and_status(
     )
     assert len(audit_rows) == 1
     audit = audit_rows[0]
-    assert Decimal(audit.new_value["pnl_usd"]) == Decimal("0.10")
-    assert Decimal(audit.new_value["new_balance"]) == Decimal("1000.10")
+    assert Decimal(audit.new_value["pnl_usd"]) == Decimal("0.02")
+    assert Decimal(audit.new_value["new_balance"]) == Decimal("50000.02")
 
 
 # ---------------------------------------------------------------------------
@@ -451,8 +498,8 @@ async def test_close_forex_loss_decreases_balance(
 ) -> None:
     """Close FOREX LOSS → CLOSED_LOSS, balance -= |pnl|.
 
-    setup: entry=1.1000, exit=1.0950 (exactly SL), dir=LONG, lot=0.10.
-    pnl = (1.0950 − 1.1000) × +1 × 0.10 × 100 = -$0.05
+    setup: entry=1.1000, exit=1.0950 (exactly SL), dir=LONG, lot=0.02.
+    pnl = (1.0950 − 1.1000) × +1 × 0.02 × 100 = -$0.01
     """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
@@ -475,13 +522,13 @@ async def test_close_forex_loss_decreases_balance(
     body = close_resp.json()
 
     assert body["status"] == "CLOSED_LOSS"
-    assert Decimal(body["pnl_usd"]) == Decimal("-0.05")
-    # Balance 500 − 0.05 = 499.95
+    assert Decimal(body["pnl_usd"]) == Decimal("-0.01")
+    # Balance 50000 − 2.20 + 2.20 − 0.01 = 49999.99
     acc_resp = await client.get("/api/v1/accounts", headers=headers)
     acc = next(
         a for a in acc_resp.json()["items"] if a["id"] == account["id"]
     )
-    assert Decimal(acc["balance_usd"]) == Decimal("499.95")
+    assert Decimal(acc["balance_usd"]) == Decimal("49999.99")
 
 
 # ---------------------------------------------------------------------------
@@ -490,7 +537,7 @@ async def test_close_forex_loss_decreases_balance(
 async def test_close_binary_win_increases_balance(
     client, valid_register_payload
 ) -> None:
-    """Close BINARY WIN → pnl = 100 × 85/100 = 85.00, balance += 85."""
+    """Close BINARY WIN → pnl = 2 × 85/100 = 1.70, balance += 1.70."""
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
     account = await _create_account(client, headers, type="BINARY")
@@ -511,14 +558,14 @@ async def test_close_binary_win_increases_balance(
     assert close_resp.status_code == 200, close_resp.text
     body = close_resp.json()
     assert body["status"] == "CLOSED_WIN"
-    assert Decimal(body["pnl_usd"]) == Decimal("85.00")
+    assert Decimal(body["pnl_usd"]) == Decimal("1.70")
 
-    # Balance 200 + 85 = 285
+    # Balance 50000 − 2 + 2 + 1.70 = 50001.70 (margin model)
     acc_resp = await client.get("/api/v1/accounts", headers=headers)
     acc = next(
         a for a in acc_resp.json()["items"] if a["id"] == account["id"]
     )
-    assert Decimal(acc["balance_usd"]) == Decimal("285.00")
+    assert Decimal(acc["balance_usd"]) == Decimal("50001.70")
 
 
 # ---------------------------------------------------------------------------
@@ -527,7 +574,7 @@ async def test_close_binary_win_increases_balance(
 async def test_close_binary_loss_decreases_balance(
     client, valid_register_payload
 ) -> None:
-    """Close BINARY LOSS → pnl = -investment = -100, balance -= 100."""
+    """Close BINARY LOSS → pnl = -investment = -2, balance -= 2."""
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
     account = await _create_account(client, headers, type="BINARY")
@@ -548,14 +595,14 @@ async def test_close_binary_loss_decreases_balance(
     assert close_resp.status_code == 200, close_resp.text
     body = close_resp.json()
     assert body["status"] == "CLOSED_LOSS"
-    assert Decimal(body["pnl_usd"]) == Decimal("-100.00")
+    assert Decimal(body["pnl_usd"]) == Decimal("-2.00")
 
-    # Balance 500 − 100 = 400
+    # Balance 50000 − 2 + 2 − 2 = 49998.00 (margin model)
     acc_resp = await client.get("/api/v1/accounts", headers=headers)
     acc = next(
         a for a in acc_resp.json()["items"] if a["id"] == account["id"]
     )
-    assert Decimal(acc["balance_usd"]) == Decimal("400.00")
+    assert Decimal(acc["balance_usd"]) == Decimal("49998.00")
 
 
 # ---------------------------------------------------------------------------
@@ -1005,13 +1052,14 @@ class TestRiskSummary:
         """2× BINARY LOSS con pérdida acumulada > 50 USD → red.
 
         Inversión = $30 cada uno, LOSS → pnl total = -$60 (cruza el
-        umbral duro de -50 USD).
+        umbral duro de -50 USD). Funded with $200000 to clear the
+        discipline-engine daily cap (0.10% × capital-inicial = $200).
         """
         reg = await _register(client, valid_register_payload)
         headers = {"Authorization": f"Bearer {reg['access_token']}"}
         account = await _create_account(client, headers, type="BINARY")
         # Regla 2: fondea para que ``open_trade`` no rechace por saldo.
-        await _fund_account(client, headers, account["id"], "200.00")
+        await _fund_account_large(client, headers, account["id"], "200.00")
 
         for _ in range(2):
             payload = _binary_open_payload(account["id"])
@@ -1038,14 +1086,20 @@ class TestRiskSummary:
     async def test_risk_summary_many_open_yellow(
         self, client, valid_register_payload
     ) -> None:
-        """6 trades OPEN → open_count > 5 → yellow (sin P&L)."""
+        """6 trades OPEN → open_count > 5 → yellow (sin P&L).
+
+        Sized with $200000 funding across 6 accounts (one trade per
+        account) — the discipline-engine session-cap is per-account,
+        so spreading trades across accounts keeps the count > 5
+        trigger. Funding split per account so the per-account daily
+        cap (0.10% × $200000 = $200) is plenty.
+        """
         reg = await _register(client, valid_register_payload)
         headers = {"Authorization": f"Bearer {reg['access_token']}"}
-        account = await _create_account(client, headers, type="BINARY")
-        # Regla 2: 6 trades con investment 100 c/u = 600 USD mínimo.
-        await _fund_account(client, headers, account["id"], "1000.00")
-
+        # Regla 2: 6 cuentas con investment 2 c/u = 12 USD mínimo total.
         for _ in range(6):
+            account = await _create_account(client, headers, type="BINARY")
+            await _fund_account_large(client, headers, account["id"], "1000.00")
             open_resp = await client.post(
                 "/api/v1/trades", headers=headers,
                 json=_binary_open_payload(account["id"]),
@@ -1826,8 +1880,8 @@ async def test_open_binary_trade_deducts_investment_from_balance(
 ) -> None:
     """Regla 3 + 5 (BINARY): abrir deduce ``investment_usd`` del balance.
 
-    setup: balance=500, investment=100.
-    Esperado: balance post-open = 400 (500 − 100). La inversión se
+    setup: balance=$50000 (helper bumps), investment=$2.
+    Esperado: balance post-open = $49998 (50000 − 2). La inversión se
     devuelve al cerrar (modelo margen — ver ``close_*``).
     """
     reg = await _register(client, valid_register_payload)
@@ -1845,7 +1899,7 @@ async def test_open_binary_trade_deducts_investment_from_balance(
     acc = next(
         a for a in acc_resp.json()["items"] if a["id"] == account["id"]
     )
-    assert Decimal(acc["balance_usd"]) == Decimal("400.00")
+    assert Decimal(acc["balance_usd"]) == Decimal("49998.00")
 
     # Sanity contra la DB directa.
     db_acc = (
@@ -1855,7 +1909,7 @@ async def test_open_binary_trade_deducts_investment_from_balance(
             )
         )
     ).scalar_one()
-    assert db_acc.balance_usd == Decimal("400.00")
+    assert db_acc.balance_usd == Decimal("49998.00")
 
 
 async def test_open_forex_trade_deducts_notional_from_balance(
@@ -1863,8 +1917,8 @@ async def test_open_forex_trade_deducts_notional_from_balance(
 ) -> None:
     """Regla 3 + 5 (FOREX): abrir deduce ``lot * entry * 100`` (nocional).
 
-    setup: lot=0.10, entry=1.10 → notional = 11.00.
-    Esperado: balance 1000 − 11 = 989. El nocional se devuelve al
+    setup: lot=0.02, entry=1.10 → notional = 2.20.
+    Esperado: balance 50000 − 2.20 = 49997.80. El nocional se devuelve al
     cerrar (sumando al P&L neto).
     """
     reg = await _register(client, valid_register_payload)
@@ -1885,8 +1939,8 @@ async def test_open_forex_trade_deducts_notional_from_balance(
             )
         )
     ).scalar_one()
-    # 1000 − (0.10 × 1.1000 × 100) = 1000 − 11 = 989.
-    assert db_acc.balance_usd == Decimal("989.00")
+    # 50000 − (0.02 × 1.1000 × 100) = 50000 − 2.20 = 49997.80.
+    assert db_acc.balance_usd == Decimal("49997.80")
 
 
 async def test_open_trade_rejects_when_insufficient_for_investment(
@@ -1926,10 +1980,10 @@ async def test_close_binary_break_returns_investment_no_pnl(
 ) -> None:
     """Regla 6 (BREAK): el broker devuelve la inversión íntegra, pnl=0.
 
-    setup: balance=500, investment=100.
-    Open:  balance 500 − 100 = 400.
-    Close BREAK: balance 400 + 100 (margin) + 0 (pnl) = 500.
-    Esperado: status=CLOSED_BREAK, pnl_usd=0.00, balance vuelve a 500.
+    setup: balance=$50000 (helper bumps), investment=$2.
+    Open:  balance 50000 − 2 = 49998.
+    Close BREAK: balance 49998 + 2 (margin) + 0 (pnl) = 50000.
+    Esperado: status=CLOSED_BREAK, pnl_usd=0.00, balance vuelve a 50000.
     """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
@@ -1952,7 +2006,7 @@ async def test_close_binary_break_returns_investment_no_pnl(
     assert body["status"] == "CLOSED_BREAK"
     assert Decimal(body["pnl_usd"]) == Decimal("0.00")
 
-    # Balance retorna a 500 (open -100 + close +100).
+    # Balance retorna a 50000 (open -2 + close +2).
     db_acc = (
         await db_session.execute(
             select(TradingAccount).where(
@@ -1960,9 +2014,9 @@ async def test_close_binary_break_returns_investment_no_pnl(
             )
         )
     ).scalar_one()
-    assert db_acc.balance_usd == Decimal("500.00")
+    assert db_acc.balance_usd == Decimal("50000.00")
 
-    # Audit ``trade.close`` incluye ``margin_returned_usd = 100``.
+    # Audit ``trade.close`` incluye ``margin_returned_usd = 2``.
     audit_rows = list(
         (await db_session.execute(
             select(AuditLog).where(
@@ -1973,7 +2027,7 @@ async def test_close_binary_break_returns_investment_no_pnl(
     )
     assert len(audit_rows) == 1
     audit = audit_rows[0]
-    assert Decimal(audit.new_value["margin_returned_usd"]) == Decimal("100.00")
+    assert Decimal(audit.new_value["margin_returned_usd"]) == Decimal("2.00")
     assert Decimal(audit.new_value["pnl_usd"]) == Decimal("0.00")
 
 
@@ -1987,10 +2041,10 @@ async def test_close_forex_returns_notional_plus_pnl_margin_model(
     que esto funcione, el close debe devolver el nocional reservado
     y sumar (no restar) el pnl_usd.
 
-    setup: lot=0.10, entry=1.10 → notional = 11.00.
-            exit=1.1100 (WIN LONG), pnl = 0.10.
-    Open:  balance 1000 − 11 = 989.
-    Close: balance 989 + 11 (margin) + 0.10 (pnl) = 1000.10.
+    setup: lot=0.02, entry=1.10 → notional = 2.20.
+            exit=1.1100 (WIN LONG), pnl = 0.02.
+    Open:  balance 50000 − 2.20 = 49997.80.
+    Close: balance 49997.80 + 2.20 (margin) + 0.02 (pnl) = 50000.02.
     """
     reg = await _register(client, valid_register_payload)
     headers = {"Authorization": f"Bearer {reg['access_token']}"}
@@ -2011,7 +2065,7 @@ async def test_close_forex_returns_notional_plus_pnl_margin_model(
     assert close_resp.status_code == 200, close_resp.text
     body = close_resp.json()
     assert body["status"] == "CLOSED_WIN"
-    assert Decimal(body["pnl_usd"]) == Decimal("0.10")
+    assert Decimal(body["pnl_usd"]) == Decimal("0.02")
 
     db_acc = (
         await db_session.execute(
@@ -2020,11 +2074,10 @@ async def test_close_forex_returns_notional_plus_pnl_margin_model(
             )
         )
     ).scalar_one()
-    # 989 + 11 (notional) + 0.10 (pnl) = 1000.10 — vuelve al nivel
-    # pre-open más el pnl neto (= cambio neto desde before_open = +0.10).
-    assert db_acc.balance_usd == Decimal("1000.10")
+    # 49997.80 + 2.20 (notional) + 0.02 (pnl) = 50000.02.
+    assert db_acc.balance_usd == Decimal("50000.02")
 
-    # Audit incluye ``margin_returned_usd = 11.00``.
+    # Audit incluye ``margin_returned_usd = 2.20``.
     audit_rows = list(
         (await db_session.execute(
             select(AuditLog).where(
@@ -2034,7 +2087,7 @@ async def test_close_forex_returns_notional_plus_pnl_margin_model(
         )).scalars().all()
     )
     assert len(audit_rows) == 1
-    assert Decimal(audit_rows[0].new_value["margin_returned_usd"]) == Decimal("11.00")
+    assert Decimal(audit_rows[0].new_value["margin_returned_usd"]) == Decimal("2.20")
 
 
 async def test_open_binary_with_exactly_one_usd_balance_succeeds(

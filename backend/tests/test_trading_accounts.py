@@ -874,6 +874,7 @@ async def test_delete_account_cascades_to_trades(
                 "investment_usd": "10.00",
                 "payout_pct": "85.00",
                 "expiration_seconds": 60,
+                "interest": "PLAN",
             },
         )
         assert resp.status_code == 201, resp.text
