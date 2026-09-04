@@ -60,6 +60,10 @@ const forexTrade: TradeOut = {
   risk_amount_usd: null,
   risk_pct: null,
   r_multiple: null,
+  // PR-2 fields:
+  interest: 'PLAN',
+  analysis_image_url: null,
+  close_image_url: null,
 };
 
 /**
@@ -92,6 +96,10 @@ const binaryTrade: TradeOut = {
   investment_usd: '50.00',
   payout_pct: '85.00',
   expiration_seconds: 60,
+  // PR-2 fields:
+  interest: 'FOMO',
+  analysis_image_url: null,
+  close_image_url: null,
 };
 
 function makeWrapper() {
@@ -123,7 +131,11 @@ describe('CloseTradeModal', () => {
     expect(screen.queryByTestId('close-outcome-LOSS')).toBeNull();
   });
 
-  it('renderiza form BINARY con 2 opciones de outcome (WIN/LOSS, sin BREAK)', async () => {
+  it('renderiza form BINARY con 3 opciones de outcome (WIN/LOSS/BREAK)', async () => {
+    // one-by-one-thousand-discipline PR-2 — BREAK is now
+    // wire-selectable (decision #4 #178). Backend
+    // ``TradeCloseIn.outcome`` widens to Literal["WIN","LOSS","BREAK"]
+    // so the modal exposes all three radios.
     render(<CloseTradeModal trade={binaryTrade} onClose={() => {}} />, {
       wrapper: makeWrapper(),
     });
@@ -132,8 +144,8 @@ describe('CloseTradeModal', () => {
       expect(screen.getByTestId('close-outcome-WIN')).toBeInTheDocument();
       expect(screen.getByTestId('close-outcome-LOSS')).toBeInTheDocument();
     });
-    // BREAK is server-side only — the wire format does not accept it.
-    expect(screen.queryByTestId('close-outcome-BREAK')).toBeNull();
+    // BREAK is wire-selectable in PR-2 — the backend accepts it.
+    expect(screen.getByTestId('close-outcome-BREAK')).toBeInTheDocument();
     // FOREX-only exit_price input must NOT be in the BINARY form.
     expect(screen.queryByTestId('close-exit-price')).toBeNull();
   });

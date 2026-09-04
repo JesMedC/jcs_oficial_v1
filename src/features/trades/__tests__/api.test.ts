@@ -100,6 +100,7 @@ describe('trades API', () => {
       entry_price: '1.08500',
       stop_loss: '1.08000',
       take_profit: '1.09000',
+      interest: 'PLAN',
     });
     expect(mockedPost).toHaveBeenCalledWith('/trades', {
       account_id: 'acc-1',
@@ -111,6 +112,7 @@ describe('trades API', () => {
       entry_price: '1.08500',
       stop_loss: '1.08000',
       take_profit: '1.09000',
+      interest: 'PLAN',
     });
   });
 
@@ -148,6 +150,7 @@ describe('trades API', () => {
       direction: 'CALL',
       emotional_tags: ['FOMO'],
       pre_trade_notes: 'Setup claro',
+      interest: 'FOMO',
     });
     expect(mockedPost).toHaveBeenCalledWith('/trades', {
       account_id: 'acc-1',
@@ -159,6 +162,7 @@ describe('trades API', () => {
       direction: 'CALL',
       emotional_tags: ['FOMO'],
       pre_trade_notes: 'Setup claro',
+      interest: 'FOMO',
     });
   });
 

@@ -241,6 +241,10 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
     // when notes + tags are empty, so the test exercises the canonical
     // "Guardar igual" path (the production user action when they
     // intentionally want to skip journaling).
+    //
+    // one-by-one-thousand-discipline PR-2 — interest is now required
+    // before submit (REQ-INT-001). The test selects an interest chip
+    // before clicking the submit button.
     mockAccounts([BINARY_ACCOUNT]);
     vi.spyOn(tradesApi, 'openTradeApi').mockRejectedValue(
       Object.assign(new Error('timeout of 15000ms exceeded'), {
@@ -253,6 +257,9 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
     await waitFor(() => {
       expect(screen.getByTestId('new-trade-submit')).toBeInTheDocument();
     });
+
+    // PR-2: pick an interest chip so the discipline gate passes.
+    fireEvent.click(screen.getByTestId('interest-PLAN'));
 
     fireEvent.click(screen.getByTestId('new-trade-submit'));
     await waitFor(() => {
@@ -271,6 +278,9 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
     // envelope from the response interceptor (e.g. a 422 with the
     // canonical { code, message, correlation_id } body) must surface
     // both the code and the message verbatim.
+    //
+    // one-by-one-thousand-discipline PR-2 — interest gate first, then
+    // the existing journal soft-block path.
     mockAccounts([BINARY_ACCOUNT]);
     vi.spyOn(tradesApi, 'openTradeApi').mockRejectedValue({
       code: 'INSUFFICIENT_BALANCE',
@@ -284,6 +294,7 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
       expect(screen.getByTestId('new-trade-submit')).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByTestId('interest-PLAN'));
     fireEvent.click(screen.getByTestId('new-trade-submit'));
     await waitFor(() => {
       expect(screen.getByTestId('soft-block-skip')).toBeInTheDocument();

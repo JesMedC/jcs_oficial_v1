@@ -26,6 +26,16 @@ export type BinaryDirection = 'CALL' | 'PUT';
 export type EmotionalTag = 'FOMO' | 'REVENGE' | 'PATIENCE' | 'DISCIPLINE' | 'OTHER';
 
 /**
+ * one-by-one-thousand-discipline PR-1 — single-select interest tag
+ * required on every new trade (REQ-INT-001..003). Coexists with
+ * ``emotional_tags`` (multi); interest drives the round-up preview
+ * badge and the discipline error codes. Mirrors the backend
+ * ``Literal["FOMO","PLAN","REVENGE","IMPULSE"]`` on
+ * ``TradeCreateIn.interest`` (backend/app/schemas/trade.py).
+ */
+export type Interest = 'FOMO' | 'PLAN' | 'REVENGE' | 'IMPULSE';
+
+/**
  * FOREX-specific payload fields. ``stop_loss`` and ``take_profit``
  * are nullable — not every setup plans an exit before entry.
  */
@@ -89,6 +99,10 @@ export interface TradeOut {
   readonly followed_plan: boolean | null;
   readonly mistakes: string | null;
   readonly screenshots: readonly string[] | null;
+  // one-by-one-thousand-discipline PR-1 — single-select interest + image URLs.
+  readonly interest: Interest | null;
+  readonly analysis_image_url: string | null;
+  readonly close_image_url: string | null;
   // FOREX-only (present when type === 'FOREX').
   readonly pair?: string;
   readonly lot_size?: string;
@@ -132,6 +146,9 @@ export interface CreateForexTradePayload extends ForexFields {
   readonly emotional_tags?: readonly EmotionalTag[];
   readonly screenshots?: readonly string[];
   readonly strategy_id?: string;
+  // one-by-one-thousand-discipline PR-1 — required on every new trade.
+  readonly interest: Interest;
+  readonly analysis_image_url?: string | null;
 }
 
 /**
@@ -146,6 +163,8 @@ export interface CreateBinaryTradePayload extends BinaryFields {
   readonly emotional_tags?: readonly EmotionalTag[];
   readonly screenshots?: readonly string[];
   readonly strategy_id?: string;
+  readonly interest: Interest;
+  readonly analysis_image_url?: string | null;
 }
 
 /**
@@ -179,12 +198,17 @@ export type CloseTradePayload =
       readonly post_trade_notes?: string;
       readonly followed_plan?: boolean;
       readonly mistakes?: string;
+      // one-by-one-thousand-discipline PR-1 — singular nullable
+      // close screenshot URL (decision #6 #178). Bound via the
+      // same presigned-upload flow as analysis_image_url.
+      readonly close_image_url?: string | null;
     }
   | {
-      readonly outcome: 'WIN' | 'LOSS';
+      readonly outcome: 'WIN' | 'LOSS' | 'BREAK';
       readonly post_trade_notes?: string;
       readonly followed_plan?: boolean;
       readonly mistakes?: string;
+      readonly close_image_url?: string | null;
     };
 
 /**
@@ -265,6 +289,19 @@ export const EMOTIONAL_TAG_LABEL: Record<EmotionalTag, string> = {
   PATIENCE: 'Paciencia',
   DISCIPLINE: 'Disciplina',
   OTHER: 'Otro',
+};
+
+/**
+ * Spanish labels for the ``interest`` enum (REQ-INT-002/003). Used by
+ * the InterestChips selector on NewTradeForm. PLAN is the default
+ * intent tag ("estoy operando con plan"), FOMO/REVENGE/IMPULSE are
+ * the warning states the discipline engine surfaces back.
+ */
+export const INTEREST_LABEL: Record<Interest, string> = {
+  FOMO: 'FOMO',
+  PLAN: 'Plan',
+  REVENGE: 'Venganza',
+  IMPULSE: 'Impulso',
 };
 
 /**

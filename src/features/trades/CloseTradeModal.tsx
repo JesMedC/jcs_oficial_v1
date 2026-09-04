@@ -43,11 +43,12 @@
  */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { type ReactNode } from 'react';
+import { useRef, useState, type ReactNode } from 'react';
 
 import { GlassModal } from '../../components/common/GlassModal';
 
 import { formatNumber } from './format';
+import { presignUpload, uploadFile } from './presign';
 import {
   CloseBinaryPayloadSchema,
   CloseForexPayloadSchema,
@@ -73,6 +74,10 @@ export function CloseTradeModal({ trade, onClose }: Props) {
 
 function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly onClose: () => void }) {
   const closeMutation = useCloseTrade();
+  const [closeImageUrl, setCloseImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     register,
     handleSubmit,
@@ -92,10 +97,14 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
     // Strip the form-only `type` discriminator before forwarding.
     // The backend's TradeCloseIn has extra="forbid" and the type
     // is redundant — it already knows trade.type from the loaded row.
-    const { type: _type, ...payload } = data;
+    const { type: _type, ...rest } = data;
     void _type;
+    const payload = {
+      ...rest,
+      ...(closeImageUrl !== null ? { close_image_url: closeImageUrl } : {}),
+    } as CloseTradePayload;
     closeMutation.mutate(
-      { id: trade.id, payload: payload as CloseTradePayload },
+      { id: trade.id, payload },
       { onSuccess: () => onClose() },
     );
   };
@@ -154,6 +163,35 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
           />
         </Field>
 
+        <Field label="Imagen de cierre (opcional)">
+          <input
+            ref={fileInputRef}
+            data-testid="close-image-file"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file !== undefined) {
+                void handleCloseImageFile(file, setCloseImageUrl, setImageUploading, setImageError);
+              }
+            }}
+            className="text-xs font-mono text-text-secondary file:mr-2 file:px-2 file:py-1 file:rounded file:border file:border-primary/30 file:bg-primary/10 file:text-primary file:font-display file:uppercase file:tracking-wide file:text-[10px] file:cursor-pointer"
+          />
+          {imageUploading ? (
+            <span data-testid="close-image-uploading" className="text-[11px] text-text-muted">
+              Subiendo...
+            </span>
+          ) : closeImageUrl !== null ? (
+            <span data-testid="close-image-uploaded" className="text-[11px] text-profit">
+              Imagen lista ✓
+            </span>
+          ) : imageError !== null ? (
+            <span data-testid="close-image-error" className="text-[11px] text-loss">
+              {imageError}
+            </span>
+          ) : null}
+        </Field>
+
         {closeMutation.isError ? (
           <div data-testid="close-error" className="text-loss text-sm">
             Error al cerrar: {closeMutation.error?.message ?? 'desconocido'}
@@ -172,6 +210,10 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
 
 function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonly onClose: () => void }) {
   const closeMutation = useCloseTrade();
+  const [closeImageUrl, setCloseImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const {
     register,
     handleSubmit,
@@ -191,10 +233,14 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
     // Strip the form-only `type` discriminator before forwarding.
     // The backend's TradeCloseIn has extra="forbid" and the type
     // is redundant — it already knows trade.type from the loaded row.
-    const { type: _type, ...payload } = data;
+    const { type: _type, ...rest } = data;
     void _type;
+    const payload = {
+      ...rest,
+      ...(closeImageUrl !== null ? { close_image_url: closeImageUrl } : {}),
+    } as CloseTradePayload;
     closeMutation.mutate(
-      { id: trade.id, payload: payload as CloseTradePayload },
+      { id: trade.id, payload },
       { onSuccess: () => onClose() },
     );
   };
@@ -210,9 +256,14 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
         data-testid="close-trade-modal"
         className="flex flex-col gap-4"
       >
+        {/* one-by-one-thousand-discipline PR-2 — BREAK radio. The
+            backend's TradeCloseIn.outcome widens to Literal["WIN",
+            "LOSS","BREAK"] (decision #4 #178) so the modal exposes
+            all three. BREAK is wire-selectable: backend returns the
+            reserved investment_usd (pnl=0). */}
         <Field label="Resultado" error={errors.outcome?.message}>
           <div className="flex gap-2">
-            {(['WIN', 'LOSS'] as const).map((opt) => (
+            {(['WIN', 'LOSS', 'BREAK'] as const).map((opt) => (
               <label key={opt} className="flex-1 cursor-pointer">
                 <input
                   type="radio"
@@ -222,10 +273,12 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
                   {...register('outcome')}
                 />
                 <div
-                  className={`text-center py-2 rounded border font-display uppercase text-sm tracking-wide border-primary/20 text-text-secondary ${
+                  className={`text-center py-2 rounded border font-display uppercase text-xs tracking-wide border-primary/20 text-text-secondary ${
                     opt === 'WIN'
                       ? 'peer-checked:border-profit peer-checked:bg-profit/10 peer-checked:text-profit'
-                      : 'peer-checked:border-loss peer-checked:bg-loss/10 peer-checked:text-loss'
+                      : opt === 'LOSS'
+                      ? 'peer-checked:border-loss peer-checked:bg-loss/10 peer-checked:text-loss'
+                      : 'peer-checked:border-text-muted peer-checked:bg-text-muted/10 peer-checked:text-text-primary'
                   }`}
                 >
                   {opt}
@@ -263,6 +316,35 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
           />
         </Field>
 
+        <Field label="Imagen de cierre (opcional)">
+          <input
+            ref={fileInputRef}
+            data-testid="close-image-file"
+            type="file"
+            accept="image/*"
+            onChange={(e) => {
+              const file = e.target.files?.[0];
+              if (file !== undefined) {
+                void handleCloseImageFile(file, setCloseImageUrl, setImageUploading, setImageError);
+              }
+            }}
+            className="text-xs font-mono text-text-secondary file:mr-2 file:px-2 file:py-1 file:rounded file:border file:border-primary/30 file:bg-primary/10 file:text-primary file:font-display file:uppercase file:tracking-wide file:text-[10px] file:cursor-pointer"
+          />
+          {imageUploading ? (
+            <span data-testid="close-image-uploading" className="text-[11px] text-text-muted">
+              Subiendo...
+            </span>
+          ) : closeImageUrl !== null ? (
+            <span data-testid="close-image-uploaded" className="text-[11px] text-profit">
+              Imagen lista ✓
+            </span>
+          ) : imageError !== null ? (
+            <span data-testid="close-image-error" className="text-[11px] text-loss">
+              {imageError}
+            </span>
+          ) : null}
+        </Field>
+
         {closeMutation.isError ? (
           <div data-testid="close-error" className="text-loss text-sm">
             Error al cerrar: {closeMutation.error?.message ?? 'desconocido'}
@@ -277,6 +359,36 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
       </form>
     </GlassModal>
   );
+}
+
+/**
+ * Shared helper for the FOREX/BINARY close-image upload flow
+ * (REQ-TI-MOD-001/003). Identical to ``handleAnalysisFile`` in
+ * NewTradeForm; the helper lives here (and inline in NewTradeForm)
+ * because the call sites have different state-setters. Centralising
+ * the presign+upload pair is tempting but the call sites stay simple.
+ */
+async function handleCloseImageFile(
+  file: File,
+  setUrl: (url: string) => void,
+  setBusy: (b: boolean) => void,
+  setErr: (msg: string | null) => void,
+): Promise<void> {
+  setBusy(true);
+  setErr(null);
+  try {
+    const presign = await presignUpload({
+      file_name: file.name,
+      content_type: file.type || 'image/png',
+      key_prefix: 'trades/close',
+    });
+    const url = await uploadFile(file, presign);
+    setUrl(url);
+  } catch (err) {
+    setErr(err instanceof Error ? err.message : 'upload falló');
+  } finally {
+    setBusy(false);
+  }
 }
 
 function FormFooter({

@@ -116,9 +116,9 @@ export type TradeFormValues = z.infer<typeof TradeFormSchema>;
  * `type` out before forwarding to `closeTradeApi`.
  *
  * FOREX branch carries `exit_price`, BINARY branch carries
- * `outcome: 'WIN'|'LOSS'` (no BREAK — the backend computes
- * CLOSED_BREAK server-side from the payout when relevant, so the wire
- * format only exposes the two outcomes the user actually decides on).
+ * `outcome: 'WIN'|'LOSS'|'BREAK'` (PR-2 — BREAK is now wire-selectable
+ * per decision #4 #178). The backend's TradeCloseIn.outcome widens to
+ * Literal["WIN","LOSS","BREAK"]; the form schema mirrors that.
  *
  * The journal triple (`post_trade_notes`, `followed_plan`,
  * `mistakes`) is optional on both branches and round-trips through
@@ -143,7 +143,7 @@ export const CloseForexPayloadSchema = z.object({
 
 export const CloseBinaryPayloadSchema = z.object({
   type: z.literal('BINARY'),
-  outcome: z.enum(['WIN', 'LOSS']),
+  outcome: z.enum(['WIN', 'LOSS', 'BREAK']),
   post_trade_notes: z.string().max(2000).optional(),
   followed_plan: z.boolean().optional(),
   mistakes: z.string().max(2000).optional(),

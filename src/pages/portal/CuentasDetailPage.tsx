@@ -27,7 +27,7 @@
  * Per mem #68, UI copy is Spanish. Per mem #70, visual language
  * matches the jade + Orbitron + glassmorphism used elsewhere.
  */
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 
@@ -36,11 +36,13 @@ import { GlassCard } from '../../components/GlassCard';
 import { ErrorBanner } from '../../components/ErrorBanner';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
+import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
 import { useAccount } from '../../features/accounts/hooks';
 import {
   ACCOUNT_TYPE_BADGE,
   type AccountOut,
 } from '../../features/accounts/types';
+import { AuthContext } from '../../features/auth/AuthProvider';
 import type { ErrorEnvelope } from '../../features/auth/types';
 
 type TabId = 'resumen' | 'saldo' | 'operaciones' | 'peligro';
@@ -259,28 +261,47 @@ interface ResumenTabProps {
 
 function ResumenTab({ account }: ResumenTabProps) {
   const badge = ACCOUNT_TYPE_BADGE[account.type];
+  // PR-2: workspaceId drives the WinrateBySessionCard fetch. Read
+  // via `useContext(AuthContext)` directly (not the strict useAuth
+  // hook) so the page still renders when the test harness doesn't
+  // mount an AuthProvider — workspaceId falls back to '' and the
+  // hook's ``enabled`` guard keeps the fetch silent.
+  const authCtx = useContext(AuthContext);
+  const workspaceId = authCtx?.user?.workspaces[0]?.id ?? '';
   return (
-    <GlassCard variant="default">
-      <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
-        Resumen
-      </h2>
-      <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
-        <Row label="Broker" value={account.broker_name} />
-        <Row
-          label="Tipo"
-          value={
-            <span
-              className={`inline-block border rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide ${badge.className}`}
-            >
-              {badge.label}
-            </span>
-          }
-        />
-        <Row label="Nombre" value={account.name} />
-        <Row label="Balance" value={formatUsd(account.balance_usd)} accent />
-        <Row label="Creada" value={formatLongDate(account.created_at)} />
-      </dl>
-    </GlassCard>
+    <div className="flex flex-col gap-4">
+      <GlassCard variant="default">
+        <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
+          Resumen
+        </h2>
+        <dl className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-3">
+          <Row label="Broker" value={account.broker_name} />
+          <Row
+            label="Tipo"
+            value={
+              <span
+                className={`inline-block border rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide ${badge.className}`}
+              >
+                {badge.label}
+              </span>
+            }
+          />
+          <Row label="Nombre" value={account.name} />
+          <Row label="Balance" value={formatUsd(account.balance_usd)} accent />
+          <Row label="Creada" value={formatLongDate(account.created_at)} />
+        </dl>
+      </GlassCard>
+      {/* one-by-one-thousand-discipline PR-2 — winrate-by-session
+          card. Per REQ-WRS-007 the card is reusable across pages;
+          here we mount it scoped to the current account so the
+          trader sees WHERE they win on this specific account.
+          ``workspaceId`` falls back to '' when auth hasn't resolved
+          yet — the hook's ``enabled`` guard keeps the fetch silent. */}
+      <WinrateBySessionCard
+        workspaceId={workspaceId}
+        initialAccountId={account.id}
+      />
+    </div>
   );
 }
 

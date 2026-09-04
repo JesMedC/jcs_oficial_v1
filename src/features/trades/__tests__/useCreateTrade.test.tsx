@@ -67,6 +67,7 @@ describe('useCreateTrade', () => {
         lot_size: '0.1',
         stop_loss: null,
         take_profit: null,
+        interest: 'PLAN',
       });
     });
 

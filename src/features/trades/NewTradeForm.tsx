@@ -25,8 +25,16 @@ import { TradeFormSchema, type TradeFormValues } from './schemas';
 import { useCreateTrade } from './useCreateTrade';
 import { DisciplineSoftBlock } from './DisciplineSoftBlock';
 import { EmotionalTagsChips } from './EmotionalTagsChips';
+import { InterestChips } from './InterestChips';
 import { getAvailableInstruments } from './availableInstruments';
-import type { EmotionalTag } from './types';
+import {
+  DISCIPLINE_ERROR_MESSAGE,
+  isHardBlockedByDiscipline,
+  suggestedImporteUsd,
+  type DisciplineErrorCode,
+} from './discipline';
+import { presignUpload, uploadFile } from './presign';
+import type { EmotionalTag, Interest } from './types';
 
 export interface NewTradeFormProps {
   readonly onSuccess?: () => void;
@@ -119,6 +127,19 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
   const [showSoftBlock, setShowSoftBlock] = useState(false);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
+  // one-by-one-thousand-discipline PR-2: interest (required, single-
+  // select), discipline error pill, and the optional analysis-image
+  // URL bound through the presigned upload flow. The state lives
+  // outside RHF for the same reason emotionalTags does: chip / file
+  // values would be mangled by RHF's string-typed register.
+  const [interest, setInterest] = useState<Interest | null>(null);
+  const [disciplineError, setDisciplineError] =
+    useState<DisciplineErrorCode | null>(null);
+  const [analysisImageUrl, setAnalysisImageUrl] = useState<string | null>(null);
+  const [imageUploading, setImageUploading] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const selectedType = watch('type');
   const watchedAccountId = watch('account_id');
 
@@ -159,7 +180,39 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     );
   }
 
+  // Active account drives the suggested-importe preview (REQ-DISC-002
+  // / 003) and the predictive hard-block (REQ-DISC-005/006). The
+  // balance mirrors the backend's provisional capital-inicial proxy
+  // (Trade.balance_usd, NOT the AccountMovement snapshot — WIP hasn't
+  // merged; see backend design ADR-001).
+  const activeAccount =
+    accounts.find((a) => a.id === watchedAccountId) ?? accounts[0] ?? null;
+  const accountBalance = activeAccount?.balance_usd;
+  const suggestedImport =
+    activeAccount !== null
+      ? suggestedImporteUsd(computeCapitalInicial(accountBalance))
+      : null;
+
   const handleSubmitClick: SubmitHandler<TradeFormValues> = (values) => {
+    // Discipline gate 1 — interest required (REQ-INT-001). Surface a
+    // typed error pill instead of letting the backend 422 with
+    // INTEREST_REQUIRED (the user gets faster feedback this way).
+    if (interest === null) {
+      setDisciplineError('INTEREST_REQUIRED');
+      return;
+    }
+    setDisciplineError(null);
+
+    // Discipline gate 2 — predictive hard-block (REQ-DISC-005/006).
+    // Mirrors backend rules 3 + 4 in discipline_engine so the user
+    // can't even click submit when the value is guaranteed to fail.
+    const deduct = computeDeduct(values);
+    const capitalInicial = computeCapitalInicial(accountBalance);
+    if (deduct !== null && isHardBlockedByDiscipline(deduct, capitalInicial)) {
+      setDisciplineError('CAPITAL_INICIAL_CAP_EXCEEDED');
+      return;
+    }
+
     // Soft-block intercept. When the journal is empty AND the user
     // has not already acknowledged the warning in this submit cycle,
     // we raise the banner and bail. The re-submit path (triggered by
@@ -196,6 +249,8 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         lot_size: values.lot_size,
         stop_loss: values.stop_loss ?? null,
         take_profit: values.take_profit ?? null,
+        interest,
+        ...(analysisImageUrl !== null ? { analysis_image_url: analysisImageUrl } : {}),
       };
       const enriched = {
         ...payload,
@@ -212,6 +267,8 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         investment_usd: values.investment_usd,
         payout_pct: values.payout_pct,
         expiration_seconds: values.expiration_seconds,
+        interest,
+        ...(analysisImageUrl !== null ? { analysis_image_url: analysisImageUrl } : {}),
       };
       const enriched = {
         ...payload,
@@ -407,6 +464,72 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         </>
       )}
 
+      {/* one-by-one-thousand-discipline PR-2 — interest selector
+          (REQ-INT-002/003). Single-select, required on every new
+          trade. Sits BETWEEN the trade-shape fields and the notes so
+          the user is forced to declare intent before journaling. */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-wide text-text-secondary font-display">
+          Interés <span className="text-loss">*</span>
+        </label>
+        <InterestChips value={interest} onChange={setInterest} />
+      </div>
+
+      {/* Suggested-importe pill (REQ-DISC-002/003). Mirrors backend
+          `ceil_to_next_dollar(capital_inicial * 0.0025)` so the user
+          sees the round-up preview BEFORE typing. Hidden below the
+          $1000 discipline threshold because the engine defers to the
+          legacy balance gate in that case. */}
+      {suggestedImport !== null ? (
+        <div
+          data-testid="new-trade-suggested-import"
+          className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary font-mono text-xs"
+        >
+          <span className="font-display uppercase tracking-widest text-[10px]">Importe sugerido</span>
+          <span className="font-display">${suggestedImport}</span>
+        </div>
+      ) : null}
+
+      {/* Optional analysis-image upload (REQ-TI-ADD-001). Presign →
+          upload → bind public_url. The bound URL rides the payload
+          via ``analysis_image_url`` and lands on Trade.analysis_image_url. */}
+      <div className="flex flex-col gap-1">
+        <label className="text-xs uppercase tracking-wide text-text-secondary font-display">
+          Imagen de análisis (opcional)
+        </label>
+        <input
+          ref={fileInputRef}
+          data-testid="new-trade-analysis-file"
+          type="file"
+          accept="image/*"
+          onChange={(e) => {
+            const file = e.target.files?.[0];
+            if (file !== undefined) {
+              void handleAnalysisFile(
+                file,
+                setAnalysisImageUrl,
+                setImageUploading,
+                setImageError,
+              );
+            }
+          }}
+          className="text-xs font-mono text-text-secondary file:mr-2 file:px-2 file:py-1 file:rounded file:border file:border-primary/30 file:bg-primary/10 file:text-primary file:font-display file:uppercase file:tracking-wide file:text-[10px] file:cursor-pointer"
+        />
+        {imageUploading ? (
+          <span data-testid="new-trade-analysis-uploading" className="text-[11px] text-text-muted">
+            Subiendo...
+          </span>
+        ) : analysisImageUrl !== null ? (
+          <span data-testid="new-trade-analysis-uploaded" className="text-[11px] text-profit">
+            Imagen lista ✓
+          </span>
+        ) : imageError !== null ? (
+          <span data-testid="new-trade-analysis-error" className="text-[11px] text-loss">
+            {imageError}
+          </span>
+        ) : null}
+      </div>
+
       <Field label="Notas pre-trade (opcional)" error={(errors as Record<string, { message?: string } | undefined>)['pre_trade_notes']?.message}>
         <textarea
           {...control.register('pre_trade_notes')}
@@ -434,24 +557,28 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         onRequestFocusNotes={() => notesRef.current?.focus()}
       />
 
-      {createTrade.isError ? (
+      {createTrade.isError || disciplineError !== null ? (
         <div
           role="alert"
           data-testid="new-trade-error"
           className="px-3 py-2 bg-loss/15 border border-loss/40 rounded-lg text-loss font-body text-sm"
         >
           {(() => {
-            // The response interceptor in lib/api/client.ts normalises
-            // every rejection into an envelope-like object
-            // ({ code, message, correlation_id }), so reading the bare
-            // `.code` / `.message` is the production path. We also
-            // handle the raw axios shape (test mocks that bypass the
-            // interceptor) by checking the legacy `code: 'ECONNABORTED'`
-            // sentinel and any message containing "timeout".
+            // Discipline error pill (PR-2). When the client-side
+            // gates (interest / hard-block) or a backend rejection
+            // match a known discipline code, show the localized
+            // message; the code identifier stays visible for support.
+            if (disciplineError !== null) {
+              return `${disciplineError}: ${DISCIPLINE_ERROR_MESSAGE[disciplineError]}`;
+            }
             const err = createTrade.error as {
               code?: string;
               message?: string;
             } | null;
+            // Map backend discipline codes to localized messages too.
+            if (typeof err?.code === 'string' && err.code in DISCIPLINE_ERROR_MESSAGE) {
+              return `${err.code}: ${DISCIPLINE_ERROR_MESSAGE[err.code as DisciplineErrorCode]}`;
+            }
             const isTimeout =
               err?.code === 'ECONNABORTED' ||
               (typeof err?.message === 'string' &&
@@ -486,6 +613,60 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
       </div>
     </form>
   );
+}
+
+/**
+ * Mirror of the backend deductible amount formula (REQ-DISC-005).
+ * BINARY uses ``investment_usd``; FOREX uses ``lot * entry * 100``.
+ * Returns ``null`` when the payload is missing the required field
+ * (defensive — the form's per-type validation should catch that).
+ */
+function computeDeduct(values: TradeFormValues): number | null {
+  if (values.type === 'BINARY') {
+    const n = Number(values.investment_usd);
+    return Number.isFinite(n) && n > 0 ? n : null;
+  }
+  const lots = Number(values.lot_size);
+  const entry = Number(values.entry_price);
+  if (!Number.isFinite(lots) || !Number.isFinite(entry) || lots <= 0 || entry <= 0) {
+    return null;
+  }
+  return Math.round(lots * entry * 100 * 100) / 100;
+}
+
+/**
+ * Capital-inicial proxy for the suggested-importe preview. Mirrors
+ * backend `_capital_inicial_usd` (PR-1 ADR-001 fallback: use the
+ * active account's current balance, NOT the AccountMovement ledger
+ * snapshot — the WIP hasn't merged yet).
+ */
+function computeCapitalInicial(balanceRaw: string | undefined): number {
+  if (balanceRaw === undefined) return 0;
+  const n = Number(balanceRaw);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function handleAnalysisFile(
+  file: File,
+  setUrl: (url: string) => void,
+  setBusy: (b: boolean) => void,
+  setErr: (msg: string | null) => void,
+): Promise<void> {
+  setBusy(true);
+  setErr(null);
+  try {
+    const presign = await presignUpload({
+      file_name: file.name,
+      content_type: file.type || 'image/png',
+      key_prefix: 'trades/analysis',
+    });
+    const url = await uploadFile(file, presign);
+    setUrl(url);
+  } catch (err) {
+    setErr(err instanceof Error ? err.message : 'upload falló');
+  } finally {
+    setBusy(false);
+  }
 }
 
 function Field({

@@ -51,6 +51,10 @@ const fakeTrade: TradeOut = {
   risk_amount_usd: null,
   risk_pct: null,
   r_multiple: '1.0',
+  // PR-2 fields:
+  interest: 'PLAN',
+  analysis_image_url: null,
+  close_image_url: null,
 };
 
 function makeWrapper() {
