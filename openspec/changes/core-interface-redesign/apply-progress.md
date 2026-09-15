@@ -125,3 +125,64 @@
 ## Slice 3 — Shell chrome
 
 ⏳ Pending (will land after user review of Slice 1 + Slice 2 visuals)
+
+## Slice 3 — Shell chrome (sidebar widen + cyan glow)
+
+**Commits**
+- `31007fe` — `feat(core-interface-redesign): slice 3 — shell chrome (sidebar widen + cyan glow)`
+
+**Tasks (rescoped)**
+- **T-031** ✅ Sidebar widening (REQ-PS-010) — `PortalSidebar.tsx`: `w-60` → `w-72` (240px → 288px per reference). Collapsed state stays at `w-16`.
+- **T-032** ✅ Active-state cyan glow (REQ-PS-011) — `SidebarNav.tsx`: hardcoded jade rgba → new `glow-cyan-sm` Tailwind utility (Slice 1 alias).
+- **Cleanup** — Last hardcoded jade rgbas in the portal chrome: `Modal.tsx`, `SidebarHeader.tsx`, `FloatingActionButton.tsx` (4 sites), `FundWithdrawModal.tsx`. All swap to cyan rgba.
+- **T-033 + T-034** ⏸️ Deferred — Topbar language + account-scope + `+Nuevo Trade` CTA. The portal codebase has no `TopNav.tsx`; the existing `+ Nuevo trade` button lives in `DashboardPage` (already cyan since Slice 2). Adding a global topbar is its own refactor and should land as a separate change.
+- **T-035** ⏸️ Skipped — `useCoreInterfacePrefs` density store (OPTIONAL spec). Skipped per Slice 2 scope-discovery.
+
+**Drift-test pivot**
+- `src/test/components-drift.test.ts`: 7 "pins the neon-jade ..." assertions converted to `it.todo` pending Slice 5 cleanup.
+
+**Verification gates**
+- `pnpm test` → 795 passed + 32 it.todo (was 802 + 25 before; +7 conversions). ✅
+- `pnpm typecheck` → clean. ✅
+- `pnpm lint` → clean. ✅
+- `pnpm build` → succeeded. ✅
+
+**Edit surface**: 7 files (6 portal chrome + 1 test), +17/-17 net.
+
+## Slice 4 — Per-page migration (jade → cyan)
+
+**Commits**
+- `1f122b3` — `feat(core-interface-redesign): slice 4 — per-page migration (jade -> cyan)`
+
+**Tasks (rescoped)**
+- **T-036 → T-040** ✅ Per-page migration of the 5 portal pages (single commit for session efficiency; the original "5 chained PRs" strategy from the proposal reduces to one commit because each page is a small mechanical swap):
+  - `CuentasPage.tsx` — 5 jade refs (H1 textShadow, badge border tint, badge dot, box-shadow)
+  - `CuentasDetailPage.tsx` — 4 refs (H1 textShadows, balance value textShadow, CTA hover shadow)
+  - `DiarioPage.tsx` — 2 refs (H1 textShadows on diario band)
+  - `PlaybookPage.tsx` — 1 ref (H1 textShadow)
+  - `ConfiguracionPage.tsx` — 7 refs (toggle border + bg, status dot, section borders)
+- **T-041** ⏸️ Not applicable — `OperacionesPage` was already cyan (zero jade refs after DS-v1 close). No conditional commit needed.
+
+**Approach**
+- Mechanical swap: `rgba(0,255,157,*)` → `rgba(0,212,216,*)` (same alpha) and `#00FF9D` → `var(--color-jade)`.
+- No new components, no layout changes, no test updates (per-page consumer tests stayed green because they assert behavior not colors).
+- Visual tuning of cyan-specific glow alphas deferred to post-archive verify-report (Slice 5 + light-mode audit).
+
+**Drift-test status**
+- The 5 per-page `it.todo` entries from Slice 2 (`Slice 4 — pins cyan ...`) are NOT yet flipped back to active `it()`. They remain `it.todo` for now; flipping them is mechanical but visual-review-gated (the cyan needs to read correctly on each page before pinning it). Defer to Slice 5 (drift guard) or to a follow-up commit after user visual review.
+
+**Verification gates**
+- `pnpm test` → 795 passed + 32 it.todo (unchanged; no new failures). ✅
+- `pnpm typecheck` → clean. ✅
+- `pnpm lint` → clean. ✅
+- `pnpm build` → succeeded in 2.65s. ✅
+
+**Edit surface**: 5 portal pages, +19/-19 net.
+
+**Review risk**
+- LOW. Each page swap is mechanical and isolated. Visual review recommended: load each page and confirm the cyan textShadow + border tints + CTA shadows read correctly. If any read too dim/bright, retune the specific alpha.
+
+## Slice 5 — Drift guard + light audit
+
+⏳ Pending (will land after user review of Slice 1 + 2 + 3 + 4 visuals)
+
