@@ -63,7 +63,7 @@ def _sqlite_migration_db(monkeypatch):
         conn.execute(
             text(
                 "INSERT INTO alembic_version (version_num) "
-                "VALUES ('0012_extend_trade_type_with_fund_withdraw')"
+                "VALUES ('0012_add_fund_withdraw')"
             )
         )
         # Seed one workspace per known tier + one NONE that should
@@ -137,7 +137,7 @@ def test_migration_0013_downgrade_drops_column(_sqlite_migration_db) -> None:
     cfg = _cfg(url)
 
     command.upgrade(cfg, "0013_workspace_session_ops_cap")
-    command.downgrade(cfg, "0012_extend_trade_type_with_fund_withdraw")
+    command.downgrade(cfg, "0012_add_fund_withdraw")
 
     # Column must be gone; rows must still exist.
     with engine.connect() as conn:
@@ -145,12 +145,12 @@ def test_migration_0013_downgrade_drops_column(_sqlite_migration_db) -> None:
         assert len(rows) == 4
 
         # Querying the column should fail.
-        import sqlite3
+        from sqlalchemy.exc import OperationalError
 
         try:
             list(
                 conn.execute(text("SELECT session_ops_cap FROM workspaces"))
             )
             raise AssertionError("column should have been dropped")
-        except sqlite3.OperationalError as exc:
+        except OperationalError as exc:
             assert "no such column: session_ops_cap" in str(exc)

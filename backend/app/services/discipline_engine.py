@@ -12,7 +12,9 @@ short-circuits on the first failure (REQ-DISC-010 binding order):
   5. ``Σ importe today ≤ 0.001 × capital_inicial`` — REQ-DISC-007
      daily cap (TZ-aware via ``session_service.local_date_for_timestamp``)
   6. ``count(trades in session bucket today) < 4`` — REQ-DISC-008
-     4-ops-per-session cap
+     4-ops-per-session cap (UNIVERSAL across all plan tiers — every
+     workspace, including PRO/PLUS and ELITE, is capped at 4 ops per
+     session band per local day)
   7. (payout_pct 70..99 — owned by Pydantic, mirrored in the
      service-level check inside ``trade_service.open_trade``)
 
@@ -46,7 +48,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Trade, TradingAccount, User
+from app.models import Trade, TradingAccount, User, WorkspacePlanTier
 from app.schemas.trade import TradeCreateIn
 from app.services.discipline import ceil_to_next_dollar
 from app.services.session_service import (
@@ -72,8 +74,70 @@ _MIN_BALANCE_FOR_DISCIPLINE = Decimal("1000.00")
 # ---- constants ----
 _BROKER_CAP_USD = Decimal("404")
 _CAPITAL_INICIAL_PCT = Decimal("0.0025")
-_DAILY_PCT = Decimal("0.001")
-_SESSION_OPS_CAP = 4
+
+# Single source of truth for the per-tier session ops ceiling
+# (REQ-DSC-002). Imported by the 0013 migration (backfill), the
+# PATCH endpoint (validation), and the engine (rule 6 fallback).
+# Adding a new tier is one dict edit; all three consumers pick it
+# up automatically because they share the symbol.
+_PLAN_CEILING_BY_TIER: dict[WorkspacePlanTier, int] = {
+    WorkspacePlanTier.STARTER: 4,
+    WorkspacePlanTier.PRO: 6,
+    WorkspacePlanTier.ELITE: 10,
+}
+# NONE / unknown tiers default to STARTER's strict ceiling so a
+# workspace is never MORE permissive than the lowest paid tier.
+_PLAN_CEILING_FALLBACK = 4
+
+
+def plan_ceiling_for(plan_tier: WorkspacePlanTier | None) -> int:
+    """Return the session-ops ceiling for ``plan_tier``.
+
+    Falls back to ``_PLAN_CEILING_FALLBACK`` (``STARTER``-strict) when
+    ``plan_tier`` is ``None`` or an unrecognised enum member — this
+    keeps a fresh/unprovisioned workspace on the strictest cap, so
+    a plan upgrade is always a loosening, never a tightening.
+    """
+    if plan_tier is None:
+        return _PLAN_CEILING_FALLBACK
+    return _PLAN_CEILING_BY_TIER.get(plan_tier, _PLAN_CEILING_FALLBACK)
+
+
+def _plan_caps(plan_tier: WorkspacePlanTier) -> tuple[Decimal, int]:
+    """Per-tier discipline caps.
+
+    Returns ``(daily_pct_of_capital, session_ops_cap)``.
+
+    The session cap is **UNIVERSAL** (REQ-DISC-008): every workspace —
+    regardless of plan tier — is capped at 4 ops per session band per
+    local day. The daily cap remains plan-tier-aware.
+
+    Note the workspace enum uses ``PRO`` (legacy name) where the
+    pricing page uses ``PLUS``. The ``PRO`` tier maps 1:1 to the PLUS
+    capabilities (5 accounts, $9.99/mo); the naming drift is
+    pre-existing in the model layer.
+
+    Spec (7-business-rules §1 — daily cap; universal session cap):
+      - STARTER / NONE : 0.10% daily, 4 ops / session — strict.
+      - PRO (PLUS)     : 1.0%  daily, 4 ops / session — comfortable daily.
+      - ELITE          : 100%  daily, 4 ops / session — same session cap.
+    """
+    if plan_tier == WorkspacePlanTier.ELITE:
+        return (Decimal("1.0"), 4)
+    if plan_tier == WorkspacePlanTier.PRO:
+        return (Decimal("0.01"), 4)
+    # STARTER (or NONE — unprovisioned workspaces default to STARTER
+    # strictness so a plan upgrade is always a loosening, never a
+    # tightening).
+    return (Decimal("0.001"), 4)
+
+
+# FASE 6 — Diario demo compat. The hardcoded demo-friendly cap stays
+# around as a fallback for the case where we can't resolve the
+# workspace's plan_tier (race window during account creation). The
+# tier-aware helper above is the canonical source of truth.
+_DAILY_PCT_FALLBACK = Decimal("0.05")
+_SESSION_OPS_CAP_FALLBACK = 4
 
 
 # ---- error model ----
@@ -136,10 +200,16 @@ async def _bucket_trades_for_day(
         local_day, time.min, tzinfo=UTC
     )
     next_day = day_start + timedelta(days=1)
+    # Only FOREX / BINARY trades count toward the 4-ops-per-session
+    # cap (REQ-DISC-008). FUND / WITHDRAW rows are capital movements
+    # that ride on the same ledger (per FASE 4E docstring in
+    # ``TradeType``) but must NOT be capped — they represent deposits
+    # and withdrawals, not trading decisions.
     stmt = select(Trade).where(
         Trade.user_id == user.id,
         Trade.account_id == account.id,
         Trade.deleted_at.is_(None),
+        Trade.type.in_(("FOREX", "BINARY")),
         Trade.opened_at >= day_start,
         Trade.opened_at < next_day,
     )
@@ -171,10 +241,17 @@ async def _importe_sum_for_day(
         local_day, time.min, tzinfo=UTC
     )
     next_day = day_start + timedelta(days=1)
+    # Same filter as ``_bucket_trades_for_day``: capital movements
+    # (FUND / WITHDRAW) are ledger rows but do NOT contribute to the
+    # 0.10%-daily cap (REQ-DISC-007). The loop below would skip them
+    # anyway because they carry neither ``investment_usd`` nor a
+    # FOREX notional triple, but the explicit filter is defense-in-
+    # depth in case a future FUND / WITHDRAW row gets amount fields.
     stmt = select(Trade).where(
         Trade.user_id == user.id,
         Trade.account_id == account.id,
         Trade.deleted_at.is_(None),
+        Trade.type.in_(("FOREX", "BINARY")),
         Trade.opened_at >= day_start,
         Trade.opened_at < next_day,
     )
@@ -232,6 +309,17 @@ async def validate_open_trade(
     The caller (``trade_service.open_trade``) wraps the returned
     ``DisciplineError`` in ``TradeError`` so the API envelope is
     uniform with all other rejection paths.
+
+    Caps split between two rules:
+      - **Daily cap** is PLAN-TIER AWARE (FASE 6 — 7-business-rules §1):
+        ``STARTER`` is strictest (0.10% daily), ``PLUS`` is comfortable
+        (1% daily), ``ELITE`` is 100%. The plan tier comes from
+        ``account.workspace.plan_tier``; we fall back to
+        ``_DAILY_PCT_FALLBACK`` (5%) only if the workspace can't be
+        resolved (race window during account creation).
+      - **Session cap** is UNIVERSAL: 4 ops / session / local day for
+        every plan tier (REQ-DISC-008). Fallback is
+        ``_SESSION_OPS_CAP_FALLBACK`` (4).
     """
     deduct = await _deduct_amount_for(payload)
     if deduct is None:
@@ -244,6 +332,10 @@ async def validate_open_trade(
     # ``now`` for testability).
     ts = now or datetime.now(UTC)
     tz = user.timezone or "UTC"
+
+    # Plan-tier-aware caps (FASE 6 — Diario demo).
+    plan_tier = getattr(account.workspace, "plan_tier", WorkspacePlanTier.NONE)
+    daily_pct, session_ops_cap = _plan_caps(plan_tier)
     local_day = local_date_for_timestamp(ts, tz)
     band = session_for_timestamp(ts, tz)
 
@@ -278,8 +370,9 @@ async def validate_open_trade(
                 ),
             )
 
-        # Rule 5 — daily cap (0.10% of capital-inicial).
-        daily_cap = (capital_inicial * _DAILY_PCT).quantize(Decimal("0.01"))
+        # Rule 5 — daily cap (plan-tier-aware: STARTER 0.10%,
+        # PLUS 1%, ELITE unlimited).
+        daily_cap = (capital_inicial * daily_pct).quantize(Decimal("0.01"))
         existing = await _importe_sum_for_day(
             db, user=user, account=account, local_day=local_day
         )
@@ -287,12 +380,15 @@ async def validate_open_trade(
             raise DisciplineError(
                 code="DAILY_CAP_EXCEEDED",
                 message=(
-                    f"suma diaria {existing + deduct} excede el 0.10% "
+                    f"suma diaria {existing + deduct} excede el "
+                    f"{(daily_pct * 100).quantize(Decimal('0.01'))}% "
                     f"del capital inicial (${daily_cap})"
                 ),
             )
 
-    # Rule 6 — session cap (4 ops per local_day × band).
+    # Rule 6 — session cap (UNIVERSAL 4 ops/session across ALL plans —
+    # REQ-DISC-008). Was previously tier-aware (STARTER 4 / PLUS 8 /
+    # ELITE unlimited); the 4-cap is now the same for every workspace.
     existing_in_bucket = await _bucket_trades_for_day(
         db,
         user=user,
@@ -300,12 +396,12 @@ async def validate_open_trade(
         local_day=local_day,
         band=band,
     )
-    if existing_in_bucket >= _SESSION_OPS_CAP:
+    if existing_in_bucket >= session_ops_cap:
         raise DisciplineError(
             code="SESSION_CAP_EXCEEDED",
             message=(
                 f"ya hay {existing_in_bucket} operaciones en "
-                f"({local_day}, {band}); tope {_SESSION_OPS_CAP}"
+                f"({local_day}, {band}); tope {session_ops_cap}"
             ),
         )
 
@@ -314,4 +410,7 @@ __all__ = [
     "DisciplineError",
     "validate_open_trade",
     "ceil_to_next_dollar",
+    "_PLAN_CEILING_BY_TIER",
+    "_PLAN_CEILING_FALLBACK",
+    "plan_ceiling_for",
 ]
