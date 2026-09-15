@@ -23,6 +23,21 @@ short-circuits on the first failure (REQ-DISC-010 binding order):
 Schema checks (``interest`` required, ``INVALID_TIMEZONE``) happen
 in Pydantic / the API boundary before this engine runs.
 
+Workspace-driven session cap (REQ-DISC-008 / REQ-DSC-006): rule 6
+reads ``account.workspace.session_ops_cap`` (nullable ``SMALLINT``)
+first; the effective cap falls back to ``_PLAN_CEILING_BY_TIER`` —
+STARTER=4, PRO=6, ELITE=10 — and finally to ``_PLAN_CEILING_FALLBACK``
+(4) for unknown / unprovisioned workspaces. ``_PLAN_CEILING_BY_TIER``
+is the single source of truth: the alembic ``0013_workspace_session_ops_cap``
+migration imports it for the backfill, the PATCH endpoint
+(``backend/app/api/v1/workspace_discipline.py``) imports it for the
+ceiling validator, and this engine imports it for the fallback path.
+Adding a new tier is one dict edit; all three consumers pick it up
+automatically because they share the symbol. Spec:
+``openspec/changes/sessions-configurable-cap/specs/workspace-discipline-cap/spec.md``
+(REQ-DSC-002, REQ-DSC-006) and the session-classification spec at
+``openspec/changes/sessions-configurable-cap/specs/session-classification/spec.md``.
+
 ``capital_inicial`` derivation: PR-1 of this change runs BEFORE the
 ``account-movement-ledger`` WIP merges to main (per
 ``discipline/day-start-balance-override`` #187). Without the WIP's
