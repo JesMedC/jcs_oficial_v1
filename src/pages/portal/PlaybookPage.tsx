@@ -14,7 +14,10 @@ import { GlassCard } from '../../components/GlassCard';
 export function PlaybookPage() {
   return (
     <div className="w-full px-2 md:px-4 py-3 md:py-4">
-      <h1 className="font-display uppercase tracking-wide text-2xl md:text-3xl">
+      <h1
+        className="font-display uppercase tracking-wide text-2xl md:text-3xl"
+        style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}
+      >
         Playbook
       </h1>
       <GlassCard variant="default" className="mt-4">

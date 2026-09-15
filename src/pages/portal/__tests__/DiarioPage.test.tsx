@@ -15,20 +15,12 @@
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
-import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import * as apiHooks from '../../../features/dashboard/hooks';
 import { DiarioPage } from '../DiarioPage';
 import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
 import type { AuthMeOut } from '../../../features/auth/types';
-
-function makeWrapper() {
-  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
-  return ({ children }: { children: ReactNode }) => (
-    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
-  );
-}
 
 function makeAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
   const base: AuthMeOut = {

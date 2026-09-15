@@ -27,11 +27,13 @@ export type EmotionalTag = 'FOMO' | 'REVENGE' | 'PATIENCE' | 'DISCIPLINE' | 'OTH
 
 /**
  * one-by-one-thousand-discipline PR-1 — single-select interest tag
- * required on every new trade (REQ-INT-001..003). Coexists with
+ * (now OPTIONAL on the form, see REQ-INT-001..003). Coexists with
  * ``emotional_tags`` (multi); interest drives the round-up preview
  * badge and the discipline error codes. Mirrors the backend
- * ``Literal["FOMO","PLAN","REVENGE","IMPULSE"]`` on
- * ``TradeCreateIn.interest`` (backend/app/schemas/trade.py).
+ * ``Literal["FOMO","PLAN","REVENGE","IMPULSE"] | None`` on
+ * ``TradeCreateIn.interest`` (backend/app/schemas/trade.py). The
+ * service coerces ``None`` → ``"PLAN"`` server-side so the column
+ * stays NOT NULL at the DB layer.
  */
 export type Interest = 'FOMO' | 'PLAN' | 'REVENGE' | 'IMPULSE';
 
@@ -146,8 +148,9 @@ export interface CreateForexTradePayload extends ForexFields {
   readonly emotional_tags?: readonly EmotionalTag[];
   readonly screenshots?: readonly string[];
   readonly strategy_id?: string;
-  // one-by-one-thousand-discipline PR-1 — required on every new trade.
-  readonly interest: Interest;
+  // one-by-one-thousand-discipline PR-1 — optional from the form,
+  // service defaults to "PLAN" (backend/app/services/trade_service.py).
+  readonly interest?: Interest;
   readonly analysis_image_url?: string | null;
 }
 
@@ -163,7 +166,9 @@ export interface CreateBinaryTradePayload extends BinaryFields {
   readonly emotional_tags?: readonly EmotionalTag[];
   readonly screenshots?: readonly string[];
   readonly strategy_id?: string;
-  readonly interest: Interest;
+  // one-by-one-thousand-discipline PR-1 — optional from the form,
+  // service defaults to "PLAN" (backend/app/services/trade_service.py).
+  readonly interest?: Interest;
   readonly analysis_image_url?: string | null;
 }
 
@@ -292,10 +297,13 @@ export const EMOTIONAL_TAG_LABEL: Record<EmotionalTag, string> = {
 };
 
 /**
- * Spanish labels for the ``interest`` enum (REQ-INT-002/003). Used by
- * the InterestChips selector on NewTradeForm. PLAN is the default
- * intent tag ("estoy operando con plan"), FOMO/REVENGE/IMPULSE are
- * the warning states the discipline engine surfaces back.
+ * Spanish labels for the ``interest`` enum (REQ-INT-002/003). Kept
+ * for the TradeOut readout and any future re-introduction of the
+ * selector; the NewTradeForm no longer renders the chip group
+ * (``interest`` is optional and defaults to ``"PLAN"`` server-side).
+ * PLAN is the default intent tag ("estoy operando con plan"),
+ * FOMO/REVENGE/IMPULSE are the warning states the discipline engine
+ * surfaces back.
  */
 export const INTEREST_LABEL: Record<Interest, string> = {
   FOMO: 'FOMO',

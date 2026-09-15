@@ -48,6 +48,7 @@ const ACCOUNT_ID = 'acc-1';
 const BASE_ACCOUNT: AccountOut = {
   id: ACCOUNT_ID,
   user_id: 'u-1',
+      workspace_id: 'ws-1',
   broker_name: 'Pocket Option',
   type: 'BINARY',
   name: 'Cuenta principal',

@@ -1,27 +1,30 @@
 /*
  * balanceTimeline.ts — Pure helper to compute the account balance
- * *before* and *after* each trade, walking the trade history in
- * reverse so the most recent balance is the anchor we already know
- * (the live `account.balance_usd`).
+ * *before* and *after* each row of the unified operations log
+ * (FOREX/BINARY trades + FUND/WITHDRAW capital movements).
  *
  * Algorithm:
- *   1. Sort trades ascending by their effective event date
- *      (closed_at for closed trades, opened_at for OPEN ones).
+ *   1. Sort rows ascending by their effective event date
+ *      (closed_at ?? opened_at for trades; created_at is the same
+ *      as opened_at for FUND/WITHDRAW since the backend fills both
+ *      with `datetime.now(timezone.utc)` in ``_build_capital_trade``).
  *   2. Anchor: start with `currentBalance` (live, from accounts).
  *   3. Walk BACKWARD through the sorted list, subtracting each
- *      trade's P&L effect to recover the pre-trade balance.
+ *      row's signed effect to recover the pre-event balance.
  *
- * P&L effect per trade:
- *   - CLOSED_WIN  → +pnl_usd
- *   - CLOSED_LOSS → +pnl_usd (already negative)
- *   - CLOSED_BREAK → 0
- *   - OPEN        → 0 (open trades don't move settled balance; the
- *     size is "reserved" by the broker but the SQL backend doesn't
- *     deduct it from balance_usd on open, so neither do we)
- *   - FUND        → +pnl_usd (positive amount)
- *   - WITHDRAW    → +pnl_usd (negative amount)
+ * Signed effect per row:
+ *   - CLOSED trade (FOREX/BINARY) → +pnl_usd.
+ *     The margin that was deducted on open is returned on close, so
+ *     net over open+close == pnl. Treating OPEN as effect=0 keeps
+ *     the closed-trade math correct without modeling margin.
+ *   - OPEN trade (FOREX/BINARY)   → 0 (see above).
+ *   - FUND                        → +investment_usd. The backend
+ *     writes the deposit amount into ``investment_usd`` and leaves
+ *     ``pnl_usd`` NULL (``trading_account_service._build_capital_trade``).
+ *   - WITHDRAW                    → −investment_usd (same shape as
+ *     FUND, sign comes from ``type``).
  *
- * Returns a Map<trade_id, { prev, post }> so the consumer can do a
+ * Returns a Map<row_id, { prev, post }> so the consumer can do a
  * O(1) lookup per row in the Operaciones table.
  */
 import type { TradeOut } from './types';
@@ -37,7 +40,9 @@ function eventDateMs(t: TradeOut): number {
   return Number.isFinite(ms) ? ms : 0;
 }
 
-function pnlEffect(t: TradeOut): number {
+function balanceEffect(t: TradeOut): number {
+  if (t.type === 'FUND') return Number(t.investment_usd ?? 0);
+  if (t.type === 'WITHDRAW') return -Number(t.investment_usd ?? 0);
   if (t.status === 'OPEN') return 0;
   return Number(t.pnl_usd ?? 0);
 }
@@ -49,13 +54,16 @@ export function computeBalanceTimeline(
   const sorted = trades.slice().sort((a, b) => eventDateMs(a) - eventDateMs(b));
   const out = new Map<string, BalancePair>();
 
-  // Walk backward: balance_just_after_last_trade = currentBalance.
-  // balance_just_before_trade_i = balance_just_after_trade_(i+1) - pnl_i.
-  // balance_just_after_trade_i = balance_just_before_trade_i + pnl_i.
+  // Walk backward: balance_just_after_last_row = currentBalance.
+  // balance_just_before_row_i = balance_just_after_row_(i+1) - effect_i.
+  // balance_just_after_row_i = balance_just_before_row_i + effect_i.
+  // (At iteration i, the variable `balanceAfter` holds the balance
+  // just after row i — which is also the balance just before
+  // row (i+1) from the previous iteration.)
   let balanceAfter = currentBalance;
   for (let i = sorted.length - 1; i >= 0; i -= 1) {
     const trade = sorted[i]!;
-    const effect = pnlEffect(trade);
+    const effect = balanceEffect(trade);
     const prev = balanceAfter - effect;
     out.set(trade.id, {
       prev: Math.round(prev * 100) / 100,

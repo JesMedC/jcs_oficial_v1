@@ -32,6 +32,8 @@ import {
   type DateRangeFilter,
 } from '../../features/trades/TradeFilters';
 import { TradeTable } from '../../features/trades/TradeTable';
+import { computeBalanceTimeline } from '../../features/trades/balanceTimeline';
+import { AccountSelector } from '../../components/dashboard/AccountSelector';
 import { useNewTradeDrawer } from '../../stores/useNewTradeDrawer';
 import { useAccounts } from '../../features/accounts/hooks';
 import { useTradesAll } from '../../features/trades/useTradesAll';
@@ -69,22 +71,35 @@ export function OperacionesPage() {
     from: '',
     to: '',
   });
+  // `null` = aggregate across every active account. The prominent
+  // AccountSelector at the top of the page is the source of truth —
+  // we sync it into ``filters.account_id`` so the backend hook picks
+  // up the scope on every refetch. The previous auto-scope behaviour
+  // (default to single account) is dropped: the selector's "Todas
+  // las cuentas" default matches DashboardPage, and the backend cost
+  // is identical for users with one account.
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
+    null,
+  );
   const openDrawer = useNewTradeDrawer((s) => s.open);
   const queryClient = useQueryClient();
 
-  // Auto-scope to the single account when the user only has one.
-  // This keeps the operations view focused on what the user actually
-  // owns — archived/deleted accounts never bleed into the log.
   const accountsQuery = useAccounts();
-  const firstAccountId = accountsQuery.data?.items[0]?.id;
+
+  // Mirror the selector → filters.account_id. Single source of truth:
+  // TradeFilters reads from ``filters`` and never holds the account
+  // selection internally anymore.
   useEffect(() => {
-    if (firstAccountId === undefined) return;
-    setFilters((prev) =>
-      prev.account_id === firstAccountId
-        ? prev
-        : { ...prev, account_id: firstAccountId },
-    );
-  }, [firstAccountId]);
+    setFilters((prev) => {
+      const next = { ...prev };
+      if (selectedAccountId !== null) {
+        next.account_id = selectedAccountId;
+      } else {
+        delete next.account_id;
+      }
+      return next;
+    });
+  }, [selectedAccountId]);
 
   // Fetch every trade the user owns (single page of 500) so we can
   // compute the balance timeline AND give the date filter something
@@ -177,6 +192,13 @@ export function OperacionesPage() {
 
       <OperationsKPIsHeader filters={filters} />
 
+      <div data-testid="operaciones-account-selector">
+        <AccountSelector
+          value={selectedAccountId}
+          onChange={setSelectedAccountId}
+        />
+      </div>
+
       <TradeFilters
         filters={filters}
         dateRange={dateRange}
@@ -194,67 +216,24 @@ export function OperacionesPage() {
   );
 }
 
-/* Local helper that mirrors what ``balanceTimeline.ts`` does, but
- * walks the trade set passed to ``OperacionesPage`` (which is
- * already scoped to the active accounts). Keeping this here avoids
- * recomputing the timeline twice on every export. */
+/* Per-row balance lookup for the CSV export.
+ *
+ * Anchors on the per-account ``balance_usd`` (NOT the sum across all
+ * accounts) and delegates to the canonical walker in
+ * ``balanceTimeline.ts`` — that one already does the right thing:
+ * walks backward from the live balance so each row gets
+ * ``prev = balance just before`` and ``post = balance just after``.
+ */
 function computeBalanceForRow(
   trade: TradeOut,
   allTrades: ReadonlyArray<TradeOut>,
   accounts: ReadonlyArray<{ id: string; balance_usd: string }>,
 ): { prev: number; post: number; } {
   const sameAccount = allTrades.filter((t) => t.account_id === trade.account_id);
-  const timeline = computeTimeline(sameAccount);
-  const entry = timeline.get(trade.id);
-  if (entry !== undefined) return entry;
-  // Fallback: just use current balance.
-  const currentBalance = accounts.reduce(
-    (acc, a) => acc + Number(a.balance_usd ?? 0),
-    0,
+  const account = accounts.find((a) => a.id === trade.account_id);
+  const accountBalance = account ? Number(account.balance_usd) : 0;
+  const timeline = computeBalanceTimeline(sameAccount, accountBalance);
+  return (
+    timeline.get(trade.id) ?? { prev: accountBalance, post: accountBalance }
   );
-  return { prev: currentBalance, post: currentBalance };
-}
-
-function computeTimeline(
-  trades: ReadonlyArray<TradeOut>,
-): Map<string, { prev: number; post: number; }> {
-  const out = new Map<string, { prev: number; post: number }>();
-  if (trades.length === 0) return out;
-  // Anchor: latest known account balance (sum of all accounts the
-  // user owns here is an over-estimate — but we filter per account
-  // above so we don't need that).
-  // Walk ascending by event date.
-  const eventMs = (t: TradeOut): number => {
-    const raw = t.status === 'OPEN' ? t.opened_at : (t.closed_at ?? t.opened_at);
-    const ms = Date.parse(raw);
-    return Number.isFinite(ms) ? ms : 0;
-  };
-  const sorted = trades.slice().sort((a, b) => eventMs(a) - eventMs(b));
-  // Compute running balance forward.
-  let running = 0;
-  const firstEventMs = eventMs(sorted[0]!);
-  // The earliest trade's "prev" is undefined unless we know the
-  // account balance BEFORE that trade. We don't, so we just put
-  // balance at that point as 0 for display. In practice the user
-  // sees "—" for trades whose pre-balance we can't derive.
-  let earliestAccountBalance = 0;
-  const idSet = new Set(trades.map((t) => t.account_id));
-  // Walk forward to compute running balance per trade.
-  const runningByTrade = new Map<string, number>();
-  for (const t of sorted) {
-    const effect = t.status === 'OPEN' ? 0 : Number(t.pnl_usd ?? 0);
-    runningByTrade.set(t.id, running + effect);
-    running += effect;
-  }
-  // First trade prev = 0 (unknown); subsequent prev = previous post.
-  let prev = 0;
-  for (const t of sorted) {
-    const post = runningByTrade.get(t.id)!;
-    out.set(t.id, { prev, post });
-    prev = post;
-  }
-  void earliestAccountBalance;
-  void idSet;
-  void firstEventMs;
-  return out;
 }

@@ -160,11 +160,11 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       );
     });
 
-    it('pins the neon-jade "Cerrar sesion" CTA hover shadow (0.5 alpha)', () => {
-      // The dashboard "Cerrar sesion" button carried a cyan hover shadow;
-      // the migration swaps it to neon jade at the same alpha.
+    it('pins the neon-jade "Nuevo trade" CTA hover shadow (0.45 alpha)', () => {
+      // The current dashboard header CTA is "+ Nuevo trade"; keep its
+      // neon-jade hover shadow pinned to the post-migration token.
       expect(DASHBOARD_PAGE).toContain(
-        'hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]',
+        'hover:shadow-[0_0_16px_rgba(0,255,157,0.45)]',
       );
     });
   });
@@ -320,11 +320,11 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       );
     });
 
-    it('pins the neon-jade "Crear cuenta" CTA hover shadow (0.5 alpha)', () => {
-      expect(CUENTAS_PAGE).toContain(
-        'hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]',
-      );
-    });
+    // FASE 4E-revive: el form inline de "Crear cuenta" se eliminó de
+    // CuentasPage. La creación ahora vive ÚNICAMENTE en el modal del FAB
+    // (``<QuickActionModals>``), por lo que el contrato del CTA inline ya
+    // no aplica. Si en el futuro se re-introduce un form inline, este
+    // guardarraíl debe restaurarse (el patrón a pinear vive en el modal).
   });
 
   describe('src/pages/portal/CuentasDetailPage.tsx', () => {

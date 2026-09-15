@@ -6,12 +6,14 @@
  *      the public FastAPI surface.
  *   2. /portal/cuentas renders the funded balance ($100.00) right after
  *      the SPA hydrates with the JWT in sessionStorage.
- *   3. Opening a BINARY trade for 10 USD through /portal/operaciones
- *      deducts the investment from the account balance and the new
- *      figure ($90.00) appears on /portal/cuentas WITHOUT a hard refresh.
- *      This is the regression scenario the user reported ("balance sigue
- *      en 100") — if TanStack Query stops invalidating ['accounts'] after
- *      useCreateTrade succeeds, this assertion fails.
+ *   3. Opening a BINARY trade through /portal/operaciones deducts the
+ *      derived amount from the account balance (PR-4: the field is no
+ *      longer user-editable) and the new figure ($99.00, since $100
+ *      falls in the tier-1 bracket → $1) appears on /portal/cuentas
+ *      WITHOUT a hard refresh. This is the regression scenario the user
+ *      reported ("balance sigue en 100") — if TanStack Query stops
+ *      invalidating ['accounts'] after useCreateTrade succeeds, this
+ *      assertion fails.
  *
  * Why sessionStorage and not localStorage?
  *   The SPA persists tokens in sessionStorage (see
@@ -148,7 +150,10 @@ test('balance se descuenta automáticamente al abrir un trade (E2E)', async ({
   // backdrop del primero (TopNav) nos tape los clicks.
   const accountSelect = page.getByTestId('new-trade-account').last();
   const directionSelect = page.getByTestId('new-trade-direction').last();
-  const investmentInput = page.getByTestId('new-trade-investment').last();
+  // PR-4: `new-trade-investment` es <output> derivado, no input — se
+  // queda como referencia de testid para aserciones visuales pero no
+  // se acciona (sin .fill()).
+  void page.getByTestId('new-trade-investment').last();
   const payoutInput = page.getByTestId('new-trade-payout').last();
   const submitBtn = page.getByTestId('new-trade-submit').last();
 
@@ -157,7 +162,9 @@ test('balance se descuenta automáticamente al abrir un trade (E2E)', async ({
   await page.waitForTimeout(300);
 
   await directionSelect.selectOption('CALL');
-  await investmentInput.fill('10.00');
+  // PR-4: INVERSIÓN USD es derivado del balance (tier 1 para $100 → $1).
+  // No hay fill() — el campo es <output> read-only. El monto se calcula
+  // antes del POST en handleSubmitClick.
   await payoutInput.fill('85.00');
   // expiration_seconds tiene default 60 (1 min) — no hace falta tocarla.
 
@@ -182,12 +189,13 @@ test('balance se descuenta automáticamente al abrir un trade (E2E)', async ({
     timeout: 30_000,
   });
 
-  // 6. Volver a /portal/cuentas y verificar balance 90 SIN hard refresh.
-  // La invalidación de TanStack Query debería hacer que el listado
-  // refetchee y muestre el balance nuevo. Si esto falla, el bug del
-  // usuario ("balance sigue en 100") está reproducible en CI.
+  // 6. Volver a /portal/cuentas y verificar balance 99 SIN hard refresh.
+  // $100 - $1 (PR-4 tier-1 derivado) = $99. La invalidación de TanStack
+  // Query debería hacer que el listado refetchee y muestre el balance
+  // nuevo. Si esto falla, el bug del usuario ("balance sigue en 100")
+  // está reproducible en CI.
   await page.goto(`${PORTAL}/portal/cuentas`);
   await expect(
-    page.getByText('$90.00', { exact: true }).first(),
+    page.getByText('$99.00', { exact: true }).first(),
   ).toBeVisible({ timeout: 30_000 });
 });

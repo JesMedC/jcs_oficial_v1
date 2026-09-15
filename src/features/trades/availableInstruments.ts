@@ -16,6 +16,12 @@
  *
  * Until a real allowlist ships, the settings panel just RENDERS this
  * list so the admin knows which pairs the picker will offer.
+ *
+ * Coverage: all 7 majors + every standard minor cross (EUR, GBP, JPY,
+ * CHF, AUD, NZD, CAD — every permutation of two non-USD majors). The
+ * FOREX list mirrors real broker feeds; the BINARY list mirrors
+ * what's typical of OTC binary brokers (every Forex pair + crypto +
+ * commodities + the main US indices).
  */
 
 export type InstrumentCategory =
@@ -39,8 +45,14 @@ export interface InstrumentInfo {
   readonly enabled: boolean;
 }
 
-export const AVAILABLE_FOREX_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = [
-  // Major pairs (USD on one side)
+/**
+ * Master catalog shared between FOREX and BINARY pickers. Each entry
+ * has the canonical ``symbol`` (broker-feed spelling, no slash) and
+ * a Spanish ``name`` for display. Reused so both markets stay in
+ * lockstep — when a new pair is added, drop it here once.
+ */
+const CATALOG: ReadonlyArray<InstrumentInfo> = [
+  // ── Major pairs (USD on one side) ────────────────────────────────
   { symbol: 'EURUSD', name: 'Euro / Dolar estadounidense', category: 'Major', enabled: true },
   { symbol: 'GBPUSD', name: 'Libra esterlina / Dolar', category: 'Major', enabled: true },
   { symbol: 'AUDUSD', name: 'Dolar australiano / Dolar', category: 'Major', enabled: true },
@@ -48,41 +60,65 @@ export const AVAILABLE_FOREX_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = [
   { symbol: 'USDJPY', name: 'Dolar / Yen japones', category: 'Major', enabled: true },
   { symbol: 'USDCAD', name: 'Dolar / Dolar canadiense', category: 'Major', enabled: true },
   { symbol: 'USDCHF', name: 'Dolar / Franco suizo', category: 'Major', enabled: true },
-  // Cross pairs
+
+  // ── Minor / Cross pairs (no USD) — every standard permutation ──
+  // EUR crosses
   { symbol: 'EURJPY', name: 'Euro / Yen japones', category: 'Minor', enabled: true },
-  { symbol: 'GBPJPY', name: 'Libra / Yen japones', category: 'Minor', enabled: true },
   { symbol: 'EURGBP', name: 'Euro / Libra esterlina', category: 'Minor', enabled: true },
-  { symbol: 'AUDJPY', name: 'Dolar australiano / Yen', category: 'Minor', enabled: true },
   { symbol: 'EURCHF', name: 'Euro / Franco suizo', category: 'Minor', enabled: true },
-  // Exotic
+  { symbol: 'EURAUD', name: 'Euro / Dolar australiano', category: 'Minor', enabled: true },
+  { symbol: 'EURNZD', name: 'Euro / Dolar neozelandes', category: 'Minor', enabled: true },
+  { symbol: 'EURCAD', name: 'Euro / Dolar canadiense', category: 'Minor', enabled: true },
+  // GBP crosses
+  { symbol: 'GBPJPY', name: 'Libra / Yen japones', category: 'Minor', enabled: true },
+  { symbol: 'GBPCHF', name: 'Libra / Franco suizo', category: 'Minor', enabled: true },
+  { symbol: 'GBPCAD', name: 'Libra / Dolar canadiense', category: 'Minor', enabled: true },
+  { symbol: 'GBPAUD', name: 'Libra / Dolar australiano', category: 'Minor', enabled: true },
+  { symbol: 'GBPNZD', name: 'Libra / Dolar neozelandes', category: 'Minor', enabled: true },
+  // AUD crosses
+  { symbol: 'AUDJPY', name: 'Dolar australiano / Yen', category: 'Minor', enabled: true },
+  { symbol: 'AUDCHF', name: 'Dolar australiano / Franco suizo', category: 'Minor', enabled: true },
+  { symbol: 'AUDCAD', name: 'Dolar australiano / Canadiense', category: 'Minor', enabled: true },
+  { symbol: 'AUDNZD', name: 'Dolar australiano / Neozelandes', category: 'Minor', enabled: true },
+  // NZD crosses
+  { symbol: 'NZDJPY', name: 'Dolar neozelandes / Yen', category: 'Minor', enabled: true },
+  { symbol: 'NZDCHF', name: 'Dolar neozelandes / Franco suizo', category: 'Minor', enabled: true },
+  { symbol: 'NZDCAD', name: 'Dolar neozelandes / Canadiense', category: 'Minor', enabled: true },
+  // CAD crosses
+  { symbol: 'CADJPY', name: 'Dolar canadiense / Yen', category: 'Minor', enabled: true },
+  { symbol: 'CADCHF', name: 'Dolar canadiense / Franco suizo', category: 'Minor', enabled: true },
+  // CHF crosses (no further cross — CHF only pairs against the 5 above)
+  { symbol: 'CHFJPY', name: 'Franco suizo / Yen japones', category: 'Minor', enabled: true },
+
+  // ── Exotic pairs ─────────────────────────────────────────────────
   { symbol: 'USDTRY', name: 'Dolar / Lira turca', category: 'Exotic', enabled: true },
   { symbol: 'USDZAR', name: 'Dolar / Rand sudafricano', category: 'Exotic', enabled: true },
-];
+  { symbol: 'USDMXN', name: 'Dolar / Peso mexicano', category: 'Exotic', enabled: true },
+  { symbol: 'USDSGD', name: 'Dolar / Dolar singapurense', category: 'Exotic', enabled: true },
+  { symbol: 'USDHKD', name: 'Dolar / Dolar hongkones', category: 'Exotic', enabled: true },
 
-export const AVAILABLE_BINARY_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = [
-  // Forex pairs (binary brokers offer these as OTC)
-  { symbol: 'EURUSD', name: 'Euro / Dolar', category: 'Major', enabled: true },
-  { symbol: 'GBPUSD', name: 'Libra / Dolar', category: 'Major', enabled: true },
-  { symbol: 'USDJPY', name: 'Dolar / Yen', category: 'Major', enabled: true },
-  { symbol: 'GBPJPY', name: 'Libra / Yen', category: 'Minor', enabled: true },
-  { symbol: 'AUDUSD', name: 'Dolar australiano / Dolar', category: 'Major', enabled: true },
-  { symbol: 'NZDUSD', name: 'Dolar neozelandes / Dolar', category: 'Major', enabled: true },
-  { symbol: 'USDCAD', name: 'Dolar / Dolar canadiense', category: 'Major', enabled: true },
-  { symbol: 'USDCHF', name: 'Dolar / Franco suizo', category: 'Major', enabled: true },
-  // Crypto
+  // ── Crypto (binary broker OTC) ──────────────────────────────────
   { symbol: 'BTCUSD', name: 'Bitcoin / Dolar', category: 'Crypto', enabled: true },
   { symbol: 'ETHUSD', name: 'Ethereum / Dolar', category: 'Crypto', enabled: true },
   { symbol: 'SOLUSD', name: 'Solana / Dolar', category: 'Crypto', enabled: true },
   { symbol: 'XRPUSD', name: 'XRP / Dolar', category: 'Crypto', enabled: true },
-  // Commodities
+
+  // ── Commodities ──────────────────────────────────────────────────
   { symbol: 'XAUUSD', name: 'Oro / Dolar', category: 'Commodities', enabled: true },
   { symbol: 'XAGUSD', name: 'Plata / Dolar', category: 'Commodities', enabled: true },
   { symbol: 'OILUSD', name: 'Petroleo WTI / Dolar', category: 'Commodities', enabled: true },
-  // Indices
+
+  // ── Indices ──────────────────────────────────────────────────────
   { symbol: 'SPX500', name: 'S&P 500', category: 'Indices', enabled: true },
   { symbol: 'NAS100', name: 'Nasdaq 100', category: 'Indices', enabled: true },
   { symbol: 'DJI30', name: 'Dow Jones 30', category: 'Indices', enabled: true },
 ];
+
+export const AVAILABLE_FOREX_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = CATALOG.filter(
+  (i) => i.category !== 'Crypto' && i.category !== 'Commodities' && i.category !== 'Indices',
+);
+
+export const AVAILABLE_BINARY_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = CATALOG;
 
 export const INSTRUMENT_CATEGORY_LABEL: Record<InstrumentCategory, string> = {
   Major: 'Mayores',

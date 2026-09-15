@@ -77,7 +77,7 @@ export const BinaryFormSchema = z.object({
   type: z.literal('BINARY'),
   pair: z.string().min(1, 'Instrumento requerido').max(16),
   direction: z.enum(['CALL', 'PUT']),
-  investment_usd: DecimalString({ min: 1, max: 10000, label: 'Inversion USD' }),
+  investment_usd: DecimalString({ min: 1, max: 404, label: 'Inversion USD' }),
   payout_pct: DecimalString({ min: 70, max: 1000, label: 'Payout %' }),
   expiration_seconds: z
     .union([z.string(), z.number()])

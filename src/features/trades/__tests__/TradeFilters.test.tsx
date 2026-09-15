@@ -61,12 +61,11 @@ function renderFilters(opts: RenderOpts = {}) {
 }
 
 describe('TradeFilters', () => {
-  it('renderiza los 5 selects + 2 inputs + export', () => {
+  it('renderiza los 2 selects + 2 inputs + export (account filter vive en AccountSelector)', () => {
     mockAccountsEmpty();
     renderFilters();
     expect(screen.getByTestId('filter-status')).toBeInTheDocument();
     expect(screen.getByTestId('filter-type')).toBeInTheDocument();
-    expect(screen.getByTestId('filter-account')).toBeInTheDocument();
     expect(screen.getByTestId('filter-from')).toBeInTheDocument();
     expect(screen.getByTestId('filter-to')).toBeInTheDocument();
     expect(screen.getByTestId('trade-export-csv')).toBeInTheDocument();

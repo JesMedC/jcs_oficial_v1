@@ -1,174 +1,125 @@
 /*
- * p0d.2 — Portal DashboardPage.
+ * Portal DashboardPage — analytic welcome surface.
  *
- * FASE 4C turned this page into the institutional analytics
- * dashboard. Information is split across three tabs so the trader
- * isn't overwhelmed:
+ * FASE 6 — Diario redesign final layout (75/25 split):
  *
- *   - Resumen    → HUD principal (cashflow, win-rate, P&L) +
- *                   curva de balance + calendario P&L mensual
- *   - Mercado    → distribución binarias/forex, top pairs,
- *                   fuerza de divisas
- *   - Disciplina → profit factor, max drawdown, score disciplina,
- *                   heatmap horarios
+ *   ┌─ Header (greeting + selector + new trade CTA) ─────────────┐
+ *   ├─ 6-metric winrate by session (full-width) ──────────────────┤
+ *   ├─ 75% chart panel ─── 25% right rail ────────────────────────┐
+ *   │  PerformanceCurveChart   RecentActivityFeed (last 5 ops)  │
+ *   │  (jade area + volume bars)                                  │
+ *   │  CapitalCurveChart       KPI block (HOY + MES, stacked)   │
+ *   │  (cyan dashed balance line)                                 │
+ *   └─────────────────────────────────────────────────────────────┘
  *
- * FASE 4D wired every panel to real data via `useDashboardData`
- * (which derives every metric from the user's actual trades and
- * accounts). No more synthetic seeds — the numbers reflect what
- * the user actually did.
- *
- * FASE 4E added an `AccountSelector` above the tabs so the trader
- * can scope the entire dashboard to a single account or aggregate
- * across all of them. The selector lives in local state and is
- * passed into `useDashboardData({ accountId })` so every panel
- * (cashflow, equity curve, market distribution, profit factor,
- * discipline, etc.) recomputes when the scope changes. Hidden when
- * there's only one active account.
- *
- * Identity (avatar + logout) lives in SidebarFooter. Plan lives in
- * Configuración. The dashboard itself is purely analytical.
+ * Hook wiring:
+ *   - ``useTradesAll`` is called once with the active scope and the
+ *     same list is threaded into:
+ *     * ``DashboardKPIsGrid`` for the HOY + MES KPI block (now
+ *       in the right rail, stacked vertically via ``layout="vertical"``)
+ *     * ``RecentActivityFeed`` for the right-rail trades (now with
+ *       a "Cerrar" chip for OPEN rows)
+ *     * ``useEquityCurve`` for the operations-only + volume series
+ *       that feed both Performance and Capital curve charts
+ *   - The same ``points`` array is fed into BOTH
+ *     ``PerformanceCurveChart`` and ``CapitalCurveChart`` so the
+ *     X axis stays aligned and a flat performance + rising capital
+ *     reads as "skill stayed flat, capital went in".
+ *   - Account selector drives scope for trades + workspace pick.
  */
-import { useState } from 'react';
+import { useContext, useMemo, useState } from 'react';
 
 import { useAuth } from '../../features/auth/useAuth';
 import { SeoHead } from '../../components/SeoHead';
-import { Tabs } from '../../components/ui/Tabs';
-import { CashflowPanel } from '../../components/dashboard/CashflowPanel';
-import { WinRateGauge } from '../../components/dashboard/WinRateGauge';
-import { PnLPanel } from '../../components/dashboard/PnLPanel';
-import { EquityCurveChart } from '../../components/dashboard/EquityCurveChart';
-import { PnLHeatmap } from '../../components/dashboard/PnLHeatmap';
-import { MarketDistribution } from '../../components/dashboard/MarketDistribution';
-import { TopPairsList } from '../../components/dashboard/TopPairsList';
-import { CurrencyStrengthMeter } from '../../components/dashboard/CurrencyStrengthMeter';
-import { ProfitFactorDisplay } from '../../components/dashboard/ProfitFactorDisplay';
-import { MaxDrawdownBar } from '../../components/dashboard/MaxDrawdownBar';
-import { DisciplineScore } from '../../components/dashboard/DisciplineScore';
-import { TimeHeatmap } from '../../components/dashboard/TimeHeatmap';
 import { AccountSelector } from '../../components/dashboard/AccountSelector';
-import {
-  TIME_HEATMAP_DAYS,
-  TIME_HEATMAP_HOURS,
-  useDashboardData,
-} from '../../features/dashboard/useDashboardData';
-
-/**
- * Mini hint shown above the analytics when the user has OPEN trades
- * but no closed history yet. P&L panels render $0 because P&L is
- * only known after close — this banner explains why.
- */
-function OpenOnlyHint({ openTrades }: { readonly openTrades: number }) {
-  return (
-    <div
-      role="status"
-      data-testid="dash-open-only-hint"
-      className="flex items-start gap-3 px-3 py-2 rounded-md border border-[rgba(243,185,78,0.35)] bg-[rgba(243,185,78,0.06)]"
-    >
-      <svg
-        width="16"
-        height="16"
-        viewBox="0 0 24 24"
-        fill="none"
-        stroke="#F3B94E"
-        strokeWidth="2"
-        aria-hidden="true"
-        className="mt-0.5 shrink-0"
-        style={{ filter: 'drop-shadow(0 0 4px #F3B94E)' }}
-      >
-        <circle cx="12" cy="12" r="10" />
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
-      </svg>
-      <span className="font-body text-xs text-text-secondary leading-snug">
-        <span className="font-display uppercase tracking-wide text-[10px] text-[#F3B94E] mr-1">
-          {openTrades} operacion{openTrades === 1 ? '' : 'es'} abierta{openTrades === 1 ? '' : 's'}:
-        </span>
-        las metricas de P&L muestran 0 hasta que cierres. La equity
-        curve y los heatmaps iran apareciendo con cada cierre.
-      </span>
-    </div>
-  );
-}
-
-function ResumenTab({ accountId }: { readonly accountId: string | null }) {
-  const data = useDashboardData({ accountId });
-  const { equityCurve, cashflow, monthlyHeatmap, winRate, openTrades } = data;
-  const wins = equityCurve.filter((p) => p.pnl > 0).length;
-  const losses = equityCurve.filter((p) => p.pnl < 0).length;
-  const net = cashflow.grossProfit - cashflow.grossLoss;
-  const growthPct =
-    cashflow.totalDeposits > 0
-      ? (net / cashflow.totalDeposits) * 100
-      : 0;
-  const injectionDates: string[] = [];
-
-  return (
-    <div className="space-y-4">
-      {openTrades > 0 && equityCurve.length === 0 ? (
-        <OpenOnlyHint openTrades={openTrades} />
-      ) : null}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <CashflowPanel data={cashflow} />
-        <WinRateGauge winRate={winRate} wins={wins} losses={losses} />
-        <PnLPanel
-          net={net}
-          grossProfit={cashflow.grossProfit}
-          grossLoss={cashflow.grossLoss}
-          growthPct={growthPct}
-        />
-      </div>
-      <EquityCurveChart points={equityCurve} injectionDates={injectionDates} />
-      <PnLHeatmap weeks={monthlyHeatmap} />
-    </div>
-  );
-}
-
-function MercadoTab({ accountId }: { readonly accountId: string | null }) {
-  const { market, topPairs, currencyStrength, openTrades, equityCurve } =
-    useDashboardData({ accountId });
-  return (
-    <div className="space-y-4">
-      {openTrades > 0 && equityCurve.length === 0 ? (
-        <OpenOnlyHint openTrades={openTrades} />
-      ) : null}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <MarketDistribution slices={market} />
-        <TopPairsList pairs={topPairs} />
-      </div>
-      <CurrencyStrengthMeter currencies={currencyStrength} />
-    </div>
-  );
-}
-
-function DisciplinaTab({ accountId }: { readonly accountId: string | null }) {
-  const { advanced, timeHeatmap, openTrades, equityCurve } =
-    useDashboardData({ accountId });
-  return (
-    <div className="space-y-4">
-      {openTrades > 0 && equityCurve.length === 0 ? (
-        <OpenOnlyHint openTrades={openTrades} />
-      ) : null}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <ProfitFactorDisplay profitFactor={advanced.profitFactor} />
-        <MaxDrawdownBar drawdownPct={advanced.maxDrawdownPct} />
-        <DisciplineScore score={advanced.disciplineScore} />
-      </div>
-      <TimeHeatmap
-        matrix={timeHeatmap}
-        hours={TIME_HEATMAP_HOURS}
-        days={TIME_HEATMAP_DAYS}
-      />
-    </div>
-  );
-}
+import { CapitalCurveChart } from '../../components/dashboard/CapitalCurveChart';
+import { DashboardSummaryStrip } from '../../components/dashboard/DashboardSummaryStrip';
+import { PerformanceCurveChart } from '../../components/dashboard/PerformanceCurveChart';
+import { RecentActivityFeed } from '../../components/dashboard/RecentActivityFeed';
+import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
+import { AlertsToast } from '../../components/scanner/AlertsToast';
+import { DashboardKPIsGrid } from '../../features/trades/DashboardKPIsGrid';
+import { useEquityCurve } from '../../features/dashboard/useEquityCurve';
+import { useAccounts } from '../../features/accounts/hooks';
+import { useTradesAll } from '../../features/trades/useTradesAll';
+import { useNewTradeDrawer } from '../../stores/useNewTradeDrawer';
+import { AuthContext } from '../../features/auth/AuthProvider';
 
 export function DashboardPage() {
   const { user } = useAuth();
-  // `null` = aggregate across every active account. Setting a
-  // specific id scopes every panel (cashflow, equity curve, market
-  // distribution, profit factor, etc.) to that single account.
+  const authCtx = useContext(AuthContext);
+  const accountsQuery = useAccounts();
+  const openDrawer = useNewTradeDrawer((s) => s.open);
+
+  // Workspace id resolution — pick the first active account's
+  // workspace. Falls back to the auth context's first workspace if
+  // no accounts have loaded yet.
+  const firstAccountWorkspaceId = accountsQuery.data?.items[0]?.workspace_id;
+  const workspaceId =
+    firstAccountWorkspaceId ?? authCtx?.user?.workspaces[0]?.id ?? '';
+
+  // `null` = aggregate across every active account. The selector is
+  // the source of truth; downstream consumers (chart, KPIs, feed) all
+  // read it via the same scope filter.
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(
     null,
   );
+
+  // Single trade fetch — shared across the KPIs grid, equity curve
+  // and recent-activity feed. Same scope contract as the calendar's
+  // day-detail panel.
+  const tradesAll = useTradesAll(
+    selectedAccountId !== null ? { account_id: selectedAccountId } : {},
+  );
+
+  // Defense-in-depth: only keep trades whose account is in the
+  // user's active accounts list. Same pattern as the calendar.
+  const tradesScoped = useMemo(() => {
+    const ids = new Set<string>();
+    for (const a of accountsQuery.data?.items ?? []) ids.add(a.id);
+    return (tradesAll.trades ?? []).filter((t) => ids.has(t.account_id));
+  }, [tradesAll.trades, accountsQuery.data]);
+
+  // Aggregate balance across the active scope — feeds the chart
+  // subtitle "Capital agregado: $X" AND anchors the capital curve's
+  // last point so it lands on the user's real balance regardless of
+  // any calendar pnl_pct drift. When the selector pins a single
+  // account, the balance is scoped to that account so the chart and
+  // the subtitle never disagree about which money they're tracking.
+  const totalBalance = useMemo(() => {
+    const items = accountsQuery.data?.items ?? [];
+    const scoped =
+      selectedAccountId !== null
+        ? items.filter((a) => a.id === selectedAccountId)
+        : items;
+    return scoped.reduce((acc, a) => acc + Number(a.balance_usd ?? 0), 0);
+  }, [accountsQuery.data, selectedAccountId]);
+
+  const equityCurve = useEquityCurve({
+    workspaceId,
+    tradesForDayPanel: tradesScoped,
+    accountId: selectedAccountId,
+    days: 15,
+    // Anchor the capital curve's last point to the real broker
+    // balance so the chart ends exactly at the user's current
+    // figure (no more spurious "spike" on the last day caused by
+    // the ``day_start × (1 + pnl_pct)`` approximation drifting
+    // when FUND/WITHDRAW happen mid-window).
+    currentBalance: totalBalance,
+  });
+
+  const scopeLabel = (() => {
+    if (!selectedAccountId) return null;
+    const a = accountsQuery.data?.items.find((x) => x.id === selectedAccountId);
+    return a ? `${a.name} · ${a.type} · ${a.balance_usd}` : null;
+  })();
+
+  const formatUsd = (n: number): string =>
+    new Intl.NumberFormat('es-AR', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+    }).format(n);
 
   return (
     <>
@@ -178,51 +129,140 @@ export function DashboardPage() {
         canonicalPath="/portal/dashboard"
         noindex
       />
+      {/* Market Analyzer Bot — live alert toast stack. Mounted once
+          near the top of the rendered tree so the floating layer
+          sits above every other dashboard surface (z-50 in
+          AlertsToast). The hook subscribes to /api/v1/scanner/ws
+          and the component renders the most recent alerts as
+          toasts that auto-dismiss after 8s. */}
+      <AlertsToast />
       <div className="w-full px-2 md:px-4">
-        <div className="py-4">
-          <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
-            Panel principal
-          </span>
-          <h1 className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1">
-            Hola, {user?.first_name ?? 'trader'}
-          </h1>
-          <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
-            Tu centro de mando: cashflow, mercado y disciplina, todo en
-            una sola vista.
-          </p>
+        {/* ---- Header ---- */}
+        <div className="flex items-start justify-between gap-4 flex-wrap py-4">
+          <div>
+            <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
+              Panel principal
+            </span>
+            <h1
+              className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
+              style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}
+            >
+              Hola, {user?.first_name ?? 'trader'}
+            </h1>
+            <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
+              Tu centro de mando: cashflow, mercado y disciplina, todo en
+              una sola vista.
+            </p>
+          </div>
+          <div className="flex items-center gap-3 flex-wrap">
+            <AccountSelector
+              value={selectedAccountId}
+              onChange={setSelectedAccountId}
+            />
+            <button
+              type="button"
+              data-testid="dash-new-trade"
+              onClick={openDrawer}
+              className="px-3 py-1.5 rounded-md bg-primary text-bg font-display uppercase tracking-wide text-xs hover:shadow-[0_0_16px_rgba(0,255,157,0.45)] transition-shadow"
+            >
+              + Nuevo trade
+            </button>
+          </div>
         </div>
 
-        <div className="py-4">
-          <AccountSelector
-            value={selectedAccountId}
-            onChange={setSelectedAccountId}
-          />
-        </div>
+        {/* ---- 6-metric winrate (general + 4 sessions) — REQ-WRS-007 ----
+         *
+         * Full-width band sitting BEFORE the chart + activity-feed split
+         * so the user sees the per-session winrate as a high-level
+         * summary before diving into the curves and recent trades.
+         */}
+        {workspaceId !== '' && (
+          <div className="py-2" data-testid="dash-winrate-section">
+            <WinrateBySessionCard
+              workspaceId={workspaceId}
+              initialAccountId={selectedAccountId}
+              availableAccounts={(accountsQuery.data?.items ?? []).map((a) => ({
+                id: a.id,
+                name: a.name,
+              }))}
+            />
+          </div>
+        )}
 
-        <div className="py-4">
-          <Tabs
-            ariaLabel="Secciones del dashboard"
-            defaultActiveKey="resumen"
-            urlSyncKey="tab"
-            items={[
-              {
-                key: 'resumen',
-                label: 'Resumen',
-                panel: <ResumenTab accountId={selectedAccountId} />,
-              },
-              {
-                key: 'mercado',
-                label: 'Mercado',
-                panel: <MercadoTab accountId={selectedAccountId} />,
-              },
-              {
-                key: 'disciplina',
-                label: 'Disciplina',
-                panel: <DisciplinaTab accountId={selectedAccountId} />,
-              },
-            ]}
-          />
-        </div>
+        {/* ---- 75/25 split: performance + capital curves on the left,
+              RecentActivityFeed + stacked KPI block on the right ----
+         *
+         * The two charts STACK inside the 75% column so the eye
+         * reads them as a pair: PerformanceCurveChart (jade area +
+         * deposit/withdraw histogram) on top, CapitalCurveChart
+         * (cyan dashed balance line) below. The right rail keeps
+         * the RecentActivityFeed on top and stacks the HOY + MES
+         * KPI cards one under the other below it (vertical layout —
+         * the narrow column doesn't have room for the horizontal
+         * 3-up strip).
+         */}
+        {workspaceId !== '' && (
+          <>
+            {/* Headline KPIs sit as a full-width band RIGHT BELOW
+                the WinrateBySessionCard so the four summary cards
+                (Balance Total / Operaciones / P&L Neto / Win Rate)
+                have room to breathe across the full viewport,
+                not just the 25% right rail. */}
+            <div className="py-2" data-testid="dash-summary-section">
+              <DashboardSummaryStrip
+                balanceTotal={totalBalance}
+                tradesForCount={tradesScoped}
+              />
+            </div>
+
+            <div className="py-4 grid grid-cols-1 lg:grid-cols-4 gap-4">
+              <div
+                className="lg:col-span-3 min-w-0 flex flex-col gap-4"
+                data-testid="dash-equity-curve-section"
+              >
+                <PerformanceCurveChart
+                  points={equityCurve.points.map((p) => ({
+                    date: p.date,
+                    account_balance: p.account_balance,
+                    cumulative_net_pnl: p.cumulative_net_pnl,
+                    daily_pnl: p.daily_pnl,
+                    capital_volume: p.capital_volume,
+                    trades: p.trades,
+                  }))}
+                  scopeLabel={scopeLabel}
+                />
+                <CapitalCurveChart
+                  points={equityCurve.points.map((p) => ({
+                    date: p.date,
+                    account_balance: p.account_balance,
+                    cumulative_net_pnl: p.cumulative_net_pnl,
+                    daily_pnl: p.daily_pnl,
+                    capital_volume: p.capital_volume,
+                    trades: p.trades,
+                  }))}
+                  scopeLabel={scopeLabel}
+                  headerSubtitle={
+                    totalBalance > 0
+                      ? `Capital agregado: ${formatUsd(totalBalance)}`
+                      : undefined
+                  }
+                />
+              </div>
+              <div className="lg:col-span-1 min-w-0 flex flex-col gap-4">
+                <RecentActivityFeed trades={tradesScoped} />
+                <DashboardKPIsGrid
+                  filters={
+                    selectedAccountId !== null
+                      ? { account_id: selectedAccountId }
+                      : {}
+                  }
+                  tradesForKpis={tradesScoped}
+                  layout="vertical"
+                />
+              </div>
+            </div>
+          </>
+        )}
       </div>
     </>
   );

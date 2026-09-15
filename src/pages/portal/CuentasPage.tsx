@@ -1,34 +1,22 @@
 /*
  * p0d.3 / p0e.3 — Portal CuentasPage (real).
- * portal-fase0a-base — migrated data fetching from useEffect+axios to
- *         TanStack Query via useAccounts(). The create-account form
- *         still uses a one-shot mutation so the form keeps working
- *         without rewriting the input bindings. After a successful
- *         create the ['accounts'] query is invalidated, the same way
- *         useCreateTrade invalidates after a new trade.
  *
- * FASE 2A — Per-row action buttons (Fondear / Retirar / Eliminar).
- * The list was previously a read-only nav: clicking any cell navigated
- * to /portal/cuentas/{id}. The user reported they could not deposit or
- * withdraw from the listing, so the table now exposes three buttons per
- * row that open the existing FundWithdrawModal (mode='fund'|'withdraw')
- * and DeleteAccountDialog. After a successful mutation we invalidate
- * ['accounts'] so the table re-renders with the new balance.
+ * FASE 4E-revive: el form inline de "Crear cuenta" se eliminó de esta
+ * página. La creación ahora vive ÚNICAMENTE en el modal del FAB
+ * (``<QuickActionModals>`` + ``<FloatingActionButton>``) para evitar
+ * duplicar el mismo flujo en dos lugares. Esta página queda enfocada
+ * en el listado y las acciones por fila (Fondear / Retirar / Eliminar).
  *
  * Render shape:
  *   - SeoHead "Mis cuentas" (noindex — portal surfaces don't rank)
  *   - H1 in Orbitron jade with glow (matches admin pages)
  *   - ErrorBanner for API failures
- *   - Create form in a GlassCard (broker_name text, type select with
- *     BINARY/FOREX, name text) — submit disabled while in-flight
- *   - List section in a GlassCard with overflow-x-auto and a <table>;
- *     each row carries three action buttons (Fondear / Retirar /
- *     Eliminar) that open the corresponding modal. Empty state shows
- *     the "create the first one" hint.
- *
- * p0e.3: every cell wraps a <Link> to ``/portal/cuentas/{id}`` so the
- * whole row navigates to the new detail panel. The row also gets a
- * subtle jade hover tint (``bg-primary/5``) to signal it's clickable.
+ *   - Stat strip driven by real aggregations from ``useTradesAll``,
+ *     client-side filtered to the user's currently-active accounts so
+ *     trades that belong to soft-deleted accounts never bleed in.
+ *     Synthetic only as a fallback while the trade query is loading.
+ *   - List section in a GlassCard con botones por fila (Fondear /
+ *     Retirar / Eliminar). Empty state apunta al FAB del shell.
  *
  * Per mem #68, copy is Spanish. Per mem #70 the primary token is
  * the neon jade primary and the Orbitron display font is used for
@@ -46,27 +34,13 @@ import { seedSeries } from '../../components/trading/series';
 import { StatCard } from '../../components/trading/StatCard';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
-import { createAccountApi } from '../../features/accounts/api';
 import { useAccounts } from '../../features/accounts/hooks';
+import { useTradesAll } from '../../features/trades/useTradesAll';
 import {
   ACCOUNT_TYPE_BADGE,
   type AccountOut,
-  type AccountTypeLiteral,
-  type CreateAccountPayload,
 } from '../../features/accounts/types';
 import type { ErrorEnvelope } from '../../features/auth/types';
-
-interface CreateFormState {
-  readonly broker_name: string;
-  readonly type: AccountTypeLiteral;
-  readonly name: string;
-}
-
-const EMPTY_FORM: CreateFormState = {
-  broker_name: '',
-  type: 'BINARY',
-  name: '',
-};
 
 function formatBalance(raw: string): string {
   const n = Number(raw);
@@ -90,8 +64,6 @@ export function CuentasPage() {
   const loading = accountsQuery.isLoading;
   const queryError = accountsQuery.error as ErrorEnvelope | null;
   const [error, setError] = useState<ErrorEnvelope | null>(null);
-  const [creating, setCreating] = useState<boolean>(false);
-  const [form, setForm] = useState<CreateFormState>(EMPTY_FORM);
   const queryClient = useQueryClient();
 
   // The FAB's quick actions (fund/withdraw/newAccount) are all
@@ -132,62 +104,56 @@ export function CuentasPage() {
     setDeleteModal({ open: false, account: null });
   };
 
-  // ---- Resumen de trading (stats cards). Mientras el modulo de trades
-  // no este conectado al backend, los valores son sinteticos pero
-  // derivados deterministamente de las cuentas reales — asi la UI de
-  // trading no se ve vacia y al conectar el modulo se reemplaza sin
-  // tocar la estructura del componente. ----
+  // ---- Resumen de trading (stats cards).
+  //
+  // Real aggregations from ``useTradesAll`` (already user-scoped on
+  // the backend). We filter client-side to the user's currently-
+  // active accounts so trades that belong to soft-deleted accounts
+  // never leak into the KPIs — the backend can't know which
+  // accounts the UI considers "active", so this stays a client-side
+  // concern. ``useTradesAll`` exposes ``isLoading`` for the future
+  // skeleton branch; for now the values just render as zero while
+  // the trade query is in flight, which is the same behaviour as the
+  // synthetic block used to ship. ----
   const totalBalance = accounts.reduce((acc, a) => acc + Number(a.balance_usd || 0), 0);
-  // Delta simulado: 8% del total con signo segun el primer balance.
-  const totalBalanceDeltaPct =
+
+  const tradesAllQuery = useTradesAll();
+  const activeAccountIds = new Set(accounts.map((a) => a.id));
+  const visibleTrades = tradesAllQuery.trades.filter((t) =>
+    activeAccountIds.has(t.account_id),
+  );
+
+  // Operations count — every trade (open + closed) the user has on
+  // their active accounts.
+  const totalOperations = visibleTrades.length;
+
+  // Closed trades only contribute P&L — OPEN trades carry ``pnl_usd
+  // === null``. Same convention as ``useTradesAll.totalPnl`` so
+  // header and table agree.
+  const netPnl = visibleTrades.reduce(
+    (acc, t) => (t.status === 'OPEN' ? acc : acc + Number(t.pnl_usd ?? 0)),
+    0,
+  );
+
+  // Win / loss counts by terminal status. ``CLOSED_BREAK`` is
+  // intentionally excluded from both buckets — the trade closed but
+  // it wasn't a win OR a loss, so it shouldn't tilt the win-rate
+  // ratio.
+  const winningTrades = visibleTrades.filter((t) => t.status === 'CLOSED_WIN').length;
+  const losingTrades = visibleTrades.filter((t) => t.status === 'CLOSED_LOSS').length;
+  const decidedTrades = winningTrades + losingTrades;
+  const winRate = decidedTrades === 0 ? 0 : Math.round((winningTrades / decidedTrades) * 100);
+
+  // P&L as a percentage of the current balance — meaningful only
+  // when there is a real balance to compare against. Without a
+  // "vs. semana anterior" history endpoint the only honest delta is
+  // "sobre balance".
+  const netPnlPctText =
     totalBalance === 0
-      ? '0.00'
-      : (
-          (Number.isFinite(accounts[0]?.balance_usd) ? 8.42 : 0) *
-          (totalBalance >= 0 ? 1 : -1)
-        ).toFixed(2);
-
-  // Cantidad de operaciones — derivado del numero de cuentas para que
-  // cambie con la lista real.
-  const totalOperations = accounts.length * 7 + 12;
-
-  // P&L neto simulado — 24% del total con signo derivado del balance.
-  const netPnl = Math.round(totalBalance * 0.24);
-  const netPnlPct = totalBalance === 0 ? '0.0' : (24).toFixed(1);
-
-  // Win rate simulado — depende del id mas bajo para que sea estable
-  // entre renders pero distinto entre cuentas.
-  const winningTrades = 12 + (accounts.length % 5);
-  const losingTrades = Math.max(2, Math.round(winningTrades * 0.37));
-  const totalTrades = winningTrades + losingTrades;
-  const winRate = totalTrades === 0 ? 0 : Math.round((winningTrades / totalTrades) * 100);
+      ? '—'
+      : `${netPnl >= 0 ? '+' : ''}${((netPnl / totalBalance) * 100).toFixed(1)}% sobre balance`;
 
   const displayedError = error ?? queryError;
-
-  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const broker = form.broker_name.trim();
-    const name = form.name.trim();
-    if (broker.length === 0 || name.length === 0) return;
-    if (broker.length > 100 || name.length > 100) return;
-
-    const payload: CreateAccountPayload = {
-      broker_name: broker,
-      type: form.type,
-      name,
-    };
-    setCreating(true);
-    try {
-      await createAccountApi(payload);
-      setForm(EMPTY_FORM);
-      setError(null);
-      await queryClient.invalidateQueries({ queryKey: ['accounts'] });
-    } catch (err) {
-      setError(err as ErrorEnvelope);
-    } finally {
-      setCreating(false);
-    }
-  };
 
   return (
     <>
@@ -197,7 +163,10 @@ export function CuentasPage() {
           <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
             Resumen · Trading
           </span>
-          <h1 className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1">
+          <h1
+            className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
+            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}
+          >
             Mis cuentas
           </h1>
           <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
@@ -208,23 +177,20 @@ export function CuentasPage() {
           <ErrorBanner error={displayedError} onDismiss={() => setError(null)} className="mt-4 mb-2" />
         </div>
 
-        {/* Stat strip — resumen de trading. Datos sinteticos mientras el
-            modulo de trades no este conectado (los balances reales vienen
-            del backend; los deltas/sparklines se derivan deterministamente
-            para que la UI de trading no se vea vacia). */}
+        {/* Stat strip — resumen de trading. Real data from
+            ``useTradesAll``, filtered to the active accounts so trades
+            belonging to soft-deleted accounts never show up here. No
+            "vs. semana anterior" delta yet — we'd need a historical
+            endpoint to render it honestly. */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 py-4">
           <StatCard
             label="Balance total"
             value={formatBalance(String(totalBalance))}
-            {...(totalBalanceDeltaPct !== '0.00'
-              ? { delta: `${totalBalanceDeltaPct}% vs. semana anterior` }
-              : {})}
             accent={totalBalance >= 0 ? 'jade' : 'loss'}
           />
           <StatCard
             label="Operaciones"
             value={String(totalOperations)}
-            delta="ultimos 30 dias"
             accent="jade"
             rightSlot={
               <Sparkline
@@ -238,7 +204,7 @@ export function CuentasPage() {
           <StatCard
             label="P&L neto"
             value={formatBalance(String(netPnl))}
-            delta={`${netPnl >= 0 ? '+' : ''}${netPnlPct}% win rate`}
+            delta={netPnlPctText}
             accent={netPnl >= 0 ? 'profit' : 'loss'}
           />
           <StatCard
@@ -247,68 +213,6 @@ export function CuentasPage() {
             delta={`${winningTrades} gan. / ${losingTrades} per.`}
             accent={winRate >= 50 ? 'profit' : 'warning'}
           />
-        </div>
-
-        <div className="py-4">
-          <GlassCard variant="default">
-          <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
-            Crear cuenta
-          </h2>
-          <form onSubmit={handleSubmit} className="grid grid-cols-1 md:grid-cols-3 gap-3 md:gap-4">
-            <label className="flex flex-col gap-1">
-              <span className="font-display uppercase tracking-wide text-xs text-text-muted">
-                Broker
-              </span>
-              <input
-                type="text"
-                value={form.broker_name}
-                onChange={(e) => setForm((f) => ({ ...f, broker_name: e.target.value }))}
-                maxLength={100}
-                required
-                placeholder="Pocket Option"
-                className="w-full font-body focus:outline-none transition-all"
-              />
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-display uppercase tracking-wide text-xs text-text-muted">
-                Tipo
-              </span>
-              <select
-                value={form.type}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, type: e.target.value as AccountTypeLiteral }))
-                }
-                className="w-full font-body focus:outline-none transition-all"
-              >
-                <option value="BINARY">Binary</option>
-                <option value="FOREX">Forex</option>
-              </select>
-            </label>
-            <label className="flex flex-col gap-1">
-              <span className="font-display uppercase tracking-wide text-xs text-text-muted">
-                Nombre
-              </span>
-              <input
-                type="text"
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                maxLength={100}
-                required
-                placeholder="Cuenta principal"
-                className="w-full font-body focus:outline-none transition-all"
-              />
-            </label>
-            <div className="md:col-span-3 flex justify-end">
-              <button
-                type="submit"
-                disabled={creating}
-                className="btn-cyber-jade px-4 py-2 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {creating ? 'Creando...' : 'Crear cuenta'}
-              </button>
-            </div>
-          </form>
-        </GlassCard>
         </div>
 
         <section className="py-4">
@@ -343,7 +247,7 @@ export function CuentasPage() {
                       colSpan={6}
                       className="px-4 py-6 text-center text-text-muted font-body"
                     >
-                      No tenés cuentas todavía. Creá la primera con el formulario.
+                      No tenés cuentas todavía. Usá el botón + (abajo a la derecha) para crear la primera.
                     </td>
                   </tr>
                 ) : (
