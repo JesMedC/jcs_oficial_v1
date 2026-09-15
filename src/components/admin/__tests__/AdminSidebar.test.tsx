@@ -27,6 +27,7 @@ function buildAuthValue(role: 'USER' | 'ADMIN' | 'BOTH'): AuthContextValue {
     role,
     workspaces: [],
     current_subscription: null,
+    timezone: 'UTC',
   };
   return {
     user: me,

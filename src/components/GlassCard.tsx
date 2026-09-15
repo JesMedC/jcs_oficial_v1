@@ -20,12 +20,12 @@ type GlassCardProps<E extends ElementType> = GlassCardOwnProps & {
 // street board) se vea parcialmente a traves, manteniendo legibilidad
 // por el border + blur + tipografia clara.
 const BASE_GLASS =
-  'relative bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] border border-[rgba(0,255,157,0.15)] opacity-70';
+  'relative bg-[var(--glass-surface)] backdrop-blur-[12px] border border-[var(--color-jade-border)] opacity-70';
 
 const variantClasses: Record<GlassCardVariant, string> = {
   default: `${BASE_GLASS} rounded-xl p-6`,
   elevated: `${BASE_GLASS} rounded-xl p-6`,
-  interactive: `${BASE_GLASS} rounded-xl p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-[rgba(0,255,157,0.30)]`,
+  interactive: `${BASE_GLASS} rounded-xl p-6 transition-all duration-200 hover:-translate-y-0.5 hover:border-[var(--color-jade-border-line)] hover:shadow-[0_0_32px_rgba(0,255,157,0.15)]`, // design-system-v1 (Wave 3b, T3b.1) — neon-jade hover shadow at 0.15 alpha.
 };
 
 export function GlassCard<E extends ElementType = 'div'>(props: GlassCardProps<E>) {
