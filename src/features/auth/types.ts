@@ -41,6 +41,9 @@ export interface WorkspaceOut {
   readonly plan_tier: WorkspacePlanTier;
   readonly role_in_workspace: WorkspaceMemberRole;
   readonly created_at: string;
+  // REQ-DSC-007: frontend surfaces this in the Disciplina tab.
+  // ``null`` means "use the plan ceiling" (REQ-DSC-003).
+  readonly session_ops_cap: number | null;
 }
 
 /*
@@ -92,6 +95,12 @@ export interface SubscriptionOut {
  * optional `current_subscription: SubscriptionOut | null` field was
  * added by p0b.1a so the dashboard can render the trial/active state
  * without a second round-trip.
+ *
+ * FIX-4: `timezone` is exposed so the frontend can detect when the
+ * stored value is the legacy ``"UTC"`` backfill (migration 0011) and
+ * silently PATCH the user's real browser TZ on first load. Without
+ * this field the calendar's day/session bucketing would lag the
+ * browser clock until the user manually opens a settings panel.
  */
 export interface AuthMeOut {
   readonly user_id: string;
@@ -102,6 +111,7 @@ export interface AuthMeOut {
   readonly role: UserRole;
   readonly workspaces: readonly WorkspaceOut[];
   readonly current_subscription: SubscriptionOut | null;
+  readonly timezone: string;
 }
 
 export interface TokenOut {

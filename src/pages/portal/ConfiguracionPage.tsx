@@ -9,6 +9,8 @@
  *                  per market (FOREX / BINARY). The same list feeds
  *                  the pair picker in NewTradeForm so the settings
  *                  panel shows what the trader can actually pick.
+ *   - "Disciplina" → per-workspace session-ops cap (REQ-DSC-007).
+ *                   Added by sessions-configurable-cap Slice B.
  *   - "Preferencias" → placeholder for future preferences
  *
  * Identity (avatar + logout) lives in the SidebarFooter since FASE 4B,
@@ -27,6 +29,7 @@ import {
   type InstrumentCategory,
   type InstrumentInfo,
 } from '../../features/trades/availableInstruments';
+import { DisciplinaTab } from './DisciplinaTab';
 import { useState } from 'react';
 
 function PlanTab() {
@@ -262,6 +265,11 @@ export function ConfiguracionPage() {
                 key: 'activos',
                 label: 'Activos',
                 panel: <ActivosTab />,
+              },
+              {
+                key: 'disciplina',
+                label: 'Disciplina',
+                panel: <DisciplinaTab />,
               },
               {
                 key: 'preferencias',

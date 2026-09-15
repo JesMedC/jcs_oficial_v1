@@ -7,15 +7,28 @@
  *      AuthContext supplies a workspace id.
  *   2. The fallback "Necesitás un workspace activo" renders when
  *      AuthContext is missing.
+ *
+ * FASE 6 added an AccountSelector on top; the page now also reads
+ * ``useAccounts`` (TanStack Query), so each render is wrapped in a
+ * QueryClientProvider just like the rest of the portal.
  */
 import { render, screen } from '@testing-library/react';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
+import type { ReactNode } from 'react';
 import { MemoryRouter } from 'react-router-dom';
 
 import * as apiHooks from '../../../features/dashboard/hooks';
 import { DiarioPage } from '../DiarioPage';
 import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
 import type { AuthMeOut } from '../../../features/auth/types';
+
+function makeWrapper() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+}
 
 function makeAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
   const base: AuthMeOut = {
@@ -25,8 +38,9 @@ function makeAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextVa
     last_name: 'Doe',
     phone: '+54',
     role: 'USER',
-    workspaces: [{ id: 'w1', name: 'WS1', plan_tier: 'NONE', role_in_workspace: 'OWNER', created_at: '2026-01-01T00:00:00.000Z' }],
+    workspaces: [{ id: 'w1', name: 'WS1', plan_tier: 'NONE', role_in_workspace: 'OWNER', created_at: '2026-01-01T00:00:00.000Z', session_ops_cap: null }],
     current_subscription: null,
+    timezone: 'UTC',
   };
   return {
     user: base,
@@ -55,13 +69,15 @@ describe('DiarioPage', () => {
 
     render(
       <MemoryRouter>
-        <AuthContext.Provider value={makeAuthValue()}>
-          <DiarioPage />
-        </AuthContext.Provider>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthContext.Provider value={makeAuthValue()}>
+            <DiarioPage />
+          </AuthContext.Provider>
+        </QueryClientProvider>
       </MemoryRouter>,
     );
 
-    expect(screen.getByRole('heading', { level: 1, name: /Diario/i })).toBeInTheDocument();
+    expect(screen.getByRole('heading', { level: 1, name: /Calendario P&L/i })).toBeInTheDocument();
     expect(screen.getByTestId('pnl-calendar')).toBeInTheDocument();
   });
 
@@ -75,9 +91,11 @@ describe('DiarioPage', () => {
 
     render(
       <MemoryRouter>
-        <AuthContext.Provider value={makeAuthValue({ user: null })}>
-          <DiarioPage />
-        </AuthContext.Provider>
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <AuthContext.Provider value={makeAuthValue({ user: null })}>
+            <DiarioPage />
+          </AuthContext.Provider>
+        </QueryClientProvider>
       </MemoryRouter>,
     );
 
@@ -94,7 +112,9 @@ describe('DiarioPage', () => {
 
     render(
       <MemoryRouter>
-        <DiarioPage />
+        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+          <DiarioPage />
+        </QueryClientProvider>
       </MemoryRouter>,
     );
 
