@@ -85,15 +85,15 @@ function InstrumentChip({ instrument }: { readonly instrument: InstrumentInfo })
       className={[
         'flex items-center gap-2 px-3 py-2 rounded-md border',
         enabled
-          ? 'border-[rgba(0,255,157,0.30)] bg-[rgba(0,255,157,0.06)]'
+          ? 'border-[rgba(0,212,216,0.30)] bg-[rgba(0,212,216,0.06)]'
           : 'border-[rgba(138,155,168,0.20)] bg-[rgba(138,155,168,0.04)]',
       ].join(' ')}
     >
       <span
         className="inline-block w-1.5 h-1.5 rounded-full"
         style={{
-          backgroundColor: enabled ? '#00FF9D' : '#8A9BA8',
-          boxShadow: enabled ? '0 0 6px #00FF9D' : 'none',
+          backgroundColor: enabled ? 'var(--color-jade)' : '#8A9BA8',
+          boxShadow: enabled ? '0 0 6px var(--color-jade)' : 'none',
         }}
         aria-hidden="true"
       />
@@ -167,7 +167,7 @@ function ActivosTab() {
   return (
     <div
       data-testid="tab-activos"
-      className="flex flex-col gap-4 border border-[rgba(0,255,157,0.15)] rounded-xl bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] p-5 md:p-6 opacity-70"
+      className="flex flex-col gap-4 border border-[rgba(0,212,216,0.15)] rounded-xl bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] p-5 md:p-6 opacity-70"
     >
       <div>
         <h2 className="font-display uppercase tracking-wide text-base md:text-lg text-text-primary">
@@ -183,8 +183,8 @@ function ActivosTab() {
       <div>
         <div className="flex items-center gap-2 mb-3">
           <span
-            className="inline-block w-1.5 h-1.5 rounded-full bg-[#00FF9D]"
-            style={{ boxShadow: '0 0 6px #00FF9D' }}
+            className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-jade)]"
+            style={{ boxShadow: '0 0 6px var(--color-jade)' }}
             aria-hidden="true"
           />
           <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
@@ -221,7 +221,7 @@ function ActivosTab() {
 
 function PreferenciasTab() {
   return (
-    <div className="border border-[rgba(0,255,157,0.15)] rounded-xl bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] p-6 opacity-70">
+    <div className="border border-[rgba(0,212,216,0.15)] rounded-xl bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] p-6 opacity-70">
       <h2 className="font-display uppercase tracking-wide text-base md:text-lg">
         Preferencias
       </h2>

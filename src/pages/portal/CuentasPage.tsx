@@ -165,7 +165,7 @@ export function CuentasPage() {
           </span>
           <h1
             className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
-            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}
+            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }}
           >
             Mis cuentas
           </h1>
@@ -284,13 +284,13 @@ export function CuentasPage() {
                               support we read the value off the account
                               (CurrencyOut-style field) here. */}
                           <span
-                            className="inline-flex items-center gap-1.5 border border-[rgba(0,255,157,0.35)] rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide text-[#00FF9D]"
-                            style={{ textShadow: '0 0 4px rgba(0,255,157,0.5)' }}
+                            className="inline-flex items-center gap-1.5 border border-[rgba(0,212,216,0.35)] rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide text-[var(--color-jade)]"
+                            style={{ textShadow: '0 0 4px rgba(0,212,216,0.5)' }}
                             title="Moneda de la cuenta"
                           >
                             <span
-                              className="inline-block w-1.5 h-1.5 rounded-full bg-[#00FF9D]"
-                              style={{ boxShadow: '0 0 4px #00FF9D' }}
+                              className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-jade)]"
+                              style={{ boxShadow: '0 0 4px var(--color-jade)' }}
                               aria-hidden="true"
                             />
                             USD

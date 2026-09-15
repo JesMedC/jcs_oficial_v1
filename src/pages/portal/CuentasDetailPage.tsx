@@ -139,7 +139,7 @@ export function CuentasDetailPage() {
         <div className="w-full px-2 md:px-4 py-3 md:py-4">
           <h1
             className="font-display uppercase tracking-wide text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}
+            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }}
           >
             Cuenta no encontrada
           </h1>
@@ -177,7 +177,7 @@ export function CuentasDetailPage() {
         <div className="mt-3 flex items-center gap-3 flex-wrap">
           <h1
             className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
+            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,212,216,*).
           >
             {account.name}
           </h1>
@@ -347,7 +347,7 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
         </span>
         <span
           className="font-display text-primary text-3xl tracking-wide"
-          style={{ textShadow: '0 0 16px rgba(0,255,157,0.3)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
+          style={{ textShadow: '0 0 16px rgba(0,212,216,0.3)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,212,216,*).
         >
           {formatUsd(account.balance_usd)}
         </span>
@@ -356,7 +356,7 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
         <button
           type="button"
           onClick={onFund}
-          className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow text-sm" // design-system-v1 (Wave 3d, T3d.1) — old-jade hover-shadow swapped for neon jade rgba(0,255,157,*).
+          className="inline-flex items-center justify-center bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,212,216,0.5)] transition-shadow text-sm" // design-system-v1 (Wave 3d, T3d.1) — old-jade hover-shadow swapped for neon jade rgba(0,212,216,*).
         >
           Fondear
         </button>
