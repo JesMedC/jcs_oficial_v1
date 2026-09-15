@@ -1,7 +1,7 @@
 /*
  * one-by-one-thousand-discipline (PR-2) — WinrateBySessionCard.
  *
- * 4-band session winrate tiles (ASIA / EUROPA / NY_AMERICA / NY_PM)
+ * 4-band session winrate tiles (ASIA / LONDON / NEW_YORK / SYDNEY)
  * plus a general tile. REQ-WRS-006/007 drive this composition:
  * integer % labels, no decorative breakdown, scope chip for
  * "all accounts" vs single account.
@@ -23,6 +23,10 @@ import { useMemo, useState } from 'react';
 
 import { useSessionStats } from '../../features/dashboard/hooks';
 import type { SessionBand, SessionTile } from '../../features/dashboard/hooks';
+import {
+  SESSION_LABELS,
+  SESSION_ORDER,
+} from '../../features/sessions';
 
 interface Props {
   readonly workspaceId: string;
@@ -40,14 +44,8 @@ interface Props {
   readonly availableAccounts?: ReadonlyArray<{ readonly id: string; readonly name: string }>;
 }
 
-const SESSION_ORDER: ReadonlyArray<SessionBand> = ['ASIA', 'EUROPA', 'NY_AMERICA', 'NY_PM'];
+// Pill / tile render uses SESSION_LABELS directly — no local alias.
 
-const SESSION_LABEL: Record<SessionBand, string> = {
-  ASIA: 'Asia',
-  EUROPA: 'Europa',
-  NY_AMERICA: 'NY AM',
-  NY_PM: 'NY PM',
-};
 
 function isoDaysAgo(days: number): string {
   const d = new Date();
@@ -67,7 +65,7 @@ function Tile({ band, tile }: { readonly band: SessionBand; readonly tile: Sessi
       className="rounded-lg border border-primary/20 bg-surface/40 backdrop-blur-md p-3"
     >
       <div className="text-[10px] font-display uppercase tracking-widest text-text-muted">
-        {SESSION_LABEL[band]}
+        {SESSION_LABELS[band]}
       </div>
       <div className={`text-xl font-display mt-1 ${empty ? 'text-text-muted' : 'text-primary'}`}>
         {empty ? '—' : `${tile.winrate_pct}%`}

@@ -2,13 +2,17 @@
  * one-by-one-thousand-discipline (PR-2) — WinrateBySessionCard tests.
  *
  * Locks the 4-band + general tile composition (REQ-WRS-006):
- *   1. Renders the 5 tiles (ASIA / EUROPA / NY_AMERICA / NY_PM /
+ *   1. Renders the 5 tiles (ASIA / LONDON / NEW_YORK / SYDNEY /
  *      general) with integer % labels.
  *   2. Empty bands render the "—" placeholder.
  *   3. Loading state shows skeletons, error state shows the
  *      fallback message.
  *   4. The scope chip only renders when more than one account is
  *      provided.
+ *
+ * Slice B (sessions-configurable-cap) renamed the legacy
+ * EUROPA / NY_AMERICA / NY_PM literals to the four real session
+ * names. The fixtures mirror the new payload + new tile testids.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
@@ -32,9 +36,9 @@ const SAMPLE_RESPONSE = {
   account_id: null,
   sessions: {
     ASIA: { trades: 4, wins: 3, winrate_pct: 75 },
-    EUROPA: { trades: 6, wins: 4, winrate_pct: 67 },
-    NY_AMERICA: { trades: 5, wins: 2, winrate_pct: 40 },
-    NY_PM: { trades: 3, wins: 1, winrate_pct: 33 },
+    LONDON: { trades: 6, wins: 4, winrate_pct: 67 },
+    NEW_YORK: { trades: 5, wins: 2, winrate_pct: 40 },
+    SYDNEY: { trades: 3, wins: 1, winrate_pct: 33 },
   },
   general: { trades: 18, wins: 10, winrate_pct: 56 },
 };
@@ -59,9 +63,9 @@ describe('WinrateBySessionCard', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('session-tile-ASIA')).toHaveTextContent('75%');
-      expect(screen.getByTestId('session-tile-EUROPA')).toHaveTextContent('67%');
-      expect(screen.getByTestId('session-tile-NY_AMERICA')).toHaveTextContent('40%');
-      expect(screen.getByTestId('session-tile-NY_PM')).toHaveTextContent('33%');
+      expect(screen.getByTestId('session-tile-LONDON')).toHaveTextContent('67%');
+      expect(screen.getByTestId('session-tile-NEW_YORK')).toHaveTextContent('40%');
+      expect(screen.getByTestId('session-tile-SYDNEY')).toHaveTextContent('33%');
       expect(screen.getByTestId('session-tile-general')).toHaveTextContent('56%');
     });
   });
@@ -71,9 +75,9 @@ describe('WinrateBySessionCard', () => {
       ...SAMPLE_RESPONSE,
       sessions: {
         ASIA: { trades: 0, wins: 0, winrate_pct: 0 },
-        EUROPA: { trades: 0, wins: 0, winrate_pct: 0 },
-        NY_AMERICA: { trades: 0, wins: 0, winrate_pct: 0 },
-        NY_PM: { trades: 0, wins: 0, winrate_pct: 0 },
+        LONDON: { trades: 0, wins: 0, winrate_pct: 0 },
+        NEW_YORK: { trades: 0, wins: 0, winrate_pct: 0 },
+        SYDNEY: { trades: 0, wins: 0, winrate_pct: 0 },
       },
       general: { trades: 0, wins: 0, winrate_pct: 0 },
     };
@@ -88,9 +92,9 @@ describe('WinrateBySessionCard', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('session-tile-ASIA')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-EUROPA')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-NY_AMERICA')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-NY_PM')).toHaveTextContent('—');
+      expect(screen.getByTestId('session-tile-LONDON')).toHaveTextContent('—');
+      expect(screen.getByTestId('session-tile-NEW_YORK')).toHaveTextContent('—');
+      expect(screen.getByTestId('session-tile-SYDNEY')).toHaveTextContent('—');
       expect(screen.getByTestId('session-tile-general')).toHaveTextContent('—');
     });
   });

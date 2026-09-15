@@ -18,10 +18,16 @@
 import { useQuery } from '@tanstack/react-query';
 
 import { apiClient } from '../../lib/api/client';
+import type { SessionBand } from '../sessions';
 
 /* -------------------- types (mirror backend schemas/trade.py) -------------------- */
 
-export type SessionBand = 'ASIA' | 'EUROPA' | 'NY_AMERICA' | 'NY_PM';
+// Re-export the shared SessionBand so existing dashboard consumers
+// (`useSessionStats`, `WinrateBySessionCard`) keep their import
+// surface unchanged after Slice B. Backend `Band` literal lives in
+// `backend/app/services/session_service.py`; the frontend source of
+// truth is `src/features/sessions/index.ts`.
+export type { SessionBand };
 
 /** Per-band tile from ``SessionStatsOut.sessions`` (REQ-WRS-001). */
 export interface SessionTile {
@@ -70,6 +76,21 @@ export interface PnlCalendarMonth {
   /** MONTHLY indicator (REQ-PNL-006 — never a per-day badge). */
   readonly cumple: boolean;
   readonly days: readonly PnlDayEntry[];
+  // FASE 6 — Diario redesign (operations-vs-capital split).
+  /** Operations-only base for ``monthly_rendimiento_pct``.
+   *  = first fund (new account) or ops balance at month start. */
+  readonly capital_base: string;
+  /** Σ closed-trade pnl_usd in the month (FOREX/BINARY only). */
+  readonly net_pnl_usd: string;
+  /** ``net_pnl_usd / capital_base × 100``, quantised to 0.01. */
+  readonly monthly_rendimiento_pct: number;
+  /** Σ FUND amount in the month (capital in). */
+  readonly monthly_deposits_total: string;
+  /** Σ WITHDRAW amount in the month (capital out). */
+  readonly monthly_withdrawals_total: string;
+  // Older FASE 6 KPI fields kept for backward compat.
+  readonly variacion_pct: number;
+  readonly avg_pnl_pct: number;
 }
 
 export interface PnLCalendarFilters {
@@ -77,6 +98,17 @@ export interface PnLCalendarFilters {
   /** YYYY-MM. */
   readonly month: string;
   readonly accountId?: string | null;
+  /**
+   * FIX-4 — optional browser-TZ override. When the user's stored
+   * ``users.timezone`` is still the legacy ``"UTC"`` backfill (race
+   * condition with the AuthProvider auto-heal on first load), the
+   * calendar would bucket trades on UTC dates. Passing the browser
+   * TZ here is a defensive belt-and-suspenders fix: the backend
+   * uses the override before falling back to ``user.timezone``.
+   * Always IANA (e.g. ``"America/Santiago"``); falsy → backend uses
+   * the stored TZ.
+   */
+  readonly tz?: string | null;
 }
 
 /* -------------------- query keys -------------------- */
@@ -99,6 +131,7 @@ export const dashboardKeys = {
       filters.workspaceId,
       filters.month,
       filters.accountId ?? null,
+      filters.tz ?? null,
     ] as const,
 };
 
@@ -125,6 +158,13 @@ async function fetchPnlCalendar(filters: PnLCalendarFilters): Promise<PnlCalenda
       month: filters.month,
       ...(filters.accountId !== undefined && filters.accountId !== null
         ? { account_id: filters.accountId }
+        : {}),
+      // FIX-4 — defensive TZ override. Sent only when the caller
+      // (the dashboard page) has resolved a browser TZ. Empty /
+      // falsy / "UTC" values are skipped so we don't override the
+      // backend's stored preference with a no-op.
+      ...(filters.tz !== undefined && filters.tz !== null && filters.tz !== ''
+        ? { tz: filters.tz }
         : {}),
     },
   });

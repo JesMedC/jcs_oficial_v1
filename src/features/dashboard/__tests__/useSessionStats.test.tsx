@@ -5,6 +5,11 @@
  *   1. Disables the fetch when workspaceId is empty.
  *   2. QueryKey includes workspaceId + date range + accountId.
  *   3. The hook resolves with the SessionStats shape.
+ *
+ * Slice B (sessions-configurable-cap) renamed the band literals to
+ * the four real session names. The fixtures here mirror the new
+ * payload — backend already returns `ASIA/LONDON/NEW_YORK/SYDNEY`
+ * after Slice A merged.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -32,9 +37,9 @@ const SAMPLE: SessionStats = {
   account_id: null,
   sessions: {
     ASIA: { trades: 1, wins: 1, winrate_pct: 100 },
-    EUROPA: { trades: 0, wins: 0, winrate_pct: 0 },
-    NY_AMERICA: { trades: 0, wins: 0, winrate_pct: 0 },
-    NY_PM: { trades: 0, wins: 0, winrate_pct: 0 },
+    LONDON: { trades: 0, wins: 0, winrate_pct: 0 },
+    NEW_YORK: { trades: 0, wins: 0, winrate_pct: 0 },
+    SYDNEY: { trades: 0, wins: 0, winrate_pct: 0 },
   },
   general: { trades: 1, wins: 1, winrate_pct: 100 },
 };
