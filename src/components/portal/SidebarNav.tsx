@@ -1,10 +1,11 @@
 /*
  * portal-fase0a-base — extracted nav row of PortalSidebar.
  *
- * Renders the six portal routes (Dashboard / Cuentas / Operaciones /
- * Diario / Playbook / Configuracion) with the same jade active-state
- * treatment the wider design uses (jade left-border + soft glow).
- * Icons are local to SidebarNav so the test surface is self-contained.
+ * Renders the seven portal routes (Dashboard / Cuentas / Operaciones
+ * / Diario / Scanner / Playbook / Configuracion) with the same jade
+ * active-state treatment the wider design uses (jade left-border +
+ * soft glow). Icons are local to SidebarNav so the test surface is
+ * self-contained.
  */
 import { NavLink } from 'react-router-dom';
 
@@ -91,6 +92,35 @@ function DiarioIcon() {
   );
 }
 
+function ScannerIcon() {
+  /* Radar-style concentric arcs — visual weight matches the other
+   * icons in the file. Three arcs (outer ring split + inner ticks)
+   * evoke "scanning" without being a literal radar dish. */
+  return (
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h2M18 12h2M12 4v2M12 18v2" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M7.5 7.5a6 6 0 010 9M16.5 7.5a6 6 0 010 9"
+      />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M9.5 9.5a3 3 0 010 5M14.5 9.5a3 3 0 010 5"
+      />
+      <circle cx="12" cy="12" r="0.75" fill="currentColor" />
+    </svg>
+  );
+}
+
 function PlaybookIcon() {
   return (
     <svg
@@ -135,6 +165,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/portal/cuentas', label: 'Cuentas', icon: <CuentasIcon /> },
   { to: '/portal/operaciones', label: 'Operaciones', icon: <OperacionesIcon /> },
   { to: '/portal/diario', label: 'Diario', icon: <DiarioIcon /> },
+  { to: '/portal/scanner', label: 'Scanner', icon: <ScannerIcon /> },
   { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon /> },
   { to: '/portal/configuracion', label: 'Configuracion', icon: <ConfiguracionIcon /> },
 ];

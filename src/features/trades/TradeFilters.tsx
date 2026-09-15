@@ -1,14 +1,17 @@
 /*
  * FASE 4A / FASE 4E — TradeFilters.
  *
- * Controlled filter row for the Operations table. Three selects
- * (status, type, account_id) plus two date inputs (from / to) and
- * an inline "clear all" affordance. The export button is rendered
- * alongside so the user has a single place to apply filters and
- * dump the result.
+ * Controlled filter row for the Operations table. Two selects
+ * (status, type) plus two date inputs (from / to) and an inline
+ * "clear all" affordance. The account selector lives in the
+ * prominent ``AccountSelector`` at the top of the page (single
+ * source of truth across Dashboard / Diario / Operaciones).
  *
  * Scope notes:
- * - Status, type and account_id are sent to the backend.
+ * - Status and type are sent to the backend.
+ * - ``account_id`` is sent to the backend too, but the value flows
+ *   from ``OperacionesPage.selectedAccountId`` via a ``useEffect``,
+ *   NOT through this component's UI.
  * - The date range is filtered CLIENT-SIDE because the public
  *   ``GET /trades`` endpoint doesn't expose ``opened_after`` /
  *   ``closed_after`` (only the risk-summary endpoint takes
@@ -16,7 +19,6 @@
  *   they feel natural alongside the other filters and let the
  *   user narrow the table before exporting CSV.
  */
-import { useAccounts } from '../accounts/hooks';
 import type { ListTradesParams, TradeStatus, TradeType } from './types';
 
 type StatusFilter = TradeStatus | 'ALL';
@@ -63,21 +65,16 @@ export function TradeFilters({
   matchCount,
   onExport,
 }: Props) {
-  const { data: accountsData } = useAccounts();
-
   const update = (patch: {
     status?: StatusFilter | undefined;
     type?: TypeFilter | undefined;
-    account_id?: string | undefined;
   }) => {
     const next = { ...filters, ...patch } as {
       status?: StatusFilter;
       type?: TypeFilter;
-      account_id?: string;
     };
     if (next.status === 'ALL') delete next.status;
     if (next.type === 'ALL') delete next.type;
-    if (!next.account_id) delete next.account_id;
     onChange(next as ListTradesParams);
   };
 
@@ -125,27 +122,6 @@ export function TradeFilters({
           {TYPE_OPTIONS.map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-wide text-text-secondary">
-          Cuenta
-        </label>
-        <select
-          data-testid="filter-account"
-          className="bg-bg border border-primary/30 rounded px-2 py-1 text-sm font-mono"
-          value={filters.account_id ?? ''}
-          onChange={(e) =>
-            update({ account_id: e.target.value || undefined })
-          }
-        >
-          <option value="">Todas</option>
-          {(accountsData?.items ?? []).map((acc) => (
-            <option key={acc.id} value={acc.id}>
-              {acc.name}
             </option>
           ))}
         </select>

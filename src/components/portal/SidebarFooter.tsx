@@ -97,7 +97,7 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
   const displayName = user ? buildDisplayName(user) : null;
 
   return (
-    <div className="border-t border-[rgba(0,255,157,0.15)] p-3 space-y-3">
+    <div className="border-t border-[var(--color-jade-border)] p-3 space-y-3">
       {/* User identity + logout */}
       <div
         className={[
@@ -110,7 +110,7 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
             {!isCollapsed ? (
               <div className="flex items-center gap-2 min-w-0 flex-1">
                 <div
-                  className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[rgba(0,255,157,0.12)] border border-[rgba(0,255,157,0.35)] text-[#00FF9D] font-display uppercase text-xs"
+                  className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
                   aria-hidden="true"
                 >
                   {initials(displayName)}
@@ -124,7 +124,7 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
               </div>
             ) : (
               <div
-                className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[rgba(0,255,157,0.12)] border border-[rgba(0,255,157,0.35)] text-[#00FF9D] font-display uppercase text-xs"
+                className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
                 aria-hidden="true"
                 title={displayName}
               >

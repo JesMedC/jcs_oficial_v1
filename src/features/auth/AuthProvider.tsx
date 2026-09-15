@@ -18,6 +18,11 @@
  *      secrets in localStorage; sessionStorage clears when the tab
  *      closes which is acceptable for v0). The `jcs.portal` slot
  *      tracks which portal a BOTH-role user last entered.
+ *   6. FIX-4 — after a successful /me, if `user.timezone === "UTC"`
+ *      AND the browser reports a different IANA TZ, silently PATCH
+ *      the user's TZ so the calendar / session bucketing matches the
+ *      local clock. Guarded by a sessionStorage flag so we don't
+ *      re-fetch on every reload.
  *
  * The provider is mounted inside the router tree (router/index.tsx)
  * so `useNavigate` works from the post-login redirect.
@@ -33,10 +38,21 @@ import {
 } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-import { loginApi, logoutApi, meApi, refreshApi, registerApi } from './api';
+import {
+  loginApi,
+  logoutApi,
+  meApi,
+  patchMeApi,
+  refreshApi,
+  registerApi,
+} from './api';
 import { tokenStore } from '../../lib/api/client';
 import type { AuthMeOut, ErrorEnvelope, SubscriptionOut, TokenOut } from './types';
 import { clearStoredPortal, readStoredPortal, writeStoredPortal, type Portal } from './authStorage';
+
+// FIX-4 — auto-heal flag. We only attempt the silent TZ PATCH once
+// per browser session to avoid an infinite loop on tab refocus.
+const TZ_HEALED_FLAG = 'jcs.tz_auto_healed';
 
 export type { Portal } from './authStorage';
 
@@ -81,6 +97,47 @@ export function AuthProvider({ children }: AuthProviderProps) {
   const loadCurrentUser = useCallback(async (): Promise<AuthMeOut | null> => {
     try {
       const me = await meApi();
+      // FIX-4 — auto-heal the legacy ``UTC`` timezone backfill.
+      // Migration 0011 set every existing user's ``timezone`` to
+      // ``"UTC"`` because pre-discipline the column didn't exist.
+      // That makes the calendar / 4-band session resolver bucket
+      // trades on UTC dates — wrong for any user outside UTC (Chile,
+      // Argentina, etc.). If the browser reports a different IANA TZ
+      // we silently PATCH /auth/me once per browser session and
+      // replace ``me`` in state with the refreshed payload.
+      if (
+        typeof window !== 'undefined' &&
+        me.timezone === 'UTC' &&
+        sessionStorage.getItem(TZ_HEALED_FLAG) !== '1'
+      ) {
+        const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+        if (browserTz && browserTz !== 'UTC') {
+          sessionStorage.setItem(TZ_HEALED_FLAG, '1');
+          try {
+            const refreshed = await patchMeApi({ timezone: browserTz });
+            setUser(refreshed);
+            return refreshed;
+          } catch {
+            // If the PATCH fails we still keep the original ``me`` —
+            // the user's bucketing will keep working in UTC until
+            // they manually change it. Don't crash login over a TZ
+            // heuristic.
+            setUser(me);
+            return me;
+          }
+        } else {
+          // Browser reports UTC (or is empty) — no heal needed but
+          // still set the flag so we don't keep re-evaluating.
+          sessionStorage.setItem(TZ_HEALED_FLAG, '1');
+        }
+      } else if (
+        typeof window !== 'undefined' &&
+        sessionStorage.getItem(TZ_HEALED_FLAG) === null
+      ) {
+        // Even when the user is already on a non-UTC TZ, set the
+        // flag so subsequent visits don't re-evaluate.
+        sessionStorage.setItem(TZ_HEALED_FLAG, '1');
+      }
       setUser(me);
       return me;
     } catch (err) {

@@ -20,8 +20,8 @@
  *   - ready: 13-column dense grid, sticky header, hover row tint.
  *
  * Column order:
- *   Fecha | Status | Tipo | Instrumento | Dirección | Entrada | Salida
- *   | Tamaño | P&L | Bal. previo | Bal. post | R | Acción
+ *   Fecha | Status | Tipo | Sesión | Instrumento | Dirección | Entrada
+ *   | Salida | Tamaño | P&L | Bal. previo | Bal. post | R | Acción
  *
  * Ola 5: the last column ("Acción") hosts the inline close button
  * rendered by ``TradeTableRow`` for OPEN trades. FUND/WITHDRAW
@@ -32,6 +32,7 @@ import { useMemo } from 'react';
 import { useTrades } from './hooks';
 import { TradeTableRow } from './TradeTableRow';
 import { useAccounts } from '../accounts/hooks';
+import type { AccountOut } from '../accounts/types';
 import { computeBalanceTimeline } from './balanceTimeline';
 import type { ListTradesParams } from './types';
 import type { TradeOut } from './types';
@@ -58,21 +59,46 @@ export function TradeTable({ filters = {}, tradesForBalance }: Props) {
     return ids;
   }, [accountsQuery.data]);
 
-  // Compute balance timeline anchored on the live sum of the user's
-  // active accounts. The hook guarantees scopedTrades = trades the
-  // user owns (defense-in-depth already in CuentasPage).
-  const currentBalance = useMemo(
-    () =>
-      (accountsQuery.data?.items ?? []).reduce(
-        (acc, a) => acc + Number(a.balance_usd ?? 0),
-        0,
-      ),
-    [accountsQuery.data],
-  );
-  const balanceTimeline = useMemo(
-    () => computeBalanceTimeline(tradesForBalance, currentBalance),
-    [tradesForBalance, currentBalance],
-  );
+  // Per-account balance timeline. The previous implementation used
+  // a single ``currentBalance`` (sum of all accounts) for every row,
+  // which produced wrong ``bal.prev``/``bal.post`` when the user
+  // filtered by a single account — e.g. an account with $100 would
+  // show ``prev = $535.95`` because the timeline walked back from
+  // the global balance. Now we anchor each account's timeline on
+  // its own current ``balance_usd`` and merge into a single lookup.
+  const balanceTimeline = useMemo(() => {
+    const accounts = accountsQuery.data?.items ?? [];
+    const byAccountId = new Map<string, TradeOut[]>();
+    for (const t of tradesForBalance) {
+      const arr = byAccountId.get(t.account_id);
+      if (arr === undefined) {
+        byAccountId.set(t.account_id, [t]);
+      } else {
+        arr.push(t);
+      }
+    }
+    const merged = new Map<string, { prev: number; post: number }>();
+    for (const [accountId, accountTrades] of byAccountId) {
+      const account = accounts.find((a) => a.id === accountId);
+      const anchor = account ? Number(account.balance_usd) : 0;
+      const timeline = computeBalanceTimeline(accountTrades, anchor);
+      for (const [tradeId, pair] of timeline) {
+        merged.set(tradeId, pair);
+      }
+    }
+    return merged;
+  }, [tradesForBalance, accountsQuery.data]);
+
+  // Lookup table for the per-row "Cuenta" column. Built once per
+  // ``accounts`` change so each row can do an O(1) ``.get`` instead
+  // of scanning the full account list.
+  const accountsById = useMemo(() => {
+    const map = new Map<string, AccountOut>();
+    for (const acc of accountsQuery.data?.items ?? []) {
+      map.set(acc.id, acc);
+    }
+    return map;
+  }, [accountsQuery.data]);
 
   if (isLoading) {
     return (
@@ -117,12 +143,14 @@ export function TradeTable({ filters = {}, tradesForBalance }: Props) {
             <th className="px-3 py-2 text-left">Fecha</th>
             <th className="px-3 py-2 text-left">Status</th>
             <th className="px-3 py-2 text-left">Tipo</th>
+            <th className="px-3 py-2 text-left">Sesión</th>
             <th className="px-3 py-2 text-left">Instrumento</th>
             <th className="px-3 py-2 text-left">Dirección</th>
             <th className="px-3 py-2 text-right">Entrada</th>
             <th className="px-3 py-2 text-right">Salida</th>
             <th className="px-3 py-2 text-right">Tamaño</th>
             <th className="px-3 py-2 text-right">P&amp;L</th>
+            <th className="px-3 py-2 text-left">Cuenta</th>
             <th className="px-3 py-2 text-right">Bal. previo</th>
             <th className="px-3 py-2 text-right">Bal. post</th>
             <th className="px-3 py-2 text-right">R</th>
@@ -131,7 +159,12 @@ export function TradeTable({ filters = {}, tradesForBalance }: Props) {
         </thead>
         <tbody>
           {items.map((t) => (
-            <TradeTableRow key={t.id} trade={t} balance={balanceTimeline.get(t.id) ?? null} />
+            <TradeTableRow
+              key={t.id}
+              trade={t}
+              balance={balanceTimeline.get(t.id) ?? null}
+              accountsById={accountsById}
+            />
           ))}
         </tbody>
       </table>

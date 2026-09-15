@@ -26,9 +26,20 @@ export async function upgradeSubscription(
   tier: 'PLUS' | 'ELITE',
   backUrls?: UpgradeSubscriptionBackUrls,
 ): Promise<Awaited<ReturnType<typeof upgradeSubscriptionApi>>> {
+  // Wire-format mapping: ``UpgradeSubscriptionBackUrls`` uses short
+  // keys (``success`` / ``failure`` / ``pending``) for the
+  // feature-scoped contract, but the backend expects
+  // ``success_url`` / ``failure_url`` / ``pending_url`` per
+  // ``UpgradeIn`` in ``backend/app/schemas/subscription.py``.
+  // Forgetting this rename (a previous version spread ``backUrls``
+  // verbatim) caused a 422 VALIDATION_ERROR on /pricing checkout.
   return upgradeSubscriptionApi({
     tier,
-    ...(backUrls ?? {}),
+    ...(backUrls !== undefined && {
+      success_url: backUrls.success,
+      failure_url: backUrls.failure,
+      pending_url: backUrls.pending,
+    }),
   });
 }
 

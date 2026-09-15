@@ -64,6 +64,20 @@ export async function meApi(): Promise<AuthMeOut> {
   return data;
 }
 
+/**
+ * FIX-4 — `PATCH /auth/me` lets the frontend persist the user's
+ * browser TZ (or other future profile fields) after detecting the
+ * legacy UTC backfill. The backend mirrors the call into
+ * ``user.timezone`` and returns the refreshed ``AuthMeOut`` so the
+ * caller can re-render without a second round-trip.
+ */
+export async function patchMeApi(
+  payload: { readonly timezone?: string },
+): Promise<AuthMeOut> {
+  const { data } = await apiClient.patch<AuthMeOut>('/auth/me', payload);
+  return data;
+}
+
 /*
  * p0b.1b — subscription endpoints live alongside the auth API because
  * the auth/me response already returns `current_subscription`. We keep

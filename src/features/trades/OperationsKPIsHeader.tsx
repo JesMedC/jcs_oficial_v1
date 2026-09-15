@@ -22,9 +22,16 @@
  *     page of trades, not the full workspace history — but since the
  *     table also shows a page, the two stay aligned.
  *
- * Layout is a responsive 1/3-column grid. The loading state renders
- * three skeleton panels so the layout doesn't reflow once the data
- * arrives — keeps the topbar stable while the page first paints.
+ * Layout is selectable via the ``layout`` prop:
+ *   - ``"horizontal"`` (default) — a responsive 1/3-column grid;
+ *     used as the dashboard's top strip.
+ *   - ``"vertical"`` — three full-width cards stacked one under
+ *     the other; used in the dashboard's right rail below the
+ *     RecentActivityFeed.
+ *
+ * The loading state renders three skeleton panels so the layout
+ * doesn't reflow once the data arrives — keeps the surrounding
+ * chrome stable while the page first paints.
  */
 import { useMemo } from 'react';
 
@@ -35,9 +42,16 @@ import type { ListTradesParams } from './types';
 
 interface Props {
   readonly filters?: ListTradesParams;
+  /**
+   * Card layout. ``"horizontal"`` (default) renders the three
+   * cards in a 1/3-column grid for the dashboard's top strip;
+   * ``"vertical"`` stacks them full-width one under the other
+   * for the right rail below the RecentActivityFeed.
+   */
+  readonly layout?: 'horizontal' | 'vertical';
 }
 
-export function OperationsKPIsHeader({ filters = {} }: Props) {
+export function OperationsKPIsHeader({ filters = {}, layout = 'horizontal' }: Props) {
   const { data, isLoading } = useTrades(filters);
   const accountsQuery = useAccounts();
 
@@ -61,6 +75,12 @@ export function OperationsKPIsHeader({ filters = {} }: Props) {
     let openToday = 0;
     let pnlToday = 0;
     let winsToday = 0;
+    let lossesToday = 0;
+    // ``closedToday`` keeps counting all closed trades (including
+    // BREAK) so future "cerradas hoy" tiles that want a "total
+    // closed" badge can reuse it. The win-rate denominator below
+    // uses ``winsToday + lossesToday`` to deliberately EXCLUDE
+    // CLOSED_BREAK — a break-even close is neither a win nor a loss.
     let closedToday = 0;
 
     const items = data?.items ?? [];
@@ -87,15 +107,24 @@ export function OperationsKPIsHeader({ filters = {} }: Props) {
       pnlToday += Number(t.pnl_usd ?? 0);
       closedToday += 1;
       if (t.status === 'CLOSED_WIN') winsToday += 1;
+      else if (t.status === 'CLOSED_LOSS') lossesToday += 1;
+      // CLOSED_BREAK counts toward ``closedToday`` but NOT the
+      // win-rate denominator.
     }
 
-    const winRateToday = closedToday > 0 ? winsToday / closedToday : null;
+    // FIX-3 — win-rate denominator excludes BREAK. A break-even
+    // close is neither a win nor a loss; counting it would deflate
+    // the ratio for break-even scalping strategies.
+    const decidedToday = winsToday + lossesToday;
+    const winRateToday = decidedToday > 0 ? winsToday / decidedToday : null;
     const pnlFormatted = pnlToday.toFixed(2);
 
     return {
       openToday,
       pnlToday: pnlFormatted,
       winRateToday,
+      decidedToday,
+      closedToday,
     };
   }, [data, activeAccountIds]);
 
@@ -103,12 +132,20 @@ export function OperationsKPIsHeader({ filters = {} }: Props) {
     return (
       <div
         data-testid="operations-kpis-loading"
-        className="grid grid-cols-3 gap-3"
+        className={
+          layout === 'vertical'
+            ? 'flex flex-col gap-2'
+            : 'grid grid-cols-3 gap-3'
+        }
       >
         {Array.from({ length: 3 }).map((_, i) => (
           <div
             key={i}
-            className="h-24 rounded-lg border border-primary/20 bg-surface/40 animate-pulse"
+            className={
+              layout === 'vertical'
+                ? 'h-12 rounded-lg border border-primary/20 bg-surface/40 animate-pulse'
+                : 'h-24 rounded-lg border border-primary/20 bg-surface/40 animate-pulse'
+            }
           />
         ))}
       </div>
@@ -120,23 +157,30 @@ export function OperationsKPIsHeader({ filters = {} }: Props) {
   return (
     <div
       data-testid="operations-kpis"
-      className="grid grid-cols-1 md:grid-cols-3 gap-3"
+      className={
+        layout === 'vertical'
+          ? 'flex flex-col gap-2'
+          : 'grid grid-cols-1 md:grid-cols-3 gap-3'
+      }
     >
       <KpiCard
         label="Abiertas hoy"
         value={String(kpis.openToday)}
         testId="kpi-open"
+        layout={layout}
       />
       <KpiCard
         label="P&L diario"
         value={formatMoney(kpis.pnlToday)}
         valueClass={pnlColor}
         testId="kpi-pnl"
+        layout={layout}
       />
       <KpiCard
         label="Win rate hoy"
         value={kpis.winRateToday !== null ? formatPct(kpis.winRateToday) : '—'}
         testId="kpi-winrate"
+        layout={layout}
       />
     </div>
   );
@@ -147,6 +191,7 @@ interface KpiCardProps {
   value: string;
   valueClass?: string;
   testId: string;
+  layout?: 'horizontal' | 'vertical';
 }
 
 function KpiCard({
@@ -154,11 +199,29 @@ function KpiCard({
   value,
   valueClass = 'text-text-primary',
   testId,
+  layout = 'horizontal',
 }: KpiCardProps) {
-  // ``valueClass`` is applied to BOTH the outer card and the value
-  // span so callers can assert against the ``data-testid`` wrapper
-  // (e.g. ``getByTestId('kpi-pnl')``) while the label keeps its
-  // own ``text-text-secondary`` colour which overrides the cascade.
+  // Vertical cards sit in a narrow right rail: label + value on
+  // one row, value right-aligned, denser padding. Horizontal cards
+  // keep the original stacked label-over-value layout for the top
+  // strip.
+  if (layout === 'vertical') {
+    return (
+      <div
+        data-testid={testId}
+        className={`rounded-lg border border-primary/20 bg-surface/40 backdrop-blur-md px-4 py-2.5 flex items-center justify-between gap-3 ${valueClass}`}
+      >
+        <span className="text-xs uppercase tracking-wide text-text-secondary font-display">
+          {label}
+        </span>
+        <span
+          className={`text-lg font-display font-mono tabular-nums ${valueClass}`}
+        >
+          {value}
+        </span>
+      </div>
+    );
+  }
   return (
     <div
       data-testid={testId}

@@ -7,14 +7,12 @@
  * hands the parsed payload to useCreateTrade.mutate(...) which does
  * the POST + invalidation dance.
  *
- * FASE 4A / Ola 6 — Journal guard rail.
- *
- * When both `pre_trade_notes` and `emotional_tags` are empty, the
- * first submit attempt does NOT call the mutation directly — it
- * surfaces the `DisciplineSoftBlock` and waits. The user can either
- * add a note (focus the textarea) or confirm the skip, which
- * re-triggers the submit and lands on the wire. The block is SOFT:
- * the user always retains the final say on whether to save.
+ * New trade form — captures the disciplined pre-trade ritual
+ * (notes, emotional tags, analysis image) and submits via the
+ * ``useCreateTrade`` mutation. The journal fields are OPTIONAL; an
+ * empty journal no longer blocks submission (the previous soft-block
+ * banner was removed — discipline nudging is delegated to the
+ * ``discipline_engine`` error codes at submit time).
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Controller, useForm, type SubmitHandler } from 'react-hook-form';
@@ -23,22 +21,30 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { useAccounts } from '../accounts/hooks';
 import { TradeFormSchema, type TradeFormValues } from './schemas';
 import { useCreateTrade } from './useCreateTrade';
-import { DisciplineSoftBlock } from './DisciplineSoftBlock';
 import { EmotionalTagsChips } from './EmotionalTagsChips';
-import { InterestChips } from './InterestChips';
 import { getAvailableInstruments } from './availableInstruments';
 import {
   DISCIPLINE_ERROR_MESSAGE,
   isHardBlockedByDiscipline,
-  suggestedImporteUsd,
+  montoCalculadoParaBalance,
   type DisciplineErrorCode,
 } from './discipline';
 import { presignUpload, uploadFile } from './presign';
-import type { EmotionalTag, Interest } from './types';
+import type { EmotionalTag } from './types';
+import type { NewTradePrefill } from '../../stores/useNewTradeDrawer';
 
 export interface NewTradeFormProps {
   readonly onSuccess?: () => void;
   readonly onError?: (code: string, message: string) => void;
+  /**
+   * Optional scanner prefill payload. When the user clicks
+   * "Cargar en Diario" on a scanner alert, the pair + direction
+   * land here so the form opens already filled. The drawer
+   * re-mounts the form whenever `prefill` transitions to a new
+   * non-null value (keyed in NewTradeDrawer), so the effect that
+   * seeds the form runs cleanly.
+   */
+  readonly prefill?: NewTradePrefill | null;
 }
 
 /**
@@ -60,7 +66,7 @@ const EXPIRATION_OPTIONS_SECONDS: ReadonlyArray<{
   { value: 900, label: '15 min' },
 ];
 
-export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
+export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps) {
   const { data: accountsData } = useAccounts();
   const createTrade = useCreateTrade({
     onSuccess: () => onSuccess?.(),
@@ -104,12 +110,17 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
       account_id: firstAccount?.id ?? '',
       type: initialType,
       direction: initialDirection,
-      pair: 'EURUSD',
+      pair: prefill?.pair ?? 'EURUSD',
       entry_price: '1',
       lot_size: '0.1',
       stop_loss: '',
       take_profit: '',
-      investment_usd: '25',
+      // PR-4: investment_usd is now a derived, read-only display
+      // computed from the account balance via montoCalculadoParaBalance.
+      // The placeholder satisfies the Zod min:1/max:404 schema but is
+      // never used on the wire — handleSubmitClick overrides it with
+      // the calculated amount before the payload is assembled.
+      investment_usd: prefill?.investment_usd ?? '1',
       payout_pct: '85',
       expiration_seconds: 60,
       pre_trade_notes: '',
@@ -117,22 +128,18 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     } as unknown as TradeFormValues,
   });
 
-  // FASE 4A / Ola 6 — Journal-aware submit intercept.
   // `emotionalTags` lives outside RHF on purpose: the chip selector
   // is a controlled component and RHF's value-as-string model would
-  // mangle the array. `showSoftBlock` is the visibility flag for the
-  // amber banner — once raised we skip the intercept on re-submit
-  // (user has already acknowledged by clicking "Guardar igual").
+  // mangle the array.
   const [emotionalTags, setEmotionalTags] = useState<EmotionalTag[]>([]);
-  const [showSoftBlock, setShowSoftBlock] = useState(false);
   const notesRef = useRef<HTMLTextAreaElement>(null);
 
-  // one-by-one-thousand-discipline PR-2: interest (required, single-
-  // select), discipline error pill, and the optional analysis-image
-  // URL bound through the presigned upload flow. The state lives
-  // outside RHF for the same reason emotionalTags does: chip / file
-  // values would be mangled by RHF's string-typed register.
-  const [interest, setInterest] = useState<Interest | null>(null);
+  // one-by-one-thousand-discipline PR-2: interest was removed from
+  // the form (it's optional now, the backend defaults to "PLAN").
+  // The discipline error pill + the optional analysis-image URL
+  // (presigned upload flow) still live outside RHF for the same
+  // reason emotionalTags does: chip / file values would be mangled
+  // by RHF's string-typed register.
   const [disciplineError, setDisciplineError] =
     useState<DisciplineErrorCode | null>(null);
   const [analysisImageUrl, setAnalysisImageUrl] = useState<string | null>(null);
@@ -142,6 +149,25 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
 
   const selectedType = watch('type');
   const watchedAccountId = watch('account_id');
+
+  // Active account drives the calculated-investment display (REQ-DISC-002
+  // / 003) and the predictive hard-block (REQ-DISC-005/006). The
+  // balance mirrors the backend's provisional capital-inicial proxy
+  // (Trade.balance_usd, NOT the AccountMovement snapshot — WIP hasn't
+  // merged; see backend design ADR-001). The `useMemo` lives BEFORE
+  // the early-return guard below so the hook order stays stable
+  // across renders (React rule-of-hooks).
+  const activeAccount =
+    accounts.find((a) => a.id === watchedAccountId) ?? accounts[0] ?? null;
+  const accountBalance = activeAccount?.balance_usd;
+  const capitalInicial = computeCapitalInicial(accountBalance);
+  const montoCalculado = useMemo(
+    () =>
+      activeAccount !== null
+        ? montoCalculadoParaBalance(capitalInicial)
+        : null,
+    [activeAccount, capitalInicial],
+  );
 
   // Discriminated-union sync.
   //
@@ -172,6 +198,27 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     setValue('direction', typeCorrectDirection);
   }, [accounts, watchedAccountId, selectedType, setValue]);
 
+  // Scanner prefill — when the drawer opens with a non-null
+  // ``prefill`` payload we seed `pair` + (where compatible)
+  // `direction` onto the existing form state. The discriminated-
+  // union sync effect above already keeps `type` glued to the
+  // active account; we only override `direction` if the active
+  // account is BINARY (FOREX accounts would reject a CALL/PUT
+  // direction, so the typed union protects us there).
+  useEffect(() => {
+    if (prefill === undefined || prefill === null) return;
+    if (prefill.pair.length > 0) {
+      setValue('pair', prefill.pair);
+    }
+    if (selectedType === 'BINARY') {
+      // BINARY supports PUT/CALL — apply the prefill directly.
+      setValue('direction', prefill.direction);
+    }
+    if (prefill.investment_usd !== undefined && prefill.investment_usd.length > 0) {
+      setValue('investment_usd', prefill.investment_usd);
+    }
+  }, [prefill, selectedType, setValue]);
+
   if (accounts.length === 0) {
     return (
       <div className="text-text-secondary font-body text-sm" data-testid="new-trade-no-accounts">
@@ -180,50 +227,33 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
     );
   }
 
-  // Active account drives the suggested-importe preview (REQ-DISC-002
-  // / 003) and the predictive hard-block (REQ-DISC-005/006). The
-  // balance mirrors the backend's provisional capital-inicial proxy
-  // (Trade.balance_usd, NOT the AccountMovement snapshot — WIP hasn't
-  // merged; see backend design ADR-001).
-  const activeAccount =
-    accounts.find((a) => a.id === watchedAccountId) ?? accounts[0] ?? null;
-  const accountBalance = activeAccount?.balance_usd;
-  const suggestedImport =
-    activeAccount !== null
-      ? suggestedImporteUsd(computeCapitalInicial(accountBalance))
-      : null;
-
   const handleSubmitClick: SubmitHandler<TradeFormValues> = (values) => {
-    // Discipline gate 1 — interest required (REQ-INT-001). Surface a
-    // typed error pill instead of letting the backend 422 with
-    // INTEREST_REQUIRED (the user gets faster feedback this way).
-    if (interest === null) {
-      setDisciplineError('INTEREST_REQUIRED');
-      return;
-    }
     setDisciplineError(null);
 
-    // Discipline gate 2 — predictive hard-block (REQ-DISC-005/006).
+    // PR-4: investment_usd is a derived, read-only field computed
+    // from the account balance. The RHF default is a placeholder
+    // ('1') that satisfies Zod's min:1/max:404 but never reaches the
+    // wire — we swap in the calculated amount here so the payload,
+    // the predictive hard-block, and the rendered field all agree.
+    //
+    // `montoCalculado === null` means the account exists but its
+    // balance is below the $1 floor. The submit button is disabled
+    // in that branch (see below) but we still guard here in case
+    // the user invokes submit via keyboard before React disables it.
+    const isBinary = values.type === 'BINARY';
+    const investmentForPayload =
+      isBinary && montoCalculado !== null ? montoCalculado.toString() : '';
+    const adjustedValues: TradeFormValues = isBinary
+      ? { ...values, investment_usd: investmentForPayload }
+      : values;
+
+    // Discipline gate — predictive hard-block (REQ-DISC-005/006).
     // Mirrors backend rules 3 + 4 in discipline_engine so the user
     // can't even click submit when the value is guaranteed to fail.
-    const deduct = computeDeduct(values);
+    const deduct = computeDeduct(adjustedValues);
     const capitalInicial = computeCapitalInicial(accountBalance);
     if (deduct !== null && isHardBlockedByDiscipline(deduct, capitalInicial)) {
       setDisciplineError('CAPITAL_INICIAL_CAP_EXCEEDED');
-      return;
-    }
-
-    // Soft-block intercept. When the journal is empty AND the user
-    // has not already acknowledged the warning in this submit cycle,
-    // we raise the banner and bail. The re-submit path (triggered by
-    // the "Guardar igual" button) sets `showSoftBlock` to false but
-    // the closure here still observes `showSoftBlock === true`, so
-    // `!showSoftBlock` is false and we fall through to the mutate.
-    // That keeps the flow simple and the block genuinely SOFT.
-    const notesEmpty = (values.pre_trade_notes ?? '').trim() === '';
-    const tagsEmpty = emotionalTags.length === 0;
-    if (notesEmpty && tagsEmpty && !showSoftBlock) {
-      setShowSoftBlock(true);
       return;
     }
 
@@ -249,7 +279,6 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         lot_size: values.lot_size,
         stop_loss: values.stop_loss ?? null,
         take_profit: values.take_profit ?? null,
-        interest,
         ...(analysisImageUrl !== null ? { analysis_image_url: analysisImageUrl } : {}),
       };
       const enriched = {
@@ -264,10 +293,9 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         type: 'BINARY',
         instrument,
         direction: values.direction,
-        investment_usd: values.investment_usd,
+        investment_usd: investmentForPayload,
         payout_pct: values.payout_pct,
         expiration_seconds: values.expiration_seconds,
-        interest,
         ...(analysisImageUrl !== null ? { analysis_image_url: analysisImageUrl } : {}),
       };
       const enriched = {
@@ -419,15 +447,45 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
               />
             </Field>
             <Field label="Inversion USD" error={(errors as Record<string, { message?: string } | undefined>)['investment_usd']?.message}>
-              <input
-                {...control.register('investment_usd')}
-                type="text"
-                inputMode="decimal"
+              {/*
+                PR-4: read-only derived display. The investment is
+                computed from the account balance via
+                `montoCalculadoParaBalance` (three-tier rule, capped at
+                $404, floored at $1). The user cannot edit this value —
+                it IS the discipline envelope. We render `<output>` for
+                semantic meaning ("result of a calculation") and keep
+                `data-testid="new-trade-investment"` so existing tests
+                can still target the field by id. When the balance is
+                too low to compute (< $1) we show "—" and the submit
+                button is disabled.
+               */}
+              <output
                 data-testid="new-trade-investment"
-                className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary"
-                placeholder="25"
-              />
+                className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary block"
+              >
+                {montoCalculado !== null ? `$${montoCalculado}` : '—'}
+              </output>
             </Field>
+            {/* FASE 6 — Regla 1: alerta visual (NO hard-block) cuando el
+                importe calculado supera el 1% del capital inicial.
+                Espejo de la 1x1000 methodology: el usuario debe ver el
+                aviso pero puede continuar si quiere. */}
+            {montoCalculado !== null && capitalInicial > 0 &&
+            montoCalculado / capitalInicial > 0.01 ? (
+              <div
+                data-testid="new-trade-over-1pct-warning"
+                role="alert"
+                className="mt-1 flex items-start gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] font-mono text-warning"
+              >
+                <span aria-hidden="true">⚠</span>
+                <span>
+                  Importe {((montoCalculado / capitalInicial) * 100).toFixed(2)}%
+                  del capital inicial ({(montoCalculado / capitalInicial).toFixed(2)}×
+                  sobre 1%). Regla 1×1000 recomienda mantener cada trade
+                  por debajo del 1% del capital de operaciones.
+                </span>
+              </div>
+            ) : null}
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Payout %" error={(errors as Record<string, { message?: string } | undefined>)['payout_pct']?.message}>
@@ -464,31 +522,11 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         </>
       )}
 
-      {/* one-by-one-thousand-discipline PR-2 — interest selector
-          (REQ-INT-002/003). Single-select, required on every new
-          trade. Sits BETWEEN the trade-shape fields and the notes so
-          the user is forced to declare intent before journaling. */}
-      <div className="flex flex-col gap-1">
-        <label className="text-xs uppercase tracking-wide text-text-secondary font-display">
-          Interés <span className="text-loss">*</span>
-        </label>
-        <InterestChips value={interest} onChange={setInterest} />
-      </div>
-
-      {/* Suggested-importe pill (REQ-DISC-002/003). Mirrors backend
-          `ceil_to_next_dollar(capital_inicial * 0.0025)` so the user
-          sees the round-up preview BEFORE typing. Hidden below the
-          $1000 discipline threshold because the engine defers to the
-          legacy balance gate in that case. */}
-      {suggestedImport !== null ? (
-        <div
-          data-testid="new-trade-suggested-import"
-          className="inline-flex items-center gap-2 self-start px-3 py-1 rounded-full border border-primary/30 bg-primary/5 text-primary font-mono text-xs"
-        >
-          <span className="font-display uppercase tracking-widest text-[10px]">Importe sugerido</span>
-          <span className="font-display">${suggestedImport}</span>
-        </div>
-      ) : null}
+      {/* PR-4: the "Máx permitido" pill is gone. The investment
+          field itself is now the canonical read-only display of the
+          calculated amount (three-tier rule), so duplicating it in
+          a pill would be redundant. The previous pill block lived
+          here. */}
 
       {/* Optional analysis-image upload (REQ-TI-ADD-001). Presign →
           upload → bind public_url. The bound URL rides the payload
@@ -547,16 +585,6 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         <EmotionalTagsChips value={emotionalTags} onChange={setEmotionalTags} />
       </div>
 
-      <DisciplineSoftBlock
-        preTradeNotes={watch('pre_trade_notes') ?? ''}
-        emotionalTagsCount={emotionalTags.length}
-        onConfirmSkip={() => {
-          setShowSoftBlock(false);
-          void handleSubmit(handleSubmitClick)();
-        }}
-        onRequestFocusNotes={() => notesRef.current?.focus()}
-      />
-
       {createTrade.isError || disciplineError !== null ? (
         <div
           role="alert"
@@ -604,7 +632,16 @@ export function NewTradeForm({ onSuccess, onError }: NewTradeFormProps) {
         </button>
         <button
           type="submit"
-          disabled={isSubmitting || createTrade.isPending}
+          // PR-4: disable submit when the calculated amount is null
+          // (balance < $1) — there is no valid investment to send.
+          // The submit handler also guards this case but disabling
+          // upfront is friendlier than letting the user click and
+          // staring at a stalled form.
+          disabled={
+            isSubmitting ||
+            createTrade.isPending ||
+            (selectedType === 'BINARY' && montoCalculado === null)
+          }
           data-testid="new-trade-submit"
           className="px-4 py-2 bg-primary text-primary-fg font-display uppercase tracking-wide text-sm rounded-lg hover:shadow-glow-jade transition-shadow disabled:opacity-60"
         >
@@ -635,10 +672,10 @@ function computeDeduct(values: TradeFormValues): number | null {
 }
 
 /**
- * Capital-inicial proxy for the suggested-importe preview. Mirrors
- * backend `_capital_inicial_usd` (PR-1 ADR-001 fallback: use the
- * active account's current balance, NOT the AccountMovement ledger
- * snapshot — the WIP hasn't merged yet).
+ * Capital-inicial proxy for the calculated-investment preview.
+ * Mirrors backend `_capital_inicial_usd` (PR-1 ADR-001 fallback: use
+ * the active account's current balance, NOT the AccountMovement
+ * ledger snapshot — the WIP hasn't merged yet).
  */
 function computeCapitalInicial(balanceRaw: string | undefined): number {
   if (balanceRaw === undefined) return 0;

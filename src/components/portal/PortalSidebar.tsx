@@ -29,6 +29,7 @@ import { SidebarHeader } from './SidebarHeader';
 import { SidebarNav } from './SidebarNav';
 import { SidebarFooter } from './SidebarFooter';
 import { useSidebarCollapsed } from '../../stores/useSidebarCollapsed';
+import { Scanline } from '../decor/Scanline';
 
 export function PortalSidebar() {
   const isCollapsed = useSidebarCollapsed((state) => state.isCollapsed);
@@ -41,8 +42,8 @@ export function PortalSidebar() {
         // nav; PortalNav is archived now, so this rail is visible on
         // lg+ screens (240px expanded / 64px collapsed).
         // Cyber-Jade: sidebar plana, fondo #060B10 puro, sin glass fuerte.
-        'shrink-0 sticky top-0 self-start h-dvh border-r border-[rgba(0,255,157,0.15)]',
-        'bg-[#060B10]',
+        'shrink-0 sticky top-0 self-start h-dvh border-r border-[var(--color-jade-border)]',
+        'bg-[var(--color-bg)]',
         'flex flex-col transition-[width] duration-200',
         isCollapsed ? 'w-16' : 'w-60',
       ].join(' ')}
@@ -51,6 +52,9 @@ export function PortalSidebar() {
       <SidebarHeader isCollapsed={isCollapsed} />
       <SidebarNav isCollapsed={isCollapsed} />
       <SidebarFooter isCollapsed={isCollapsed} />
+      {/* Jarvis-style scanline overlay — sweeps top-to-bottom every
+          6s, decorative only (aria-hidden, pointer-events-none). */}
+      <Scanline duration={6} />
     </aside>
   );
 }

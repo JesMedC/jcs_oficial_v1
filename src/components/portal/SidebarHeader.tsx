@@ -13,7 +13,7 @@ export function SidebarHeader({ isCollapsed }: SidebarHeaderProps) {
   return (
     <div
       className={[
-        'flex items-center gap-2 px-4 py-5 border-b border-[rgba(0,255,157,0.15)]',
+        'flex items-center gap-2 px-4 py-5 border-b border-[var(--color-jade-border)]',
         isCollapsed ? 'justify-center' : '',
       ].join(' ')}
     >

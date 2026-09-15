@@ -5,6 +5,12 @@
  * useNewTradeDrawer.isOpen is true; closes (a) on success, (b) on
  * back/escape, or (c) when the user cancels. While the mutation is
  * pending a soft spinner overlays the form.
+ *
+ * Scanner integration: the Market Analyzer Bot's "Cargar en
+ * Diario" CTA calls ``useNewTradeDrawer.openWithPrefill({...})``
+ * which sets ``isOpen`` and ``prefill`` in one shot. We forward
+ * ``prefill`` to ``NewTradeForm`` which uses it to seed the
+ * defaultValues + the discriminated-union direction sync on mount.
  */
 import { GlassDrawer } from '../../components/common/GlassDrawer';
 import { useNewTradeDrawer } from '../../stores/useNewTradeDrawer';
@@ -12,6 +18,7 @@ import { NewTradeForm } from './NewTradeForm';
 
 export function NewTradeDrawer() {
   const isOpen = useNewTradeDrawer((state) => state.isOpen);
+  const prefill = useNewTradeDrawer((state) => state.prefill);
   const close = useNewTradeDrawer((state) => state.close);
 
   return (
@@ -23,7 +30,7 @@ export function NewTradeDrawer() {
       variant="default"
       title="Nuevo trade"
     >
-      <NewTradeForm onSuccess={close} onError={() => undefined} />
+      <NewTradeForm onSuccess={close} onError={() => undefined} prefill={prefill} />
     </GlassDrawer>
   );
 }

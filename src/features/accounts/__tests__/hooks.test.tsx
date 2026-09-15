@@ -16,6 +16,7 @@ vi.mock('../api', () => ({
       {
         id: 'a-1',
         user_id: 'u-1',
+      workspace_id: 'ws-1',
         broker_name: 'Test',
         type: 'FOREX',
         name: 'Cuenta 1',
@@ -31,6 +32,7 @@ vi.mock('../api', () => ({
   getAccountById: vi.fn(async (id: string) => ({
     id,
     user_id: 'u-1',
+      workspace_id: 'ws-1',
     broker_name: 'Test',
     type: 'BINARY',
     name: 'Detail',

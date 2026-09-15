@@ -2,6 +2,8 @@
  * p0d.2 — PortalShell smoke tests.
  * p0e.1 — extended to 6 nav labels (Dashboard, Cuentas, Operaciones,
  *         Diario, Playbook, Configuracion).
+ * scanner — extended to 7 nav labels (adds Scanner between Diario
+ *         and Playbook).
  * portal-fase0a-base — sidebar composes three pieces (Header / Nav /
  *         Footer + WorkspaceSelector). The header/nav/footer are
  *         still rendered by PortalShell via the PortalSidebar; this
@@ -12,6 +14,7 @@ import { describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 import { PortalShell } from '../PortalShell';
 import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
@@ -27,6 +30,7 @@ const buildAuth = (): AuthContextValue => ({
     role: 'USER',
     workspaces: [],
     current_subscription: null,
+    timezone: 'UTC',
   },
   subscription: null,
   loading: false,
@@ -41,40 +45,45 @@ const buildAuth = (): AuthContextValue => ({
 });
 
 function renderAt(path: string) {
+  const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
-    <AuthContext.Provider value={buildAuth()}>
-      <HelmetProvider>
-        <MemoryRouter initialEntries={[path]}>
-          <Routes>
-            <Route path="/portal/*" element={<PortalShell />}>
-              <Route path="cuentas" element={<div data-testid="child">cuentas child content</div>} />
-            </Route>
-          </Routes>
-        </MemoryRouter>
-      </HelmetProvider>
-    </AuthContext.Provider>,
+    <QueryClientProvider client={queryClient}>
+      <AuthContext.Provider value={buildAuth()}>
+        <HelmetProvider>
+          <MemoryRouter initialEntries={[path]}>
+            <Routes>
+              <Route path="/portal/*" element={<PortalShell />}>
+                <Route path="cuentas" element={<div data-testid="child">cuentas child content</div>} />
+              </Route>
+            </Routes>
+          </MemoryRouter>
+        </HelmetProvider>
+      </AuthContext.Provider>
+    </QueryClientProvider>,
   );
 }
 
 describe('PortalShell', () => {
-  it('renders the brand, the collapse toggle and the six nav labels', () => {
+  it('renders the brand, the collapse toggle and the seven nav labels', () => {
     renderAt('/portal/cuentas');
 
     // Brand row.
     expect(screen.getByText('JadeCapitalSuite')).toBeInTheDocument();
     expect(screen.getByText('USUARIO')).toBeInTheDocument();
 
-    // Nav labels (Spanish per mem #68). Six items in final nav order:
-    // Dashboard, Cuentas, Operaciones, Diario, Playbook, Configuracion.
+    // Nav labels (Spanish per mem #68). Seven items in final nav order:
+    // Dashboard, Cuentas, Operaciones, Diario, Scanner, Playbook,
+    // Configuracion.
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Operaciones' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Diario' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Scanner' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Playbook' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Configuracion' })).toBeInTheDocument();
 
     // Collapse toggle label (expanded state).
-    expect(screen.getByRole('button', { name: /Colapsar menu/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Ocultar menu/i })).toBeInTheDocument();
   });
 
   it('marks the active route via aria-current="page"', () => {

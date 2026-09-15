@@ -24,6 +24,7 @@ export type AccountTypeLiteral = 'BINARY' | 'FOREX';
 export interface AccountOut {
   readonly id: string;
   readonly user_id: string;
+  readonly workspace_id: string;
   readonly broker_name: string;
   readonly type: AccountTypeLiteral;
   readonly name: string;

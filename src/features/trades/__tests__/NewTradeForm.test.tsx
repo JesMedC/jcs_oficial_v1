@@ -21,6 +21,13 @@
  *   5. Switching account from BINARY → FOREX → BINARY resets
  *      ``direction`` to the type-correct default so stale enum
  *      values never leak across branches.
+ *
+ * one-by-one-thousand-discipline (PR-4) — the INVERSIÓN USD field is
+ * now a read-only, derived display. The investment is computed from
+ * the active account's balance via a three-tier rule (floor / 0.25%
+ * round-up / 0.10% round-up, capped at $404). The previous
+ * "Máx permitido" pill is gone — the field IS the canonical display.
+ * The describe block at the bottom locks every tier boundary.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
@@ -42,6 +49,7 @@ function makeWrapper() {
 const BASE_ACCOUNT: Omit<AccountOut, 'type'> = {
   id: '00000000-0000-0000-0000-000000000001',
   user_id: 'u1',
+      workspace_id: 'ws-1',
   broker_name: 'Pocket',
   name: '1PrimeOption',
   balance_usd: '100.00',
@@ -242,10 +250,12 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
     // "Guardar igual" path (the production user action when they
     // intentionally want to skip journaling).
     //
-    // one-by-one-thousand-discipline PR-2 — interest is now required
-    // before submit (REQ-INT-001). The test selects an interest chip
-    // before clicking the submit button.
-    mockAccounts([BINARY_ACCOUNT]);
+    // PR-4: investment_usd is no longer user-typed — it's computed
+    // from balance. $20000 > $1000 → tier 3 (0.10%) → $20. The
+    // predictive hard-block ceiling for the 0.25% rule at $20000 is
+    // $50, so $20 stays comfortably below the block threshold.
+    const highBalance = { ...BINARY_ACCOUNT, balance_usd: '20000.00' };
+    mockAccounts([highBalance]);
     vi.spyOn(tradesApi, 'openTradeApi').mockRejectedValue(
       Object.assign(new Error('timeout of 15000ms exceeded'), {
         code: 'ECONNABORTED',
@@ -258,14 +268,7 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
       expect(screen.getByTestId('new-trade-submit')).toBeInTheDocument();
     });
 
-    // PR-2: pick an interest chip so the discipline gate passes.
-    fireEvent.click(screen.getByTestId('interest-PLAN'));
-
     fireEvent.click(screen.getByTestId('new-trade-submit'));
-    await waitFor(() => {
-      expect(screen.getByTestId('soft-block-skip')).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByTestId('soft-block-skip'));
 
     await waitFor(() => {
       const alert = screen.getByTestId('new-trade-error');
@@ -279,9 +282,11 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
     // canonical { code, message, correlation_id } body) must surface
     // both the code and the message verbatim.
     //
-    // one-by-one-thousand-discipline PR-2 — interest gate first, then
-    // the existing journal soft-block path.
-    mockAccounts([BINARY_ACCOUNT]);
+    // PR-4: same balance rationale as the timeout test — the
+    // calculated $20 investment passes the predictive hard-block so
+    // the request reaches the wire.
+    const highBalance = { ...BINARY_ACCOUNT, balance_usd: '20000.00' };
+    mockAccounts([highBalance]);
     vi.spyOn(tradesApi, 'openTradeApi').mockRejectedValue({
       code: 'INSUFFICIENT_BALANCE',
       message: 'Saldo insuficiente para abrir la operación.',
@@ -294,12 +299,7 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
       expect(screen.getByTestId('new-trade-submit')).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByTestId('interest-PLAN'));
     fireEvent.click(screen.getByTestId('new-trade-submit'));
-    await waitFor(() => {
-      expect(screen.getByTestId('soft-block-skip')).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByTestId('soft-block-skip'));
 
     await waitFor(() => {
       const alert = screen.getByTestId('new-trade-error');
@@ -307,5 +307,130 @@ describe('NewTradeForm — discriminated BINARY vs FOREX', () => {
         'INSUFFICIENT_BALANCE: Saldo insuficiente para abrir la operación.',
       );
     });
+  });
+});
+
+/*
+ * one-by-one-thousand-discipline (PR-4) — INVERSIÓN USD derived
+ * display. The investment is computed from the account balance
+ * via a three-tier rule (see ``montoCalculadoParaBalance`` in
+ * ``discipline.ts``):
+ *
+ *   balance <  $400   → $1 (fixed; first tier floor)
+ *   $400 ≤ balance ≤ $1000  → ceil(balance × 0.0025)
+ *   balance >  $1000      → ceil(balance × 0.001)
+ *
+ * ALWAYS capped at the $404 broker ceiling and floored at $1.
+ *
+ * Cases below cover both tier boundaries (low/mid and mid/high)
+ * plus two mid-range scenarios. The $200000 case stays well below
+ * the broker cap under the high-balance rule (0.10%) — a useful
+ * regression guard against accidentally reverting to the old
+ * 0.25%-everywhere rule.
+ */
+describe('NewTradeForm — INVERSIÓN USD derived display (PR-4)', () => {
+  it('campo es read-only (no permite tipear) y muestra $1 con balance de $300', async () => {
+    // $300 < $400 → tier 1 (fixed floor).
+    const lowBalance = { ...BINARY_ACCOUNT, balance_usd: '300.00' };
+    mockAccounts([lowBalance]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+
+    const field = screen.getByTestId('new-trade-investment');
+    expect(field.tagName.toLowerCase()).toBe('output');
+    expect(field.textContent).toBe('$1');
+  });
+
+  it('muestra $2 con balance de $404 (tier 2 bajo, ceil(1.01))', async () => {
+    // $404 just inside tier 2 — ceil(404 × 0.0025) = ceil(1.01) = 2.
+    // The user's cited example: "si da 1.01 debe ser 2".
+    const boundary = { ...BINARY_ACCOUNT, balance_usd: '404.00' };
+    mockAccounts([boundary]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$2');
+  });
+
+  it('muestra $3 con balance de $1000 (tier 2 alto, ceil(2.5))', async () => {
+    // $1000 is the inclusive upper bound of tier 2 — ceil(1000 ×
+    // 0.0025) = ceil(2.5) = 3. Just past this point the rule
+    // switches to the tighter 0.10% tier.
+    const midUpper = { ...BINARY_ACCOUNT, balance_usd: '1000.00' };
+    mockAccounts([midUpper]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$3');
+  });
+
+  it('muestra $2 con balance de $1001 (cruce al tier 3, ceil(1.001))', async () => {
+    // $1001 just past the tier 2 → tier 3 boundary — ceil(1001 ×
+    // 0.001) = ceil(1.001) = 2. Verifies the higher-balance tier is
+    // genuinely stricter than the previous "0.25% everywhere" rule.
+    const boundaryHigh = { ...BINARY_ACCOUNT, balance_usd: '1001.00' };
+    mockAccounts([boundaryHigh]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$2');
+  });
+
+  it('muestra $5 con balance de $5000 (tier 3, mid-range)', async () => {
+    // $5000 → ceil(5000 × 0.001) = 5.
+    const midHigh = { ...BINARY_ACCOUNT, balance_usd: '5000.00' };
+    mockAccounts([midHigh]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$5');
+  });
+
+  it('muestra $200 con balance de $200000 (tier 3, sin tocar el cap)', async () => {
+    // $200000 → ceil(200000 × 0.001) = 200. Far below the $404
+    // broker cap, so this is a regression guard: under the OLD
+    // (PR-3) rule this would have shown $404. If you see $404 here,
+    // someone reverted the high-balance tier to 0.25%.
+    const veryHigh = { ...BINARY_ACCOUNT, balance_usd: '200000.00' };
+    mockAccounts([veryHigh]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$200');
+  });
+
+  it('muestra el placeholder "—" y deshabilita submit con balance < $1', async () => {
+    // Below the $1 floor the calculator returns null and the form
+    // surfaces the placeholder "—" in the field. The submit button
+    // is also disabled (no valid investment to send).
+    const empty = { ...BINARY_ACCOUNT, balance_usd: '0.50' };
+    mockAccounts([empty]);
+
+    render(<NewTradeForm />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('—');
+    expect(screen.getByTestId('new-trade-submit')).toBeDisabled();
   });
 });

@@ -240,8 +240,8 @@ export function QuickActionModals() {
                 Cuenta
               </span>
               {accounts.length === 1 && selectedAccount ? (
-                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(13,21,30,0.7)] border border-[rgba(0,255,157,0.25)]">
-                  <span className="inline-flex shrink-0 items-center justify-center w-6 h-6 rounded-full bg-[rgba(0,255,157,0.15)] text-[#00FF9D] font-display text-[10px]">
+                <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[var(--glass-surface)] border border-[var(--color-jade-border-line)]">
+                  <span className="inline-flex shrink-0 items-center justify-center w-6 h-6 rounded-full bg-[var(--color-jade-border)] text-[var(--color-jade)] font-display text-[10px]">
                     {selectedAccount.type === 'BINARY' ? 'B' : 'F'}
                   </span>
                   <div className="flex flex-col min-w-0">

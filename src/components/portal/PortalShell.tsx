@@ -23,14 +23,22 @@ import { PortalSidebar } from './PortalSidebar';
 import { FloatingActionButton } from './FloatingActionButton';
 import { NewTradeDrawer } from '../../features/trades/NewTradeDrawer';
 import { QuickActionModals } from './QuickActionModals';
+import { ThemeToggle } from '../common/ThemeToggle';
 
 export function PortalShell() {
   return (
-    <div className="relative min-h-dvh flex bg-[#060B10] text-text-primary">
+    <div className="relative min-h-dvh flex bg-[var(--color-bg)] text-[var(--color-jade-text-pri)]">
       <PortalSidebar />
       <main className="relative z-10 flex-1 px-4 md:px-6 py-4 overflow-x-auto min-w-0">
         <Outlet />
       </main>
+      {/* Theme toggle floating top-right of the content area. Visible
+          only inside the portal shell so the landing + auth pages keep
+          their dark-only aesthetic (Wave 5 keeps marketing pages
+          dark-locked — out of scope for this slice). */}
+      <div className="fixed top-4 right-4 z-30">
+        <ThemeToggle />
+      </div>
       <NewTradeDrawer />
       <QuickActionModals />
       <FloatingActionButton />

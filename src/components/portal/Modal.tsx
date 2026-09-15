@@ -46,8 +46,8 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-md bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] border border-[rgba(0,255,157,0.15)] rounded-2xl overflow-hidden">
-        <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(0,255,157,0.15)]">
+      <div className="w-full max-w-md bg-[var(--glass-surface)] backdrop-blur-[12px] border border-[var(--color-jade-border)] rounded-2xl overflow-hidden shadow-[0_0_40px_rgba(0,255,157,0.18)]"> {/* design-system-v1 (Wave 3b, T3b.1) — neon-jade modal-card shadow at 0.18 alpha. */}
+        <div className="flex items-center justify-between px-5 py-4 border-b border-[var(--color-jade-border)]">
           <h2 className="font-display uppercase tracking-wide text-primary text-base md:text-lg">
             {title}
           </h2>
@@ -62,7 +62,7 @@ export function Modal({ open, onClose, title, children, footer }: ModalProps) {
         </div>
         <div className="px-5 py-4">{children}</div>
         {footer !== undefined ? (
-          <div className="px-5 py-4 border-t border-[rgba(0,255,157,0.15)] flex justify-end gap-2 bg-[#060B10]">
+          <div className="px-5 py-4 border-t border-[var(--color-jade-border)] flex justify-end gap-2 bg-[var(--color-bg)]">
             {footer}
           </div>
         ) : null}

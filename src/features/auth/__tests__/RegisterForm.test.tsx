@@ -61,6 +61,7 @@ const baseMe: AuthMeOut = {
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   },
+  timezone: 'UTC',
 };
 
 function renderForm(value: AuthContextValue) {
