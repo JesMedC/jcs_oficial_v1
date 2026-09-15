@@ -23,8 +23,19 @@ import { describe, expect, it } from 'vitest';
 import {
   SESSION_LABELS,
   SESSION_ORDER,
+  sessionForTimestamp,
   type SessionBand,
 } from '../index';
+
+/**
+ * Build an ISO string for an arbitrary UTC date. We keep the rest of
+ * the timestamp constant so only the hour-under-test varies — guards
+ * against an accidental timezone re-interpretation creeping into the
+ * assertion.
+ */
+function utc(hour: number): string {
+  return `2026-01-01T${String(hour).padStart(2, '0')}:00:00.000Z`;
+}
 
 describe('shared sessions module (sessions-configurable-cap)', () => {
   it('SESSION_LABELS contiene exactamente los 4 nombres reales', () => {
@@ -66,5 +77,47 @@ describe('shared sessions module (sessions-configurable-cap)', () => {
     expect(SESSION_LABELS).not.toHaveProperty('EUROPA');
     expect(SESSION_LABELS).not.toHaveProperty('NY_AMERICA');
     expect(SESSION_LABELS).not.toHaveProperty('NY_PM');
+  });
+});
+
+describe('sessionForTimestamp (UTC resolver)', () => {
+  it('hour 00 → ASIA', () => {
+    expect(sessionForTimestamp(utc(0))).toBe('ASIA');
+  });
+
+  it('hour 06 → ASIA (last minute of the morning band)', () => {
+    expect(sessionForTimestamp(utc(6))).toBe('ASIA');
+  });
+
+  it('hour 07 → LONDON (band opens, inclusive)', () => {
+    expect(sessionForTimestamp(utc(7))).toBe('LONDON');
+  });
+
+  it('hour 11 → LONDON (last minute)', () => {
+    expect(sessionForTimestamp(utc(11))).toBe('LONDON');
+  });
+
+  it('hour 12 → NEW_YORK (band opens, inclusive)', () => {
+    expect(sessionForTimestamp(utc(12))).toBe('NEW_YORK');
+  });
+
+  it('hour 16 → NEW_YORK (last minute)', () => {
+    expect(sessionForTimestamp(utc(16))).toBe('NEW_YORK');
+  });
+
+  it('hour 17 → SYDNEY (band opens, inclusive)', () => {
+    expect(sessionForTimestamp(utc(17))).toBe('SYDNEY');
+  });
+
+  it('hour 23 → SYDNEY (last minute)', () => {
+    expect(sessionForTimestamp(utc(23))).toBe('SYDNEY');
+  });
+
+  it('garbage string → null (does not throw)', () => {
+    expect(sessionForTimestamp('not-a-date')).toBeNull();
+  });
+
+  it('also accepts a Date object (not just a string)', () => {
+    expect(sessionForTimestamp(new Date(utc(14)))).toBe('NEW_YORK');
   });
 });

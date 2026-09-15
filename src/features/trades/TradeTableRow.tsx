@@ -22,14 +22,58 @@ import { useState } from 'react';
 
 import { CloseTradeModal } from './CloseTradeModal';
 import { formatMoney, formatNumber, pnlColor } from './format';
+import {
+  SESSION_LABELS,
+  sessionForTimestamp,
+  type SessionBand,
+} from '../sessions';
 import { TradeStatusBadge } from './TradeStatusBadge';
 import { TradeTypeBadge } from './TradeTypeBadge';
+import type { AccountOut } from '../accounts/types';
 import type { BalancePair } from './balanceTimeline';
 import type { TradeOut } from './types';
+
+/**
+ * Visual palette per session. Four discrete colors (jade / cyan /
+ * amber / profit) read as separate markets at a glance without
+ * requiring the user to read the label. Slice B (sessions-configurable-cap)
+ * renamed the legacy NYSE/LONDRES/SIDNEY trio to the four real
+ * session names — colors map 1:1 per design.md §4.2.
+ */
+const SESSION_PILL_CLASS: Record<SessionBand, string> = {
+  ASIA: 'bg-primary/15 text-primary border-primary/40',
+  LONDON: 'bg-info/15 text-info border-info/40',
+  NEW_YORK: 'bg-profit/15 text-profit border-profit/40',
+  SYDNEY: 'bg-warning/15 text-warning border-warning/40',
+};
+
+/**
+ * Compact session pill — renders the localized session name inside
+ * the canonical badge frame. Returns null for trades whose
+ * ``opened_at`` falls outside every defined window so the row can
+ * swap in a muted em-dash placeholder.
+ */
+function SessionPill({ session }: { readonly session: SessionBand }) {
+  return (
+    <span
+      data-testid={`trade-session-${session}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]}`}
+    >
+      {SESSION_LABELS[session]}
+    </span>
+  );
+}
 
 interface Props {
   readonly trade: TradeOut;
   readonly balance: BalancePair | null;
+  /**
+    Account lookup keyed by id. The parent (TradeTable) builds this
+    once per render and threads it in so the row can show the
+    human-readable account name in its own column without making
+    another ``useAccounts`` call per row.
+   */
+  readonly accountsById: ReadonlyMap<string, AccountOut>;
 }
 
 function formatUsd(n: number): string {
@@ -41,11 +85,21 @@ function formatUsd(n: number): string {
   }).format(n);
 }
 
-export function TradeTableRow({ trade, balance }: Props) {
+export function TradeTableRow({ trade, balance, accountsById }: Props) {
   const [closing, setClosing] = useState(false);
   const isOpen = trade.status === 'OPEN';
   const isForex = trade.type === 'FOREX';
   const isFundLike = trade.type === 'FUND' || trade.type === 'WITHDRAW';
+  // Signed amount for FUND/WITHDRAW rows: positive for deposits,
+  // negative for withdrawals (the backend stores ``investment_usd``
+  // as a positive magnitude and puts the sign in ``type``). Used to
+  // render ``+US$ X,XX`` (DEPOSITO) / ``-US$ X,XX`` (RETIRO) with
+  // the same green/red tokens the P&L column uses.
+  const capitalAmount = isFundLike
+    ? trade.type === 'WITHDRAW'
+      ? -Number(trade.investment_usd ?? 0)
+      : Number(trade.investment_usd ?? 0)
+    : 0;
 
   const date = new Date(trade.opened_at).toLocaleString('es-AR', {
     day: '2-digit',
@@ -54,6 +108,13 @@ export function TradeTableRow({ trade, balance }: Props) {
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  // Derive the trading session from the trade's opened_at (UTC) so the
+  // column renders on the client without any backend changes — see
+  // ``src/features/sessions/index.ts`` for the rule. The shared
+  // resolver collapses the legacy 3-class file (NYSE / LONDRES /
+  // SIDNEY) into the four real session names per Slice B.
+  const session = sessionForTimestamp(trade.opened_at);
 
   return (
     <>
@@ -68,6 +129,22 @@ export function TradeTableRow({ trade, balance }: Props) {
         <td className="px-3 py-2">
           <TradeTypeBadge type={trade.type} />
         </td>
+        <td
+          className="px-3 py-2"
+          data-testid={`trade-session-${trade.id}`}
+        >
+          {session === null ? (
+            <span
+              data-testid={`trade-session-none-${trade.id}`}
+              className="text-text-muted font-mono"
+              aria-label="Sin sesión"
+            >
+              —
+            </span>
+          ) : (
+            <SessionPill session={session} />
+          )}
+        </td>
         <td className="px-3 py-2 text-text-primary font-display">
           {isForex ? trade.pair ?? trade.instrument : trade.instrument}
         </td>
@@ -78,15 +155,25 @@ export function TradeTableRow({ trade, balance }: Props) {
         <td className="px-3 py-2 text-right">
           {isFundLike ? '—' : isOpen ? '—' : formatNumber(trade.exit_price)}
         </td>
-        <td className="px-3 py-2 text-right">
+        <td
+          className={`px-3 py-2 text-right font-semibold ${
+            isFundLike ? pnlColor(capitalAmount) : ''
+          }`}
+        >
           {isFundLike
-            ? formatMoney(trade.pnl_usd)
+            ? formatMoney(capitalAmount)
             : isForex
               ? formatNumber(trade.lot_size)
               : formatMoney(trade.investment_usd)}
         </td>
         <td className={`px-3 py-2 text-right font-semibold ${pnlColor(trade.pnl_usd)}`}>
-          {isOpen ? '—' : formatMoney(trade.pnl_usd)}
+          {isFundLike ? '—' : isOpen ? '—' : formatMoney(trade.pnl_usd)}
+        </td>
+        <td
+          className="px-3 py-2 text-text-secondary font-body text-sm whitespace-nowrap"
+          data-testid={`trade-account-${trade.id}`}
+        >
+          {accountsById.get(trade.account_id)?.name ?? '—'}
         </td>
         <td className="px-3 py-2 text-right font-mono text-text-secondary">
           {balance ? formatUsd(balance.prev) : '—'}
