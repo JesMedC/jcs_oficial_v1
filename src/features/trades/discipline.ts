@@ -3,8 +3,8 @@
  *
  * Mirrors the backend helpers in
  * ``backend/app/services/discipline.py`` + ``discipline_engine.py``
- * so the form can show a "Sugerido: $X" preview and HARD-block the
- * submit button when the user types a value the server will
+ * so the form can show the calculated investment amount and HARD-block
+ * the submit button when the user types a value the server will
  * certainly reject (predictive validation — REQ-DISC-004 / 005).
  *
  * The server is always the source of truth: these helpers are a UX
@@ -15,9 +15,39 @@
  * specific to the 1×1000 discipline engine, not general money math.
  */
 
-const BROKER_CAP_USD = 404;
-const CAPITAL_INICIAL_PCT = 0.0025;
-const MIN_BALANCE_FOR_DISCIPLINE = 1000;
+/**
+ * Broker ceiling for a single BINARY trade (REQ-DISC-002).
+ * Exported so other modules (settings page, future risk dashboard)
+ * can read the canonical cap without re-declaring the constant.
+ */
+export const BROKER_CAP_USD = 404;
+
+/** Floor for the calculated investment — never returns below $1. */
+const FLOOR_USD = 1;
+
+/**
+ * Three-tier cap rules for BINARY investment (PR-4):
+ *
+ *   balance <  $400                       → $1 (fixed; first tier floor)
+ *   $400 ≤ balance ≤ $1000               → ceil(balance × 0.0025)
+ *   balance >  $1000                     → ceil(balance × 0.001)
+ *
+ * The middle tier is the original "1×1000" rule (0.25% with
+ * round-up). The high-balance tier is intentionally tighter
+ * (0.10%) so users with larger accounts don't accidentally over-
+ * trade. Both are bounded by `BROKER_CAP_USD` and `FLOOR_USD`.
+ */
+const TIER_LOW_BALANCE_MAX_USD = 400;
+const TIER_MID_BALANCE_MAX_USD = 1000;
+const TIER_MID_PCT = 0.0025;
+const TIER_HIGH_PCT = 0.001;
+
+/**
+ * Minimum valid balance for the calculator. Anything below this
+ * returns `null` so the form can hide the calculated display
+ * rather than showing a misleading "$1" against a $0.50 balance.
+ */
+const MIN_BALANCE_FOR_CALC = 1;
 
 /**
  * Mirror of backend ``ceil_to_next_dollar`` (REQ-DISC-004). Rounds
@@ -32,20 +62,39 @@ export function ceilToNextDollar(value: number): number {
 }
 
 /**
- * Preview the suggested ``importe`` for the round-up badge
- * (REQ-DISC-002/003). Mirrors the backend engine's
- * ``ceil_to_next_dollar(capital_inicial * 0.0025)``.
+ * Compute the canonical BINARY investment for an account balance.
+ * Mirrors the backend engine's three-tier rule:
  *
- * Below the discipline threshold ($1000 capital-inicial proxy) the
- * engine defers to the legacy balance gate, so the suggestion is
- * ``null`` — we don't preview a number that the backend would not
- * enforce anyway.
+ *   balance <  $400   → $1
+ *   $400 ≤ balance ≤ $1000  → ceil(balance × 0.0025)
+ *   balance >  $1000      → ceil(balance × 0.001)
+ *
+ * The result is capped at `BROKER_CAP_USD` ($404) and floored at
+ * `FLOOR_USD` ($1) regardless of the tier's raw output.
+ *
+ * Returns ``null`` when the balance is non-finite or below $1 so
+ * the form can render a placeholder ("—") instead of a misleading
+ * number. The form also disables submit in that case.
  */
-export function suggestedImporteUsd(capitalInicialUsd: number): number | null {
-  if (!Number.isFinite(capitalInicialUsd) || capitalInicialUsd < MIN_BALANCE_FOR_DISCIPLINE) {
+export function montoCalculadoParaBalance(balanceUsd: number): number | null {
+  if (!Number.isFinite(balanceUsd) || balanceUsd < MIN_BALANCE_FOR_CALC) {
     return null;
   }
-  return ceilToNextDollar(capitalInicialUsd * CAPITAL_INICIAL_PCT);
+  let raw: number;
+  if (balanceUsd < TIER_LOW_BALANCE_MAX_USD) {
+    // First tier: floor. Below $400 we always allow the minimum
+    // ($1) regardless of the strict 0.25% math — keeps small
+    // accounts tradeable.
+    raw = FLOOR_USD;
+  } else if (balanceUsd <= TIER_MID_BALANCE_MAX_USD) {
+    // Middle tier: 0.25% round-up. Includes the $400 boundary
+    // (ceil(400 × 0.0025) = ceil(1.0) = 1, which equals the floor).
+    raw = Math.ceil(balanceUsd * TIER_MID_PCT);
+  } else {
+    // High tier: 0.10% round-up (stricter for large accounts).
+    raw = Math.ceil(balanceUsd * TIER_HIGH_PCT);
+  }
+  return Math.min(BROKER_CAP_USD, Math.max(FLOOR_USD, raw));
 }
 
 /**
@@ -59,6 +108,13 @@ export function suggestedImporteUsd(capitalInicialUsd: number): number | null {
  * predictive verdict). The form then lets the submit through and
  * lets the server return the actual error code — surfaced as a
  * soft-block pill (REQ-DISC-005/006).
+ *
+ * NOTE (PR-4): for BINARY trades the investment is computed by
+ * ``montoCalculadoParaBalance`` (read-only), so this gate is
+ * effectively a no-op there — the calculated value always lands
+ * inside the discipline envelope. The gate still applies to FOREX
+ * positions where ``deduct = lot × entry × 100`` can exceed the
+ * 0.25% ceiling.
  */
 export function isHardBlockedByDiscipline(
   deductUsd: number,
@@ -67,11 +123,11 @@ export function isHardBlockedByDiscipline(
   if (!Number.isFinite(deductUsd) || deductUsd <= 0) return false;
   // Rule 3 — broker cap (404 USD).
   if (deductUsd > BROKER_CAP_USD) return true;
-  // Rule 4 — 0.25% capital-inicial cap (only enforced above the
-  // threshold; below it the legacy balance gate owns the rejection
-  // and there's no "definitely blocked" verdict to show).
-  if (capitalInicialUsd >= MIN_BALANCE_FOR_DISCIPLINE) {
-    const ceiling = ceilToNextDollar(capitalInicialUsd * CAPITAL_INICIAL_PCT);
+  // Rule 4 — 0.25% capital-inicial cap. Applies at ALL balance
+  // levels >= $1 (the previous $1000 gate was removed — the rule
+  // now scales linearly from the very first dollar).
+  if (capitalInicialUsd >= MIN_BALANCE_FOR_CALC) {
+    const ceiling = ceilToNextDollar(capitalInicialUsd * TIER_MID_PCT);
     if (ceilToNextDollar(deductUsd) > ceiling) return true;
   }
   return false;
@@ -88,9 +144,13 @@ export const DISCIPLINE_ERROR_CODES = {
   CAPITAL_INICIAL_CAP_EXCEEDED: 'CAPITAL_INICIAL_CAP_EXCEEDED',
   DAILY_CAP_EXCEEDED: 'DAILY_CAP_EXCEEDED',
   SESSION_CAP_EXCEEDED: 'SESSION_CAP_EXCEEDED',
-  INTEREST_REQUIRED: 'INTEREST_REQUIRED',
   INTEREST_INVALID: 'INTEREST_INVALID',
   PAYOUT_OUT_OF_RANGE: 'PAYOUT_OUT_OF_RANGE',
+  // REQ-DSC-005: PATCH /workspaces/{id}/discipline rejected because
+  // the submitted value is outside ``[1, plan_ceiling]``. Added by
+  // sessions-configurable-cap Slice A; mirrored here for the
+  // Disciplina tab's error pill (Slice B T-016).
+  DISCIPLINE_CAP_OUT_OF_RANGE: 'DISCIPLINE_CAP_OUT_OF_RANGE',
 } as const;
 
 export type DisciplineErrorCode =
@@ -106,7 +166,12 @@ export const DISCIPLINE_ERROR_MESSAGE: Record<DisciplineErrorCode, string> = {
   CAPITAL_INICIAL_CAP_EXCEEDED: 'Importe excede el 0.25% del capital inicial.',
   DAILY_CAP_EXCEEDED: 'Excediste el 0.10% diario del capital inicial.',
   SESSION_CAP_EXCEEDED: 'Ya tenés 4 operaciones en esta sesión.',
-  INTEREST_REQUIRED: 'Elegí el interés (FOMO, Plan, Venganza o Impulso).',
   INTEREST_INVALID: 'Interés inválido.',
   PAYOUT_OUT_OF_RANGE: 'Payout fuera de rango (70..99).',
+  // Slice B T-019: message for the DisciplinaTab out-of-range pill.
+  // The backend also includes the ceiling in the envelope message
+  // (``session_ops_cap X fuera de rango; techo Y``); we render the
+  // localized line so non-error-state copy stays consistent.
+  DISCIPLINE_CAP_OUT_OF_RANGE:
+    'El tope de operaciones por sesión excede el máximo de tu plan.',
 };

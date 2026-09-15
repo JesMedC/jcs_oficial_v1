@@ -170,6 +170,11 @@ export const ErrorCodeValues = {
   FORBIDDEN_NOT_ADMIN: 'FORBIDDEN_NOT_ADMIN',
   ADMINAC_CANNOT_DEACTIVATE_SELF: 'ADMINAC_CANNOT_DEACTIVATE_SELF',
   ADMINAC_INVALID_PRICE: 'ADMINAC_INVALID_PRICE',
+  // REQ-DSC-005: PATCH /workspaces/{id}/discipline rejected because
+  // the submitted value is outside ``[1, plan_ceiling]``. Mirrors
+  // the backend ``app.schemas.envelope.ErrorCode.DISCIPLINE_CAP_OUT_OF_RANGE``
+  // added by sessions-configurable-cap Slice A.
+  DISCIPLINE_CAP_OUT_OF_RANGE: 'DISCIPLINE_CAP_OUT_OF_RANGE',
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   NOT_FOUND: 'NOT_FOUND',
