@@ -101,7 +101,7 @@ export function FloatingActionButton() {
       {open ? (
         <div
           aria-hidden="true"
-          className="fixed inset-0 -z-10 bg-[#060B10]/40 backdrop-blur-sm"
+          className="fixed inset-0 -z-10 bg-[var(--color-bg)]/40 backdrop-blur-sm"
           onClick={() => setOpen(false)}
         />
       ) : null}
@@ -124,18 +124,18 @@ export function FloatingActionButton() {
             style={{ transitionDelay: open ? `${idx * 30}ms` : '0ms' }}
             className={[
               'group flex items-center gap-3',
-              'bg-[rgba(13,21,30,0.92)] backdrop-blur-md',
-              'border border-[rgba(0,255,157,0.45)] rounded-full',
+              'bg-[var(--glass-surface)] backdrop-blur-md',
+              'border border-[var(--color-jade-border-line)] rounded-full',
               'px-4 py-2 shadow-[0_0_18px_rgba(0,255,157,0.25)]',
-              'hover:border-[#00FF9D] hover:shadow-[0_0_22px_rgba(0,255,157,0.55)]',
+              'hover:border-[var(--color-jade)] hover:shadow-[0_0_22px_rgba(0,255,157,0.55)]',
               'transition-all',
             ].join(' ')}
           >
             <span
               className={[
                 'inline-flex w-7 h-7 items-center justify-center rounded-full',
-                'bg-[rgba(0,255,157,0.12)] text-[#00FF9D] font-display text-base',
-                'group-hover:bg-[rgba(0,255,157,0.22)] transition-colors',
+                'bg-[var(--color-jade-border)] text-[var(--color-jade)] font-display text-base',
+                'group-hover:bg-[var(--color-jade-border-line)] transition-colors',
               ].join(' ')}
               aria-hidden="true"
             >
@@ -159,7 +159,7 @@ export function FloatingActionButton() {
           'inline-flex items-center justify-center',
           'w-14 h-14 md:w-16 md:h-16 rounded-full',
           'bg-transparent border-2 border-[#00FF9D]',
-          'text-[#00FF9D] font-display text-2xl md:text-3xl leading-none',
+          'text-[var(--color-jade)] font-display text-2xl md:text-3xl leading-none',
           'shadow-[0_0_20px_rgba(0,255,157,0.5),inset_0_0_12px_rgba(0,255,157,0.25)]',
           '[text-shadow:0_0_8px_rgba(0,255,157,0.7)]',
           'hover:bg-[#00FF9D] hover:text-[#060B10]',

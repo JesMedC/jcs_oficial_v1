@@ -44,9 +44,13 @@ export function AccountSelector({ value, onChange }: Props) {
     .slice()
     .sort((a, b) => a.created_at.localeCompare(b.created_at));
 
-  // No point showing a one-option picker — the dashboard already
-  // auto-scopes to a single account.
-  if (sorted.length <= 1) return null;
+  // Always render — even with one account, the explicit
+  // "Todas las cuentas" choice matters for analytics like the equity
+  // curve (where "all" == "single" with one account, but the user
+  // still benefits from seeing the scope they have). FASE 6 lesson:
+  // the auto-hide was hiding the scope picker exactly when the user
+  // most needed to confirm it.
+  // if (sorted.length <= 1) return null;
 
   const selectedLabel =
     value === null
