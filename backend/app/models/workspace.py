@@ -1,11 +1,17 @@
-"""Workspace model + ``WorkspacePlanTier`` enum (NONE | STARTER | PRO | ELITE)."""
+"""Workspace model + ``WorkspacePlanTier`` enum (NONE | STARTER | PRO | ELITE).
+
+REQ-DSC-001: ``Workspace.session_ops_cap`` is a nullable SMALLINT that
+overrides the plan-tier session ops ceiling when set. NULL means "use
+the ceiling". The single source of truth for the ceiling lives in
+``app.services.discipline_engine._PLAN_CEILING_BY_TIER``.
+"""
 from __future__ import annotations
 
 import enum
 import uuid
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, String
+from sqlalchemy import Enum, ForeignKey, SmallInteger, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -43,10 +49,20 @@ class Workspace(Base, TimestampMixin):
         server_default=WorkspacePlanTier.NONE.value,
         nullable=False,
     )
+    # REQ-DSC-001: nullable SMALLINT. NULL = use the plan-tier ceiling
+    # (``plan_ceiling_for(workspace.plan_tier)``). App-side validation
+    # in the PATCH endpoint enforces ``1 <= value <= ceiling`` — no DB
+    # CHECK constraint because the ceiling is plan-tier-aware.
+    session_ops_cap: Mapped[int | None] = mapped_column(
+        SmallInteger, nullable=True
+    )
 
     members: Mapped[list["WorkspaceMember"]] = relationship(
         back_populates="workspace", cascade="all, delete-orphan", lazy="selectin"
     )
 
     def __repr__(self) -> str:
-        return f"<Workspace id={self.id} name={self.name!r} tier={self.plan_tier}>"
+        return (
+            f"<Workspace id={self.id} name={self.name!r} "
+            f"tier={self.plan_tier} cap={self.session_ops_cap}>"
+        )
