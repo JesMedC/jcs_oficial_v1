@@ -120,7 +120,7 @@ export function FundWithdrawModal({
             type="submit"
             form="fund-withdraw-form"
             disabled={!valid || submitting}
-            className="btn-cyber-jade px-3 py-1.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]" /* design-system-v1 (Wave 3b, T3b.1) — neon-jade hover shadow at 0.5 alpha. */
+            className="btn-cyber-jade px-3 py-1.5 rounded-lg text-sm disabled:opacity-50 disabled:cursor-not-allowed hover:shadow-[0_0_24px_rgba(0,212,216,0.5)]" /* core-interface-redesign (Slice 3) — cyan hover shadow. */
           >
             {submitting ? submittingLabel : submitLabel}
           </button>

@@ -45,7 +45,7 @@ export function PortalSidebar() {
         'shrink-0 sticky top-0 self-start h-dvh border-r border-[var(--color-jade-border)]',
         'bg-[var(--color-bg)]',
         'flex flex-col transition-[width] duration-200',
-        isCollapsed ? 'w-16' : 'w-60',
+        isCollapsed ? 'w-16' : 'w-72',
       ].join(' ')}
       aria-label="Menu lateral del portal de usuario"
     >

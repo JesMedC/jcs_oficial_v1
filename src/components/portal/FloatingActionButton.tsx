@@ -126,8 +126,8 @@ export function FloatingActionButton() {
               'group flex items-center gap-3',
               'bg-[var(--glass-surface)] backdrop-blur-md',
               'border border-[var(--color-jade-border-line)] rounded-full',
-              'px-4 py-2 shadow-[0_0_18px_rgba(0,255,157,0.25)]',
-              'hover:border-[var(--color-jade)] hover:shadow-[0_0_22px_rgba(0,255,157,0.55)]',
+              'px-4 py-2 shadow-[0_0_18px_rgba(0,212,216,0.25)]',
+              'hover:border-[var(--color-jade)] hover:shadow-[0_0_22px_rgba(0,212,216,0.55)]',
               'transition-all',
             ].join(' ')}
           >
@@ -160,10 +160,10 @@ export function FloatingActionButton() {
           'w-14 h-14 md:w-16 md:h-16 rounded-full',
           'bg-transparent border-2 border-[#00FF9D]',
           'text-[var(--color-jade)] font-display text-2xl md:text-3xl leading-none',
-          'shadow-[0_0_20px_rgba(0,255,157,0.5),inset_0_0_12px_rgba(0,255,157,0.25)]',
-          '[text-shadow:0_0_8px_rgba(0,255,157,0.7)]',
+          'shadow-[0_0_20px_rgba(0,212,216,0.5),inset_0_0_12px_rgba(0,212,216,0.25)]',
+          '[text-shadow:0_0_8px_rgba(0,212,216,0.7)]',
           'hover:bg-[#00FF9D] hover:text-[#060B10]',
-          'hover:shadow-[0_0_30px_rgba(0,255,157,0.85),inset_0_0_16px_rgba(0,255,157,0.45)]',
+          'hover:shadow-[0_0_30px_rgba(0,212,216,0.85),inset_0_0_16px_rgba(0,212,216,0.45)]',
           'transition-all duration-200',
         ].join(' ')}
       >
