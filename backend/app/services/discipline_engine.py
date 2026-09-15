@@ -11,10 +11,12 @@ short-circuits on the first failure (REQ-DISC-010 binding order):
      — REQ-DISC-006 0.25% capital-inicial cap
   5. ``Σ importe today ≤ 0.001 × capital_inicial`` — REQ-DISC-007
      daily cap (TZ-aware via ``session_service.local_date_for_timestamp``)
-  6. ``count(trades in session bucket today) < 4`` — REQ-DISC-008
-     4-ops-per-session cap (UNIVERSAL across all plan tiers — every
-     workspace, including PRO/PLUS and ELITE, is capped at 4 ops per
-     session band per local day)
+  6. ``count(trades in session bucket today) < _workspace_session_cap(ws)``
+     — REQ-DISC-008 session ops-cap. Reads
+     ``account.workspace.session_ops_cap`` first; falls back to
+     ``_PLAN_CEILING_BY_TIER[plan_tier]`` (or
+     ``_PLAN_CEILING_FALLBACK`` if plan_tier is unknown). Single
+     source of truth: ``_PLAN_CEILING_BY_TIER``.
   7. (payout_pct 70..99 — owned by Pydantic, mirrored in the
      service-level check inside ``trade_service.open_trade``)
 
@@ -48,7 +50,7 @@ from typing import Literal
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models import Trade, TradingAccount, User, WorkspacePlanTier
+from app.models import Trade, TradingAccount, User, Workspace, WorkspacePlanTier
 from app.schemas.trade import TradeCreateIn
 from app.services.discipline import ceil_to_next_dollar
 from app.services.session_service import (
@@ -137,7 +139,28 @@ def _plan_caps(plan_tier: WorkspacePlanTier) -> tuple[Decimal, int]:
 # workspace's plan_tier (race window during account creation). The
 # tier-aware helper above is the canonical source of truth.
 _DAILY_PCT_FALLBACK = Decimal("0.05")
-_SESSION_OPS_CAP_FALLBACK = 4
+
+
+def _workspace_session_cap(workspace: Workspace | None) -> int:
+    """Resolve the effective session ops cap for ``workspace``.
+
+    Order (REQ-DISC-008 + REQ-DSC-003):
+      1. ``workspace.session_ops_cap`` if set (workspace-level tightening)
+      2. ``plan_ceiling_for(workspace.plan_tier)`` — STARTER=4 / PRO=6 /
+         ELITE=10
+      3. ``_PLAN_CEILING_FALLBACK`` (4) if ``workspace`` is ``None`` or
+         its ``plan_tier`` is unknown — the strictest tier keeps
+         unprovisioned workspaces on the safe side.
+
+    Adding a new tier is a single edit to ``_PLAN_CEILING_BY_TIER``
+    — migration, PATCH endpoint, and engine all read it.
+    """
+    if workspace is None:
+        return _PLAN_CEILING_FALLBACK
+    override = getattr(workspace, "session_ops_cap", None)
+    if override is not None:
+        return int(override)
+    return plan_ceiling_for(getattr(workspace, "plan_tier", None))
 
 
 # ---- error model ----
@@ -333,9 +356,11 @@ async def validate_open_trade(
     ts = now or datetime.now(UTC)
     tz = user.timezone or "UTC"
 
-    # Plan-tier-aware caps (FASE 6 — Diario demo).
+    # Plan-tier-aware daily pct (FASE 6 — Diario demo). The session
+    # cap moved to its own helper below (REQ-DISC-008 + REQ-DSC-003).
     plan_tier = getattr(account.workspace, "plan_tier", WorkspacePlanTier.NONE)
-    daily_pct, session_ops_cap = _plan_caps(plan_tier)
+    daily_pct = _plan_caps(plan_tier)[0]
+    session_ops_cap = _workspace_session_cap(account.workspace)
     local_day = local_date_for_timestamp(ts, tz)
     band = session_for_timestamp(ts, tz)
 
@@ -386,9 +411,10 @@ async def validate_open_trade(
                 ),
             )
 
-    # Rule 6 — session cap (UNIVERSAL 4 ops/session across ALL plans —
-    # REQ-DISC-008). Was previously tier-aware (STARTER 4 / PLUS 8 /
-    # ELITE unlimited); the 4-cap is now the same for every workspace.
+    # Rule 6 — session ops-cap (REQ-DISC-008). The cap is
+    # ``workspace.session_ops_cap`` when set, otherwise the plan-tier
+    # ceiling — see ``_workspace_session_cap``. Single source of truth
+    # is ``_PLAN_CEILING_BY_TIER``.
     existing_in_bucket = await _bucket_trades_for_day(
         db,
         user=user,
@@ -413,4 +439,5 @@ __all__ = [
     "_PLAN_CEILING_BY_TIER",
     "_PLAN_CEILING_FALLBACK",
     "plan_ceiling_for",
+    "_workspace_session_cap",
 ]
