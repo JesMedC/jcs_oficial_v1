@@ -55,7 +55,7 @@ class User(Base, TimestampMixin):
     )
     # IANA timezone string (e.g. ``"America/Buenos_Aires"``). Used by
     # ``session_service`` to bucket trades into 4 sessions
-    # (ASIA/EUROPA/NY_AMERICA/NY_PM). Default UTC keeps existing
+    # (ASIA/LONDON/NEW_YORK/SYDNEY). Default UTC keeps existing
     # users' session math correct until they PATCH their TZ.
     timezone: Mapped[str] = mapped_column(
         String(64),

@@ -123,10 +123,12 @@ class TradeCreateIn(BaseModel):
     screenshots: list[str] | None = None
 
     # discipline (one-by-one-thousand-discipline PR-1)
-    # ``interest`` is REQUIRED at create time. Single-select tag
-    # chosen from the chip group on the frontend. Schema literal
+    # ``interest`` is OPTIONAL at create time. Single-select tag
+    # chosen from the chip group on the frontend, but the form no
+    # longer requires it — the service layer coerces ``None`` to
+    # ``"PLAN"`` (see ``trade_service.open_trade``). Schema literal
     # mirrors the CHECK constraint in ``Trade.interest``.
-    interest: Literal["FOMO", "PLAN", "REVENGE", "IMPULSE"]
+    interest: Literal["FOMO", "PLAN", "REVENGE", "IMPULSE"] | None = None
     # Image URLs (singular nullable per decision #6 #178). Optional;
     # bound after a presigned-upload flow (T1.13 endpoint).
     analysis_image_url: str | None = Field(default=None, max_length=512)
@@ -369,7 +371,7 @@ class SessionStatsOut(BaseModel):
     """Per-session + general winrate tiles (REQ-WRS-001..005).
 
     Keys in ``sessions`` are the four band literals
-    (``ASIA | EUROPA | NY_AMERICA | NY_PM``). ``general`` aggregates
+    (``ASIA | LONDON | NEW_YORK | SYDNEY``). ``general`` aggregates
     across all bands. Empty sessions return zero tiles.
     """
 
@@ -385,9 +387,13 @@ class SessionStatsOut(BaseModel):
 class DayEntryOut(BaseModel):
     """One day of the month grid (REQ-PNL-001).
 
-    ``day_start_balance`` is computed via the provisional Python walk
-    over ``Trade`` (calendar_service). ``pnl_pct`` is
-    ``Σ pnl_usd today / day_start_balance × 100``, rounded to 0.01.
+    ``day_start_balance`` is the OPERATIONS-ONLY balance at start of day
+    (= first fund + cumulative trading P&L up to but NOT including
+    today's trades). It EXCLUDES deposits / withdrawals — see
+    ``calendar_service.compute_month_pnl`` for the walk. ``pnl_pct``
+    is ``Σ pnl_usd today / day_start_balance × 100``, so the two
+    fields are always consistent (the % reads as "how much did the
+    day move my trading capital?").
     """
 
     date: date_type
@@ -401,6 +407,22 @@ class CalendarPnlOut(BaseModel):
 
     ``cumple`` is MONTHLY only — there is no per-day indicator
     (REQ-PNL-006). The frontend renders this as a header pill.
+
+    FASE 6 — Diario redesign split (operations-vs-capital):
+
+    - ``month_start_balance`` / ``month_end_balance``: CONTABLE (real
+      account balances, INCLUDING deposits / withdrawals).
+    - ``variacion_pct`` / ``avg_pnl_pct``: operations-only percentages
+      (they exclude the effect of FUND / WITHDRAW on the base).
+    - ``capital_base``: the denominator the user wants — first fund
+      for new accounts, ops balance at start of month otherwise.
+    - ``net_pnl_usd``: Σ closed-trade pnl_usd in the month (FOREX +
+      BINARY only). The pure trading P&L — feeds the rendimiento %.
+    - ``monthly_rendimiento_pct``: same as ``variacion_pct`` (kept for
+      explicit Diario KPIs that show "Rendimiento" not "Variación").
+    - ``monthly_deposits_total`` / ``monthly_withdrawals_total``: Σ
+      FUND / WITHDRAW amount in the month so the UI can show
+      "(Incluye +$X Depósitos / -$Y Retiros)" under SALDO FIN.
     """
 
     workspace_id: uuid.UUID
@@ -409,3 +431,10 @@ class CalendarPnlOut(BaseModel):
     month_end_balance: Decimal
     cumple: bool
     days: list[DayEntryOut]
+    variacion_pct: float = 0.0
+    avg_pnl_pct: float = 0.0
+    capital_base: Decimal = Decimal("0")
+    net_pnl_usd: Decimal = Decimal("0")
+    monthly_rendimiento_pct: float = 0.0
+    monthly_deposits_total: Decimal = Decimal("0")
+    monthly_withdrawals_total: Decimal = Decimal("0")

@@ -144,6 +144,10 @@ async def _get_owned_account(
     404 si no existe o no es del user. Misma política que
     ``_get_owned_active_account`` de ``TradingAccount`` — no leak de
     existencia entre users.
+
+    FASE 6 — eager-load ``workspace`` so the discipline engine can
+    read ``account.workspace.plan_tier`` synchronously without
+    triggering a lazy IO load (MissingGreenlet).
     """
     stmt = (
         select(TradingAccount)
@@ -152,6 +156,7 @@ async def _get_owned_account(
             TradingAccount.user_id == user_id,
             TradingAccount.deleted_at.is_(None),
         )
+        .options(selectinload(TradingAccount.workspace))
     )
     account = (await db.execute(stmt)).scalar_one_or_none()
     if account is None:
@@ -1311,7 +1316,7 @@ __all__ = [
 
 
 # ---------- session stats (one-by-one-thousand-discipline PR-1) ----------
-_SESSION_BANDS: tuple[Band, ...] = ("ASIA", "EUROPA", "NY_AMERICA", "NY_PM")
+_SESSION_BANDS: tuple[Band, ...] = ("ASIA", "LONDON", "NEW_YORK", "SYDNEY")
 
 
 async def get_session_stats(
