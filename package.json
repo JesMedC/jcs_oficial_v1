@@ -16,6 +16,7 @@
     "typecheck": "tsc -b",
     "test": "vitest run --passWithNoTests",
     "test:ui": "vitest --ui",
+    "verify:rename": "bash scripts/verify-session-rename.sh",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
   },
