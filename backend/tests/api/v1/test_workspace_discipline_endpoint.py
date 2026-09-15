@@ -55,22 +55,6 @@ async def test_patch_session_ops_cap_persists(
         )
     ).scalar_one()
     ws_row.plan_tier = WorkspacePlanTier.PRO
-    # Migration was run in this test session? No — the test fixture
-    # uses the SQLite ``create_all`` path so the column doesn't exist
-    # yet on this fixture's session. Patch it via SQL directly so the
-    # test stays focused on the endpoint contract.
-    from sqlalchemy import text
-
-    await db_session.execute(
-        text("ALTER TABLE workspaces ADD COLUMN session_ops_cap INTEGER")
-    )
-    await db_session.execute(
-        text(
-            "UPDATE workspaces SET session_ops_cap = 6 "
-            "WHERE id = :id"
-        ),
-        {"id": str(ws_row.id)},
-    )
     await db_session.commit()
 
     resp = await client.patch(
@@ -90,20 +74,8 @@ async def test_patch_session_ops_cap_persists(
     refreshed = next(
         w for w in me.json()["workspaces"] if w["id"] == ws["id"]
     )
-    # ``WorkspaceOut`` (the current me-schema) doesn't surface
-    # session_ops_cap; we read from the DB instead.
-    after = (
-        await db_session.execute(
-            text("SELECT session_ops_cap FROM workspaces WHERE id = :id"),
-            {"id": str(ws_row.id)},
-        )
-    ).scalar_one()
-    assert after == 5
-    # ``refreshed`` is included to pin the re-GET contract: the
-    # workspace is still listed; the cap lives on the row but is not
-    # (yet) in the ``WorkspaceOut`` shape. The frontend reads the
-    # dedicated endpoint instead.
-    assert refreshed["id"] == ws["id"]
+    # ``WorkspaceOut`` now surfaces ``session_ops_cap`` (T-006).
+    assert refreshed["session_ops_cap"] == 5
 
 
 # ---- out-of-range ----
@@ -124,18 +96,6 @@ async def test_patch_session_ops_cap_above_ceiling_returns_422(
         )
     ).scalar_one()
     ws_row.plan_tier = WorkspacePlanTier.PRO
-    from sqlalchemy import text
-
-    await db_session.execute(
-        text("ALTER TABLE workspaces ADD COLUMN session_ops_cap INTEGER")
-    )
-    await db_session.execute(
-        text(
-            "UPDATE workspaces SET session_ops_cap = 6 "
-            "WHERE id = :id"
-        ),
-        {"id": str(ws_row.id)},
-    )
     await db_session.commit()
 
     resp = await client.patch(
@@ -169,18 +129,7 @@ async def test_patch_session_ops_cap_null_resets_to_ceiling(
         )
     ).scalar_one()
     ws_row.plan_tier = WorkspacePlanTier.PRO
-    from sqlalchemy import text
-
-    await db_session.execute(
-        text("ALTER TABLE workspaces ADD COLUMN session_ops_cap INTEGER")
-    )
-    await db_session.execute(
-        text(
-            "UPDATE workspaces SET session_ops_cap = 4 "
-            "WHERE id = :id"
-        ),
-        {"id": str(ws_row.id)},
-    )
+    ws_row.session_ops_cap = 4
     await db_session.commit()
 
     resp = await client.patch(
@@ -193,13 +142,8 @@ async def test_patch_session_ops_cap_null_resets_to_ceiling(
     assert body["session_ops_cap"] is None
     assert body["ceiling"] == 6
 
-    after = (
-        await db_session.execute(
-            text("SELECT session_ops_cap FROM workspaces WHERE id = :id"),
-            {"id": str(ws_row.id)},
-        )
-    ).scalar_one()
-    assert after is None
+    await db_session.refresh(ws_row)
+    assert ws_row.session_ops_cap is None
 
 
 # ---- auth ----

@@ -57,6 +57,11 @@ class ErrorCode(str, Enum):
     CAPITAL_INICIAL_CAP_EXCEEDED = "CAPITAL_INICIAL_CAP_EXCEEDED"
     DAILY_CAP_EXCEEDED = "DAILY_CAP_EXCEEDED"
     SESSION_CAP_EXCEEDED = "SESSION_CAP_EXCEEDED"
+    # REQ-DSC-005: PATCH /workspaces/{id}/discipline rejected because
+    # the submitted value is outside ``[1, plan_ceiling]``. The
+    # envelope message includes the ceiling so the client can render
+    # a localized "tope N" pill without a second round-trip.
+    DISCIPLINE_CAP_OUT_OF_RANGE = "DISCIPLINE_CAP_OUT_OF_RANGE"
     INTEREST_REQUIRED = "INTEREST_REQUIRED"
     INTEREST_INVALID = "INTEREST_INVALID"
     PAYOUT_OUT_OF_RANGE = "PAYOUT_OUT_OF_RANGE"

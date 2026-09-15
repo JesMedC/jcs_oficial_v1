@@ -9,10 +9,12 @@ from app.api.v1 import (
     calendar,
     me,
     movements,
+    scanner,
     subscriptions,
     trades,
     uploads,
     webhooks,
+    workspace_discipline,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -34,3 +36,7 @@ api_router.include_router(accounts.router)
 api_router.include_router(trades.router)
 api_router.include_router(calendar.router)
 api_router.include_router(uploads.router)
+api_router.include_router(scanner.router)
+# Slice A: per-workspace discipline cap (REQ-DSC-004). Resource-scoped
+# under ``/workspaces`` — see workspace_discipline.py.
+api_router.include_router(workspace_discipline.router)
