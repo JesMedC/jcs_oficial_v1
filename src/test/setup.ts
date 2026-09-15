@@ -47,9 +47,13 @@ if (typeof globalThis.ResizeObserver !== 'function') {
     StubResizeObserver as unknown as typeof ResizeObserver;
 }
 
-// Canvas 2d context stub for jsdom (used by AuroraBackground). jsdom does
-// not implement HTMLCanvasElement.getContext('2d'). Return a minimal
-// in-memory surface so component effects do not throw during tests.
+// Canvas 2d context stub for jsdom (used by AuroraBackground +
+// lightweight-charts). jsdom does not implement
+// HTMLCanvasElement.getContext('2d'). Return a minimal in-memory
+// surface so component effects do not throw during tests. The
+// `measureText` stub returns a stable width so lightweight-charts'
+// axis layout math (which calls `ctx.measureText(text)` to compute
+// the optimal price-scale column width) completes without crashing.
 if (typeof HTMLCanvasElement !== 'undefined') {
   const proto = HTMLCanvasElement.prototype as unknown as {
     getContext?: (id: string) => unknown;
@@ -57,12 +61,16 @@ if (typeof HTMLCanvasElement !== 'undefined') {
   if (typeof proto.getContext !== 'function' || isJsdomCanvas(proto)) {
     proto.getContext = function getContext(id: string): unknown {
       if (id !== '2d') return null;
-      const noop = () => {};
+      const noop = (): void => {};
       return {
         canvas: this,
         fillStyle: '#000',
         strokeStyle: '#000',
         globalAlpha: 1,
+        font: '',
+        textBaseline: 'alphabetic',
+        textAlign: 'start',
+        direction: 'inherit',
         fillRect: noop,
         clearRect: noop,
         beginPath: noop,
@@ -75,6 +83,16 @@ if (typeof HTMLCanvasElement !== 'undefined') {
         restore: noop,
         scale: noop,
         translate: noop,
+        rotate: noop,
+        measureText: (text: string) => ({
+          width: (text?.length ?? 0) * 6,
+          actualBoundingBoxLeft: 0,
+          actualBoundingBoxRight: (text?.length ?? 0) * 6,
+          actualBoundingBoxAscent: 8,
+          actualBoundingBoxDescent: 2,
+          fontBoundingBoxAscent: 10,
+          fontBoundingBoxDescent: 2,
+        }),
         getImageData: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
       };
     };

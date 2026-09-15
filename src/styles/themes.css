@@ -1,0 +1,136 @@
+/*
+ * design-system-v1 (Wave 5) — Dual-theme tokens.
+ *
+ * Antes de Wave 5 el portal era dark-only (fondo #060B10, primary
+ * neón #00FF9D). Esta capa introduce un segundo modo light sin romper
+ * el contrato de tokens existente:
+ *
+ *   - Dark: paleta Cyber-Jade original (abyssal + neon jade + glow).
+ *     Las CSS vars mantienen el prefijo ``--color-jade-*`` por
+ *     compatibilidad con Wave 1-4 (tests ``components-drift.test.ts``,
+ *     ``pages-drift.test.ts`` y cualquier consumidor que ya lea las
+ *     vars por nombre).
+ *   - Light: misma identidad jade pero adaptada al fondo claro
+ *     (primary jade más oscuro para tener contraste sobre blanco,
+ *     glassmorphism translúcido en lugar de sólido, sombras con
+ *     tinte verde en lugar de negro). El switch se hace con
+ *     ``[data-theme="light"]`` sobre el ``<html>``.
+ *
+ * Selector ``:root`` queda como alias de ``[data-theme="dark"]`` para
+ * SSR / pre-hydration (evita un flash blanco en el primer paint cuando
+ * el JS todavía no montó el store).
+ *
+ * Convención de nombre:
+ *   - ``--color-jade-*``  → tokens de marca (jade, glow, profit, loss).
+ *                            Light usa un jade medio más oscuro para
+ *                            mantener WCAG AA sobre fondo claro.
+ *   - ``--color-bg-*``    → fondos / surfaces (light/dark tienen
+ *                            opacidades distintas para el glass effect).
+ *   - ``--color-text-*``  → escala tipográfica.
+ *   - ``--shadow-*``      → sombras de profundidad.
+ */
+
+:root,
+[data-theme='dark'] {
+  /* ---- fondos / surfaces ---- */
+  --color-bg: #060b10;
+  --color-abyssal: #060b10;
+  --color-surface: rgba(13, 21, 30, 0.7);
+  --color-surface-el: #111b24;
+  --color-border: #1c2a35;
+  --color-input: #0a1017;
+
+  /* ---- jade brand ---- */
+  --color-jade: #00ff9d;
+  --color-jade-dk: #00cc7e;
+  --color-jade-light: #5cffbe;
+  --color-jade-glow: #00ff9d;
+  --color-jade-fg: #060b10; /* texto sobre botones primary */
+
+  /* ---- bordes jade ---- */
+  --color-jade-border: rgba(0, 255, 157, 0.15);
+  --color-jade-border-line: rgba(0, 255, 157, 0.2);
+
+  /* ---- semánticos (profit/loss/warn/info) ---- */
+  --color-jade-profit: #35d07f;
+  --color-jade-loss: #ff2a55;
+  --color-jade-warning: #f3b94e;
+  --color-jade-info: #00b8ff;
+
+  /* ---- texto ---- */
+  --color-jade-text-pri: #e0e6ed;
+  --color-jade-text-sec: #8a9ba8;
+  --color-jade-text-mut: #607080;
+  --color-jade-text-on-primary: #060b10;
+
+  /* ---- sombras ---- */
+  --shadow-glass: 0 8px 32px 0 rgba(6, 11, 16, 0.45);
+  --shadow-elevated: 0 12px 48px 0 rgba(6, 11, 16, 0.6);
+  --shadow-glass-panel:
+    0 8px 32px 0 rgba(6, 11, 16, 0.55),
+    inset 0 1px 0 0 rgb(255 255 255 / 0.06);
+
+  /* ---- glass surface tokens (para el shell + chrome) ---- */
+  --glass-surface: rgba(13, 21, 30, 0.7);
+  --glass-border: rgba(0, 255, 157, 0.15);
+  --glass-text-pri: var(--color-jade-text-pri);
+  --glass-text-mut: var(--color-jade-text-mut);
+
+  /* ---- hud glow ring (Jarvis) ---- */
+  --hud-ring-track: rgba(0, 255, 157, 0.08);
+  --hud-ring-value: rgba(0, 255, 157, 0.85);
+  --scanline-color: rgba(0, 255, 157, 0.12);
+  --selection-bg: rgba(0, 255, 157, 0.35);
+}
+
+[data-theme='light'] {
+  /* ---- fondos / surfaces ---- */
+  --color-bg: #f5faf7; /* off-white con tinte jade sutil */
+  --color-abyssal: #060b10; /* reserved for marketing (mismo nombre) */
+  --color-surface: rgba(255, 255, 255, 0.72);
+  --color-surface-el: #e8f5ee;
+  --color-border: #c8e0d4;
+  --color-input: #ffffff;
+
+  /* ---- jade brand (más oscuro para contraste WCAG sobre blanco) ---- */
+  --color-jade: #00a86b;
+  --color-jade-dk: #008055;
+  --color-jade-light: #2dd391;
+  --color-jade-glow: #00a86b;
+  --color-jade-fg: #ffffff;
+
+  /* ---- bordes jade ---- */
+  --color-jade-border: rgba(0, 168, 107, 0.18);
+  --color-jade-border-line: rgba(0, 168, 107, 0.28);
+
+  /* ---- semánticos ---- */
+  --color-jade-profit: #1f8a52;
+  --color-jade-loss: #c8253d;
+  --color-jade-warning: #b07a2a;
+  --color-jade-info: #006bb3;
+
+  /* ---- texto ---- */
+  --color-jade-text-pri: #0a1a14;
+  --color-jade-text-sec: #4a5a52;
+  --color-jade-text-mut: #7a8a82;
+  --color-jade-text-on-primary: #ffffff;
+
+  /* ---- sombras (tinte verde en lugar de negro) ---- */
+  --shadow-glass: 0 8px 32px 0 rgba(0, 80, 50, 0.08);
+  --shadow-elevated: 0 12px 48px 0 rgba(0, 80, 50, 0.12);
+  --shadow-glass-panel:
+    0 8px 32px 0 rgba(0, 80, 50, 0.08),
+    inset 0 1px 0 0 rgba(255, 255, 255, 0.6);
+
+  /* ---- glass surface tokens ---- */
+  --glass-surface: rgba(255, 255, 255, 0.72);
+  --glass-border: rgba(0, 168, 107, 0.18);
+  --glass-text-pri: var(--color-jade-text-pri);
+  --glass-text-mut: var(--color-jade-text-mut);
+
+  /* ---- hud glow ring (Jarvis) ---- */
+  --hud-ring-track: rgba(0, 168, 107, 0.1);
+  --hud-ring-value: rgba(0, 168, 107, 0.85);
+  --scanline-color: rgba(0, 168, 107, 0.14);
+  --selection-bg: rgba(0, 168, 107, 0.18);
+}

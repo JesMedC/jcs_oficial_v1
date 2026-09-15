@@ -3,43 +3,67 @@ import type { Config } from 'tailwindcss';
 // Tokens locked per Cyber-Jade spec (design-system-v1): primary #00FF9D,
 // display font Orbitron + Rajdhani + Space Grotesk (500/700/900),
 // 3-tier pricing structure.
+//
+// Wave 5 (design-system-v1) agrega soporte para modo light. Los
+// tokens light viven en ``src/styles/themes.css`` como CSS vars
+// (``--color-jade``, ``--color-bg``, etc.) y se aplican vía
+// ``[data-theme="light"]`` en el ``<html>``. Esta config de Tailwind
+// mantiene los valores dark como default — los hex actuales son los
+// que el sistema sigue emitiendo — y deja que el theme store
+// (``useThemeStore``) cambie el set activo de CSS vars.
+//
+// Por qué NO invertimos los tokens base a light + dark: variants:
+//   - El contrato de ``components-drift.test.ts`` pinnea los hex
+//     dark exactos. Cambiar el default los rompería.
+//   - Los 121 componentes ya usan ``bg-jade``, ``text-text-primary``,
+//     etc. Invertir el esquema requeriría un refactor masivo.
+//   - Los componentes duales simplemente leen CSS vars
+//     (``bg-[var(--color-bg)]``) cuando necesitan cambiar con el tema.
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
   theme: {
     extend: {
       colors: {
-        bg: '#060B10',
-        abyssal: '#060B10',
-        jade: '#00FF9D',
-        surface: '#0D151E',
-        'surface-el': '#111B24',
-        border: '#1C2A35',
+        // design-system-v1 (Wave 5) — All brand tokens below now read
+        // from CSS vars (defined in ``src/styles/themes.css``) so a
+        // single ``[data-theme="light"]`` / ``[data-theme="dark"]`` on
+        // the ``<html>`` swaps every utility class automatically. The
+        // hex values that used to live here are now in the CSS vars
+        // (dark = original Cyber-Jade; light = WCAG-AA jade variants).
+        // Box shadows still carry the neon rgba literals because the
+        // glow is aesthetic-only — it stays neon in both modes.
+        bg: 'var(--color-bg)',
+        abyssal: 'var(--color-abyssal)',
+        jade: 'var(--color-jade)',
+        surface: 'var(--color-surface)',
+        'surface-el': 'var(--color-surface-el)',
+        border: 'var(--color-border)',
         // design-system-v1 — form control background. Distinct from
         // `surface` so inputs sit visibly below cards on the same
         // surface stack (surface = cards, input = controls).
-        input: '#0A1017',
+        input: 'var(--color-input)',
         // design-system-v1 — primary pivoted to neon Cyber-Jade.
         // Same five-step ladder as the jade era (#00FF9D +
         // mid-tone, lighter highlight, glow fallback) plus a
         // foreground token for text/iconography that sits on top of
         // primary surfaces.
         primary: {
-          DEFAULT: '#00FF9D',
-          dk: '#00CC7E',
-          light: '#5CFFBE',
-          glow: '#00FF9D',
+          DEFAULT: 'var(--color-jade)',
+          dk: 'var(--color-jade-dk)',
+          light: 'var(--color-jade-light)',
+          glow: 'var(--color-jade-glow)',
         },
         // Foreground color used for text/icons rendered ON primary
-        // surfaces (buttons, badges, etc.). Dark to keep contrast
-        // acceptable against the bright neon jade.
-        'primary-fg': '#060B10',
-        // design-system-v1 — default jade border utility. The
-        // camelCase key emits the Tailwind utility `border-borderJade`
-        // (Tailwind 3's nested-key trap would mangle a flat hyphen
-        // key like `border-jade` into `border-glass-border-jade`).
-        // See design.md §9.8 / §11.7 for the rationale.
-        borderJade: 'rgba(0, 255, 157, 0.2)',
+        // surfaces (buttons, badges, etc.). Dark in dark mode (contrast
+        // over neon jade) / white in light mode (contrast over deep
+        // jade).
+        'primary-fg': 'var(--color-jade-text-on-primary)',
+        // design-system-v1 — default jade border utility. Maps to the
+        // border-line CSS var so light mode swaps the rgba alpha
+        // (0.20 → 0.28) without breaking the contract that consumers
+        // can write `border-borderJade` as a single utility.
+        borderJade: 'var(--color-jade-border-line)',
         // Glassmorphism tokens (p0ui.1) — translucent surfaces with
         // backdrop blur. Applied selectively to chrome (sidebar,
         // modals, account cards, topbar). NEVER on financial tables,
@@ -64,15 +88,17 @@ const config: Config = {
             strong: 'rgb(255 255 255 / 0.22)',
           },
         },
-        // Semantic finance colors (pivoted to neon variants):
-        profit: '#35D07F',
-        loss: '#FF2A55',
-        warning: '#F3B94E',
-        info: '#00B8FF',
+        // Semantic finance colors (pivoted to neon variants in dark,
+        // deeper jade variants in light for WCAG AA contrast on
+        // white surfaces).
+        profit: 'var(--color-jade-profit)',
+        loss: 'var(--color-jade-loss)',
+        warning: 'var(--color-jade-warning)',
+        info: 'var(--color-jade-info)',
         text: {
-          primary: '#E0E6ED',
-          secondary: '#8A9BA8',
-          muted: '#607080',
+          primary: 'var(--color-jade-text-pri)',
+          secondary: 'var(--color-jade-text-sec)',
+          muted: 'var(--color-jade-text-mut)',
         },
       },
       fontFamily: {
@@ -116,6 +142,15 @@ const config: Config = {
           '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,255,157,0.5)' },
           '50%': { transform: 'scale(1.05)', boxShadow: '0 0 0 12px rgba(0,255,157,0)' },
         },
+        // design-system-v1 (Wave 5) — Jarvis HUD primitives.
+        'hud-rotate': {
+          from: { transform: 'rotate(0deg)' },
+          to: { transform: 'rotate(360deg)' },
+        },
+        'hud-scanline': {
+          '0%': { top: '-2%' },
+          '100%': { top: '102%' },
+        },
       },
       animation: {
         'aurora-drift': 'aurora-drift 18s ease-in-out infinite',
@@ -123,6 +158,9 @@ const config: Config = {
         'status-dot-pulse': 'status-dot-pulse 1.5s ease-in-out infinite',
         'shimmer-glass': 'shimmer-glass 8s linear infinite',
         'auth-pulse': 'auth-pulse 1.2s ease-in-out infinite',
+        // design-system-v1 (Wave 5) — Jarvis HUD primitives.
+        'hud-rotate': 'hud-rotate 24s linear infinite',
+        'hud-scanline': 'hud-scanline 4s linear infinite',
       },
       backgroundImage: {
         'aurora-static':

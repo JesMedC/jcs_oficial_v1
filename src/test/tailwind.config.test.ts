@@ -57,9 +57,14 @@ describe('tailwind.config.ts — Cyber-Jade token contract', () => {
     });
   });
 
-  describe('borderJade color utility', () => {
-    it('exposes borderJade at the rgba(0, 255, 157, 0.2) opacity', () => {
-      expect(colors.borderJade).toBe('rgba(0, 255, 157, 0.2)');
+  describe('borderJade color utility (Wave 5 — CSS var-backed)', () => {
+    it('exposes borderJade as a CSS var so the theme switch swaps the rgba alpha', () => {
+      // Wave 5 mapped borderJade to ``var(--color-jade-border-line)``
+      // so light mode uses the deeper-jade rgba (0.28 alpha) instead
+      // of the dark-mode neon rgba (0.20 alpha). The resolved value
+      // is a CSS var reference — the actual hex/rgba is applied by
+      // ``src/styles/themes.css`` based on ``[data-theme="..."]``.
+      expect(colors.borderJade).toBe('var(--color-jade-border-line)');
     });
   });
 

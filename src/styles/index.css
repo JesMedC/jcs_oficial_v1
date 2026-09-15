@@ -1,47 +1,33 @@
 @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
 
+@import './themes.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 /*
- * CSS variables mirror the design tokens from tailwind.config.ts.
- * Var names keep the "jade-" prefix for compatibility with later slices
- * (p1b+) that consume these names directly. VALUES are Cyber-Jade
- * per design-system-v1 (neon-jade primary pivot + abyssal bg).
+ * design-system-v1 (Wave 5) — Las CSS vars de tokens viven en
+ * ``themes.css`` (importadas arriba). Este archivo sólo aporta las
+ * reglas globales (glassmorphism utility classes, tipografía,
+ * keyframes) que se mantienen idénticas en ambos modos y/o
+ * referencian las vars ya definidas.
  */
-:root {
-  --color-jade-bg: #060b10;
-  --color-abyssal: #060b10;
-  --color-jade-surface: rgba(13, 21, 30, 0.7);
-  --color-jade-surface-el: #111b24;
-  --color-jade-border: rgba(0, 255, 157, 0.15);
-  --color-jade-input: rgba(13, 21, 30, 0.7);
-  --color-jade: #00ff9d;
-  --color-jade-dk: #00cc7e;
-  --color-jade-light: #5cffbe;
-  --color-jade-glow: #00ff9d;
-  --color-jade-fg: #060b10;
-  --color-jade-border-line: rgba(0, 255, 157, 0.2);
-  --color-jade-profit: #35d07f;
-  --color-jade-loss: #ff2a55;
-  --color-jade-warning: #f3b94e;
-  --color-jade-info: #00b8ff;
-  --color-jade-text-pri: #e0e6ed;
-  --color-jade-text-sec: #8a9ba8;
-  --color-jade-text-mut: #607080;
-  --shadow-jade-glass: 0 8px 32px 0 rgba(6, 11, 16, 0.45);
-  --shadow-jade-elevated: 0 12px 48px 0 rgba(6, 11, 16, 0.6);
-}
 
 /* =============================================================
  * Cyber-Jade — Sistema de diseno forzado (nivel universal)
  * -------------------------------------------------------------
  * Esta capa traduce literalmente las 4 reglas del spec Cyber-Jade:
- *   1. Fondo global #060B10 + dot pattern al 3% (en #root::before)
- *   2. Glassmorphism rgba(13,21,30,0.7) + blur(12px) + border jade 0.15
- *   3. Neon glow en titulos (#00FF9D + text-shadow 0.6) y botones
+ *   1. Fondo global + dot pattern al 3% (en #root::before)
+ *   2. Glassmorphism translúcido + blur(12px) + border jade
+ *   3. Neon glow en titulos (jade + text-shadow 0.18) y botones
  *   4. Orbitron (titulos/logos/botones) + JetBrains Mono (numericos)
+ *
+ * Los valores de color se leen de CSS vars (``var(--color-jade-bg)``
+ * etc.) — Wave 5 agregó los alias light/dark en ``themes.css``. Las
+ * reglas que siguen son las mismas que antes del dual-mode; sólo
+ * cambian los hex literales por ``var()`` para que el switch de tema
+ * funcione sin recompilar.
  * ============================================================= */
 
 /* ---- 1) Fondo global + dot pattern 3% ---- */
@@ -51,7 +37,7 @@ body,
   min-height: 100%;
   margin: 0;
   padding: 0;
-  background-color: #060b10;
+  background-color: var(--color-bg);
   color: var(--color-jade-text-pri);
   font-family: 'Inter', system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
@@ -108,7 +94,7 @@ h4,
 h5,
 .title-cyber-jade,
 [data-cyber-title] {
-  color: #ffffff;
+  color: var(--color-jade-text-pri);
   text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
   letter-spacing: 0.05em;
   text-transform: uppercase;
@@ -141,7 +127,7 @@ h1 {
 /* ---- 2) Glassmorphism universal (spec literal) ---- */
 .panel-cyber-jade,
 [data-cyber-panel] {
-  background-color: rgba(13, 21, 30, 0.7);
+  background-color: var(--glass-surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(0, 255, 157, 0.15);
@@ -156,10 +142,10 @@ input[type='search'],
 input:not([type]),
 select,
 textarea {
-  background-color: rgba(13, 21, 30, 0.7);
+  background-color: var(--glass-surface);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(0, 255, 157, 0.2);
+  border: 1px solid var(--color-jade-border-line);
   color: var(--color-jade-text-pri);
   font-family: 'Inter', system-ui, sans-serif;
   border-radius: 0.5rem;
@@ -173,8 +159,8 @@ input:focus,
 select:focus,
 textarea:focus {
   outline: none;
-  border-color: #00ff9d;
-  box-shadow: 0 0 10px rgba(0, 255, 157, 0.3);
+  border-color: var(--color-jade);
+  box-shadow: 0 0 10px var(--color-jade-glow);
 }
 
 input::placeholder,
@@ -185,7 +171,7 @@ textarea::placeholder {
 
 /* Select nativo — opciones oscuras */
 select option {
-  background-color: #0d151e;
+  background-color: var(--color-surface);
   color: var(--color-jade-text-pri);
 }
 
@@ -204,12 +190,12 @@ select option {
 button[data-cyber-button] {
   font-family: 'Orbitron', monospace, sans-serif;
   background-color: transparent;
-  border: 1px solid #00ff9d;
+  border: 1px solid var(--color-jade);
   box-shadow:
     0 0 10px rgba(0, 255, 157, 0.4),
     inset 0 0 10px rgba(0, 255, 157, 0.2);
   text-shadow: 0 0 5px rgba(0, 255, 157, 0.5);
-  color: #00ff9d;
+  color: var(--color-jade);
   text-transform: uppercase;
   letter-spacing: 0.05em;
   border-radius: 0.5rem;
@@ -221,8 +207,8 @@ button[data-cyber-button] {
 
 .btn-cyber-jade:hover:not(:disabled),
 button[data-cyber-button]:hover:not(:disabled) {
-  background-color: #00ff9d;
-  color: #060b10;
+  background-color: var(--color-jade);
+  color: var(--color-jade-text-on-primary);
   text-shadow: none;
   box-shadow:
     0 0 20px rgba(0, 255, 157, 0.8),
@@ -262,7 +248,7 @@ table {
 }
 
 thead {
-  background-color: #0d151e;
+  background-color: var(--color-surface);
   color: var(--color-jade-text-mut);
   font-family: 'Orbitron', monospace, sans-serif;
   text-transform: uppercase;
@@ -277,12 +263,12 @@ thead th {
 }
 
 tbody tr {
-  border-top: 1px solid rgba(0, 255, 157, 0.1);
+  border-top: 1px solid var(--color-jade-border);
   transition: background-color 0.2s ease;
 }
 
 tbody tr:hover {
-  background-color: rgba(0, 255, 157, 0.04);
+  background-color: rgba(0, 168, 107, 0.06);
 }
 
 tbody td {
@@ -517,7 +503,7 @@ tbody td {
   background:
     radial-gradient(60% 50% at 50% 30%, rgba(0, 255, 157, 0.16), transparent 70%),
     radial-gradient(50% 40% at 80% 80%, rgba(0, 184, 255, 0.1), transparent 70%),
-    var(--color-jade-bg);
+    var(--color-bg);
 }
 
 @keyframes auth-pulse {
@@ -555,13 +541,13 @@ tbody td {
 
 /* Selection — jade rgba */
 ::selection {
-  background: rgba(0, 255, 157, 0.35);
-  color: #ffffff;
+  background: var(--selection-bg);
+  color: var(--color-jade-text-pri);
 }
 
 /* Focus visible ring */
 :focus-visible {
-  outline: 2px solid #00ff9d;
+  outline: 2px solid var(--color-jade);
   outline-offset: 2px;
   border-radius: 4px;
 }
