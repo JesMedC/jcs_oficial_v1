@@ -1,24 +1,27 @@
 import type { Config } from 'tailwindcss';
 
-// Tokens locked per Cyber-Jade spec (design-system-v1): primary #00FF9D,
+// Tokens pivoted per core-interface-redesign: primary cyan #00D4D8,
 // display font Orbitron + Rajdhani + Space Grotesk (500/700/900),
-// 3-tier pricing structure.
+// 3-tier pricing structure. The previous design-system-v1 jade
+// primary (#00FF9D) was retired at Slice 1 of core-interface-redesign;
+// all hex values now live in `src/styles/themes.css` and this config
+// reads them via the brand-token CSS vars defined there.
 //
 // Wave 5 (design-system-v1) agrega soporte para modo light. Los
-// tokens light viven en ``src/styles/themes.css`` como CSS vars
-// (``--color-jade``, ``--color-bg``, etc.) y se aplican vía
-// ``[data-theme="light"]`` en el ``<html>``. Esta config de Tailwind
+// tokens light viven en `src/styles/themes.css` como CSS vars
+// (`--color-jade`, `--color-bg`, etc.) y se aplican vía
+// `[data-theme="light"]` en el `<html>`. Esta config de Tailwind
 // mantiene los valores dark como default — los hex actuales son los
 // que el sistema sigue emitiendo — y deja que el theme store
-// (``useThemeStore``) cambie el set activo de CSS vars.
+// (`useThemeStore`) cambie el set activo de CSS vars.
 //
 // Por qué NO invertimos los tokens base a light + dark: variants:
-//   - El contrato de ``components-drift.test.ts`` pinnea los hex
+//   - El contrato de `components-drift.test.ts` pinnea los hex
 //     dark exactos. Cambiar el default los rompería.
-//   - Los 121 componentes ya usan ``bg-jade``, ``text-text-primary``,
+//   - Los 121 componentes ya usan `bg-jade`, `text-text-primary`,
 //     etc. Invertir el esquema requeriría un refactor masivo.
 //   - Los componentes duales simplemente leen CSS vars
-//     (``bg-[var(--color-bg)]``) cuando necesitan cambiar con el tema.
+//     (`bg-[var(--color-bg)]`) cuando necesitan cambiar con el tema.
 const config: Config = {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
   darkMode: 'class',
@@ -26,13 +29,14 @@ const config: Config = {
     extend: {
       colors: {
         // design-system-v1 (Wave 5) — All brand tokens below now read
-        // from CSS vars (defined in ``src/styles/themes.css``) so a
-        // single ``[data-theme="light"]`` / ``[data-theme="dark"]`` on
-        // the ``<html>`` swaps every utility class automatically. The
+        // from CSS vars (defined in `src/styles/themes.css`) so a
+        // single `[data-theme="light"]` / `[data-theme="dark"]` on
+        // the `<html>` swaps every utility class automatically. The
         // hex values that used to live here are now in the CSS vars
-        // (dark = original Cyber-Jade; light = WCAG-AA jade variants).
-        // Box shadows still carry the neon rgba literals because the
-        // glow is aesthetic-only — it stays neon in both modes.
+        // (dark = Core Interface cyan per Slice 1 of
+        // core-interface-redesign; light = WCAG-AA cyan variants).
+        // Box shadows still carry the cyan rgba literals because the
+        // glow is aesthetic-only — it stays cyan in both modes.
         bg: 'var(--color-bg)',
         abyssal: 'var(--color-abyssal)',
         jade: 'var(--color-jade)',
@@ -88,9 +92,10 @@ const config: Config = {
             strong: 'rgb(255 255 255 / 0.22)',
           },
         },
-        // Semantic finance colors (pivoted to neon variants in dark,
-        // deeper jade variants in light for WCAG AA contrast on
-        // white surfaces).
+        // Semantic finance colors (pivoted to cyan variants in dark,
+        // deeper cyan variants in light for WCAG AA contrast on
+        // white surfaces). Profit shifted from jade-green to
+        // cyan-green for separation from the cyan primary.
         profit: 'var(--color-jade-profit)',
         loss: 'var(--color-jade-loss)',
         warning: 'var(--color-jade-warning)',
@@ -139,8 +144,8 @@ const config: Config = {
           '100%': { backgroundPosition: '200% 50%' },
         },
         'auth-pulse': {
-          '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,255,157,0.5)' },
-          '50%': { transform: 'scale(1.05)', boxShadow: '0 0 0 12px rgba(0,255,157,0)' },
+          '0%, 100%': { transform: 'scale(1)', boxShadow: '0 0 0 0 rgba(0,212,216,0.5)' },
+          '50%': { transform: 'scale(1.05)', boxShadow: '0 0 0 12px rgba(0,212,216,0)' },
         },
         // design-system-v1 (Wave 5) — Jarvis HUD primitives.
         'hud-rotate': {
@@ -164,11 +169,11 @@ const config: Config = {
       },
       backgroundImage: {
         'aurora-static':
-          'radial-gradient(60% 50% at 20% 30%, rgba(0,255,157,0.18), transparent 70%), radial-gradient(50% 40% at 80% 70%, rgba(0,184,255,0.12), transparent 70%)',
+          'radial-gradient(60% 50% at 20% 30%, rgba(0,212,216,0.18), transparent 70%), radial-gradient(50% 40% at 80% 70%, rgba(0,184,255,0.12), transparent 70%)',
         'site-gradient':
-          'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,255,157,0.10) 50%, rgba(255,255,255,0.03) 100%)',
+          'linear-gradient(135deg, rgba(255,255,255,0.03) 0%, rgba(0,212,216,0.10) 50%, rgba(255,255,255,0.03) 100%)',
         'portal-selector':
-          'radial-gradient(60% 50% at 50% 30%, rgba(0,255,157,0.16), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(0,184,255,0.10), transparent 70%)',
+          'radial-gradient(60% 50% at 50% 30%, rgba(0,212,216,0.16), transparent 70%), radial-gradient(50% 40% at 80% 80%, rgba(0,184,255,0.10), transparent 70%)',
       },
       backdropBlur: {
         'glass-sm': '8px',
@@ -182,13 +187,17 @@ const config: Config = {
         'glass-lg': '1.25rem',
       },
       boxShadow: {
-        // design-system-v1 — neon Cyber-Jade glow utilities. The rgba
-        // values track primary.DEFAULT (#00FF9D = 0,255,157). The
-        // legacy cyan-era aliases that duplicated these values with
-        // pre-pivot soft-jade rgb (46,220,140) were retired in Wave 2
-        // (T2.1); consumers migrated to the jade utilities below.
-        'glow-jade': '0 0 40px rgba(0,255,157,0.30)',
-        'glow-jade-sm': '0 0 20px rgba(0,255,157,0.20)',
+        // core-interface-redesign (Slice 1, T-025) — Core Interface
+        // cyan glow utilities. The rgba values track primary.DEFAULT
+        // (#00D4D8 = 0,212,216). Alphas tightened from the jade-era
+        // 0.30 / 0.20 to 0.25 / 0.16 because cyan reads brighter than
+        // jade at equal alpha and un-tightened glows blow out into
+        // halos. `glow-cyan` is the new semantic alias of `glow-jade`;
+        // the legacy name stays valid for one release cycle so the
+        // 121+ existing call sites don't break.
+        'glow-jade': '0 0 40px rgba(0,212,216,0.25)',
+        'glow-jade-sm': '0 0 20px rgba(0,212,216,0.16)',
+        'glow-cyan': '0 0 40px rgba(0,212,216,0.25)',
         glass: '0 8px 32px 0 rgba(6,11,16,0.45)',
         elevated: '0 12px 48px 0 rgba(6,11,16,0.60)',
         'glass-panel':
