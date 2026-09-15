@@ -20,10 +20,10 @@ const CENTER = SIZE / 2;
 const MAX_RADIUS = 110;
 
 function strengthColor(value: number): string {
-  if (value >= 70) return '#00FF9D';
-  if (value >= 40) return '#00B8FF';
-  if (value >= 25) return '#F3B94E';
-  return '#FF2A55';
+  if (value >= 70) return 'var(--color-jade)';
+  if (value >= 40) return 'var(--color-jade-info)';
+  if (value >= 25) return 'var(--color-jade-warning)';
+  return 'var(--color-jade-loss)';
 }
 
 export function CurrencyStrengthMeter({ currencies }: Props) {
@@ -37,8 +37,8 @@ export function CurrencyStrengthMeter({ currencies }: Props) {
     >
       <div className="flex items-center gap-2">
         <span
-          className="inline-block w-1.5 h-1.5 rounded-full bg-[#00FF9D]"
-          style={{ boxShadow: '0 0 6px #00FF9D' }}
+          className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-jade)]"
+          style={{ boxShadow: '0 0 6px var(--color-jade)' }}
           aria-hidden="true"
         />
         <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
@@ -103,9 +103,9 @@ export function CurrencyStrengthMeter({ currencies }: Props) {
               })
               .join(' ')}
             fill="url(#cs-fade)"
-            stroke="#00FF9D"
+            stroke="var(--color-jade)"
             strokeWidth={1.5}
-            style={{ filter: 'drop-shadow(0 0 8px #00FF9D)' }}
+            style={{ filter: 'drop-shadow(0 0 8px var(--color-jade))' }}
           />
 
           {/* Vertex dots + labels */}

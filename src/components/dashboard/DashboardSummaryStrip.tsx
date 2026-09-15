@@ -39,7 +39,7 @@ interface Props {
 }
 
 function SparklineIcon() {
-  // Tiny jade sparkline — pure decoration so the Operaciones card
+  // Tiny cyan-green sparkline — pure decoration so the Operaciones card
   // doesn't feel text-only next to the three numeric siblings.
   return (
     <svg
@@ -52,13 +52,13 @@ function SparklineIcon() {
     >
       <path
         d="M1 11 L7 9 L11 11 L15 7 L20 9 L24 5 L29 7 L34 3 L37 5"
-        stroke="#00E676"
+        stroke="var(--color-jade-profit)"
         strokeWidth="1.4"
         strokeLinecap="round"
         strokeLinejoin="round"
         fill="none"
       />
-      <circle cx="37" cy="5" r="1.6" fill="#00E676" />
+      <circle cx="37" cy="5" r="1.6" fill="var(--color-jade-profit)" />
     </svg>
   );
 }

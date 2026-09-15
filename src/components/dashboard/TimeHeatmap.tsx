@@ -60,8 +60,8 @@ export function TimeHeatmap({ matrix, hours, days }: Props) {
     >
       <div className="flex items-center gap-2">
         <span
-          className="inline-block w-1.5 h-1.5 rounded-full bg-[#00FF9D]"
-          style={{ boxShadow: '0 0 6px #00FF9D' }}
+          className="inline-block w-1.5 h-1.5 rounded-full bg-[var(--color-jade)]"
+          style={{ boxShadow: '0 0 6px var(--color-jade)' }}
           aria-hidden="true"
         />
         <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
@@ -125,17 +125,17 @@ export function TimeHeatmap({ matrix, hours, days }: Props) {
             height="16"
             viewBox="0 0 24 24"
             fill="none"
-            stroke="#00FF9D"
+            stroke="var(--color-jade)"
             strokeWidth="2"
             aria-hidden="true"
             className="mt-0.5 shrink-0"
-            style={{ filter: 'drop-shadow(0 0 4px #00FF9D)' }}
+            style={{ filter: 'drop-shadow(0 0 4px var(--color-jade))' }}
           >
             <circle cx="12" cy="12" r="10" />
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4m0 4h.01" />
           </svg>
           <span className="font-body text-xs text-text-secondary leading-snug">
-            <span className="font-display uppercase tracking-wide text-[10px] text-[#00FF9D] mr-1">
+            <span className="font-display uppercase tracking-wide text-[10px] text-[var(--color-jade)] mr-1">
               IA:
             </span>
             {suggestion}

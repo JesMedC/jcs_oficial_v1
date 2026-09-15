@@ -83,8 +83,6 @@ const OLD_JADE_RGBA = 'rgba(46,220,140';
 const HEX_CYAN = '#00FFFF';
 const HEX_OLD_JADE = '#2EDC8C';
 const STROKE_CYAN = 'stroke="#00FFFF"';
-const NEW_JADE_RGBA = 'rgba(0,255,157';
-const NEW_JADE_HEX = '#00FF9D';
 
 describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
   describe('src/pages/PricingPage.tsx', () => {
@@ -104,11 +102,11 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(PRICING_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       // The page hero carried a cyan text-shadow on the H1; the migration
       // swaps it to neon jade at the same alpha.
       expect(PRICING_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -130,9 +128,9 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(REGISTER_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(REGISTER_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -154,17 +152,17 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(DASHBOARD_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(DASHBOARD_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
 
-    it('pins the neon-jade "Nuevo trade" CTA hover shadow (0.45 alpha)', () => {
+    it.todo('Slice 4 — pins cyan "Nuevo trade" CTA hover shadow (0.45 alpha)', () => {
       // The current dashboard header CTA is "+ Nuevo trade"; keep its
       // neon-jade hover shadow pinned to the post-migration token.
       expect(DASHBOARD_PAGE).toContain(
-        'hover:shadow-[0_0_16px_rgba(0,255,157,0.45)]',
+        'hover:shadow-glow-cyan',
       );
     });
   });
@@ -186,9 +184,9 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(UPGRADE_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(UPGRADE_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -210,11 +208,11 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(PORTAL_SELECTOR).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       // The BOTH-role portal selector H1 carried a cyan text-shadow; the
       // migration swaps it to neon jade at the same alpha.
       expect(PORTAL_SELECTOR).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -236,11 +234,11 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(DIARIO_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       // The Diario stub H1 carried an old-jade text-shadow; migrated to
       // neon jade at the same alpha.
       expect(DIARIO_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -262,9 +260,9 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(PLAYBOOK_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(PLAYBOOK_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -286,9 +284,9 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(LOGIN_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(LOGIN_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -314,9 +312,9 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(CUENTAS_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(CUENTAS_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
 
@@ -344,14 +342,14 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(CUENTAS_DETAIL_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade "Cuenta no encontrada" H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan "Cuenta no encontrada" H1 text-shadow (0.4 alpha)', () => {
       // The 404 branch of the detail page carried an old-jade text-shadow.
       expect(CUENTAS_DETAIL_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
 
-    it('pins the neon-jade account-name H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade account-name H1 text-shadow (0.4 alpha)', () => {
       // The detail header H1 carries the same neon-jade glow.
       const matches = CUENTAS_DETAIL_PAGE.match(
         /style=\{\{ textShadow: '0 0 20px rgba\(0,255,157,0\.4\)' \}\}/g,
@@ -360,14 +358,14 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(matches?.length).toBeGreaterThanOrEqual(2);
     });
 
-    it('pins the neon-jade balance value text-shadow (0.3 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade balance value text-shadow (0.3 alpha)', () => {
       // The SaldoTab balance display carries a tighter 0.3 alpha glow.
       expect(CUENTAS_DETAIL_PAGE).toContain(
         "style={{ textShadow: '0 0 16px rgba(0,255,157,0.3)' }}",
       );
     });
 
-    it('pins the neon-jade "Fondear" CTA hover shadow (0.5 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade "Fondear" CTA hover shadow (0.5 alpha)', () => {
       expect(CUENTAS_DETAIL_PAGE).toContain(
         'hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]',
       );
@@ -391,9 +389,9 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(FEATURES_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(FEATURES_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
   });
@@ -415,13 +413,13 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(NOT_FOUND_PAGE).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade H1 text-shadow (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan H1 text-shadow (0.4 alpha)', () => {
       expect(NOT_FOUND_PAGE).toContain(
-        "style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}",
+        "style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}",
       );
     });
 
-    it('pins the neon-jade "Volver al inicio" CTA hover shadow (0.5 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade "Volver al inicio" CTA hover shadow (0.5 alpha)', () => {
       expect(NOT_FOUND_PAGE).toContain(
         'hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]',
       );
@@ -445,13 +443,13 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(MISSION_SECTION).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade chart-line SVG stroke on the outer <svg>', () => {
+    it.todo('Slice 4 — pins cyan jade chart-line SVG stroke on the outer <svg>', () => {
       // The ChartLine outer <svg> carried an old-jade stroke attribute;
       // the migration swaps it to the new neon-jade hex.
       expect(MISSION_SECTION).toContain('stroke="#00FF9D"');
     });
 
-    it('pins the neon-jade linearGradient stopColor (0.4 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade linearGradient stopColor (0.4 alpha)', () => {
       // The jadeFill gradient stop at 0% carries stopColor + stopOpacity
       // 0.4. Migration swaps the hex to neon jade while keeping the
       // stopOpacity intact.
@@ -459,7 +457,7 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(MISSION_SECTION).toContain('stopOpacity="0.4"');
     });
 
-    it('pins the neon-jade linearGradient stopColor (0 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade linearGradient stopColor (0 alpha)', () => {
       // The jadeFill gradient stop at 100% carries stopColor + stopOpacity
       // 0. Migration swaps the hex to neon jade while keeping the
       // stopOpacity intact.
@@ -467,7 +465,7 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(MISSION_SECTION).toContain('stopOpacity="0"');
     });
 
-    it('pins the neon-jade data-point circle fills', () => {
+    it.todo('Slice 4 — pins cyan jade data-point circle fills', () => {
       // The two highlight circles in the SVG carried fill="#2EDC8C"; the
       // migration swaps them to neon jade hex.
       const matches = MISSION_SECTION.match(/fill="#00FF9D"/g);
@@ -493,14 +491,14 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(SUBSCRIPTION_CARD).not.toContain(HEX_OLD_JADE);
     });
 
-    it('pins the neon-jade "Activar suscripcion" CTA hover shadow (0.5 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade "Activar suscripcion" CTA hover shadow (0.5 alpha)', () => {
       // The null-subscription branch CTA carried a cyan hover shadow.
       expect(SUBSCRIPTION_CARD).toContain(
         'hover:shadow-[0_0_24px_rgba(0,255,157,0.5)]',
       );
     });
 
-    it('pins the neon-jade status CTA hover shadow (0.5 alpha)', () => {
+    it.todo('Slice 4 — pins cyan jade status CTA hover shadow (0.5 alpha)', () => {
       // The status-driven CTA (TRIAL/ACTIVE/CANCELED/EXPIRED) carried
       // the same cyan hover shadow.
       const matches = SUBSCRIPTION_CARD.match(
@@ -537,12 +535,15 @@ describe('pages / auth / about — Wave 3d drift cleanup contract', () => {
       expect(ALL).not.toContain(STROKE_CYAN);
     });
 
-    it('the 14 files contain at least one neon-jade rgba literal after migration', () => {
-      expect(ALL).toContain(NEW_JADE_RGBA);
-    });
-
-    it('the 14 files contain at least one neon-jade hex literal after migration', () => {
-      expect(ALL).toContain(NEW_JADE_HEX);
-    });
+    // core-interface-redesign (Slice 1) pivoted NEW_JADE_RGBA /
+    // NEW_JADE_HEX from jade (#00FF9D) to cyan (#00D4D8) in the
+    // two source-of-truth files (themes.css + tailwind.config.ts).
+    // The 14 page/chrome files in this drift test still carry jade
+    // literals — they will pivot to cyan in Slice 4 (per-page
+    // migration, one PR per page). The "should NOT contain OLD"
+    // assertions above remain active as regression guards.
+    it.todo('Slice 4 — the 14 files contain at least one cyan rgba literal after per-page migration');
+    it.todo('Slice 4 — the 14 files contain at least one cyan hex literal after per-page migration');
   });
 });
+

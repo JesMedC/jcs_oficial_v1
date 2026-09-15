@@ -37,6 +37,8 @@ import { DashboardSummaryStrip } from '../../components/dashboard/DashboardSumma
 import { PerformanceCurveChart } from '../../components/dashboard/PerformanceCurveChart';
 import { RecentActivityFeed } from '../../components/dashboard/RecentActivityFeed';
 import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
+import { DotGrid } from '../../components/decor/DotGrid';
+import { NeuralNetwork } from '../../components/decor/NeuralNetwork';
 import { AlertsToast } from '../../components/scanner/AlertsToast';
 import { DashboardKPIsGrid } from '../../features/trades/DashboardKPIsGrid';
 import { useEquityCurve } from '../../features/dashboard/useEquityCurve';
@@ -136,7 +138,29 @@ export function DashboardPage() {
           and the component renders the most recent alerts as
           toasts that auto-dismiss after 8s. */}
       <AlertsToast />
-      <div className="w-full px-2 md:px-4">
+      <div className="relative w-full px-2 md:px-4">
+            {/* core-interface-redesign (Slice 2, T-030) — JARVIS HUD decor.
+             *
+             * Mounted as absolute-positioned background layers behind
+             * the dashboard content. Per `decorative-system` spec delta
+             * REQ-DEC-006: DotGrid at <= 6% opacity, NeuralNetwork at
+             * <= 8% opacity so the data (cards, charts) remains the
+             * focus. Both primitives read CSS vars so they auto-paint
+             * cyan per Slice 1's token pivot. Decor is restricted to
+             * the dashboard chrome — financial tables and the recent
+             * ops rail are NEVER under decor per REQ-DEC-007. */}
+            <div
+              aria-hidden="true"
+              data-testid="dash-decor-layer"
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+            >
+              <div className="absolute inset-0 opacity-[0.06]">
+                <DotGrid />
+              </div>
+              <div className="absolute inset-0 opacity-[0.08]">
+                <NeuralNetwork />
+              </div>
+            </div>
         {/* ---- Header ---- */}
         <div className="flex items-start justify-between gap-4 flex-wrap py-4">
           <div>
@@ -145,7 +169,7 @@ export function DashboardPage() {
             </span>
             <h1
               className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
-              style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }}
+              style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}
             >
               Hola, {user?.first_name ?? 'trader'}
             </h1>
@@ -163,7 +187,7 @@ export function DashboardPage() {
               type="button"
               data-testid="dash-new-trade"
               onClick={openDrawer}
-              className="px-3 py-1.5 rounded-md bg-primary text-bg font-display uppercase tracking-wide text-xs hover:shadow-[0_0_16px_rgba(0,255,157,0.45)] transition-shadow"
+              className="px-3 py-1.5 rounded-md bg-primary text-bg font-display uppercase tracking-wide text-xs hover:shadow-glow-cyan transition-shadow"
             >
               + Nuevo trade
             </button>
