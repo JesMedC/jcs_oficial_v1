@@ -115,7 +115,11 @@ const CATALOG: ReadonlyArray<InstrumentInfo> = [
 ];
 
 export const AVAILABLE_FOREX_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = CATALOG.filter(
-  (i) => i.category !== 'Crypto' && i.category !== 'Commodities' && i.category !== 'Indices',
+  // 2026-09-15 revision: Commodities (XAUUSD, XAGUSD, OILUSD) are now
+  // exposed under FOREX-style pricing too, mirroring brokers like
+  // OANDA. Crypto + Indices stay BINARY-only (no spot/cash market
+  // on the FOREX side).
+  (i) => i.category !== 'Crypto' && i.category !== 'Indices',
 );
 
 export const AVAILABLE_BINARY_INSTRUMENTS: ReadonlyArray<InstrumentInfo> = CATALOG;
