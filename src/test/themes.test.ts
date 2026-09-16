@@ -98,13 +98,13 @@ describe('themes.css — Core Interface cyan contract (T-024)', () => {
   });
 
   describe('dark mode border + HUD decor (cyan rgba family)', () => {
-    it('--color-jade-border uses cyan rgba(0, 212, 216, 0.15)', () => {
-      expect(darkBlock).toMatch(/--color-jade-border:\s*rgba\(\s*0\s*,\s*212\s*,\s*216\s*,\s*0\.15\s*\)/i);
+    it('--color-jade-border uses cyan rgba(0, 212, 216, 0.08)', () => {
+      expect(darkBlock).toMatch(/--color-jade-border:\s*rgba\(\s*0\s*,\s*212\s*,\s*216\s*,\s*0\.08\s*\)/i);
     });
 
-    it('--color-jade-border-line uses cyan rgba(0, 212, 216, 0.20)', () => {
+    it('--color-jade-border-line uses cyan rgba(0, 212, 216, 0.10)', () => {
       expect(darkBlock).toMatch(
-        /--color-jade-border-line:\s*rgba\(\s*0\s*,\s*212\s*,\s*216\s*,\s*0\.20\s*\)/i,
+        /--color-jade-border-line:\s*rgba\(\s*0\s*,\s*212\s*,\s*216\s*,\s*0\.10\s*\)/i,
       );
     });
 

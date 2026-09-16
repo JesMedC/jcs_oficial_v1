@@ -121,6 +121,37 @@ describe('tailwind.config.ts — Core Interface cyan contract', () => {
     });
   });
 
+  describe('glass.border — cyan rgba (post-Slice 4 visual review)', () => {
+    // Slice 1 pivoted glow-jade + backgroundImage to cyan but missed
+    // the glass.border family (they stayed as translucent white rgba
+    // which read as "white borders" on dark bg). Post-Slice 4 visual
+    // review pivoted them to cyan rgba at the retuned alphas.
+    const colors = resolved.theme.colors as unknown as Record<
+      string,
+      string | Record<string, string | Record<string, string>>
+    >;
+    const glass = colors.glass as Record<string, Record<string, string>>;
+    const glassBorder = glass.border;
+
+    it('glass.border.subtle uses cyan rgba(0, 212, 216, 0.08)', () => {
+      expect(glassBorder!.subtle).toBe('rgba(0, 212, 216, 0.08)');
+    });
+
+    it('glass.border.DEFAULT uses cyan rgba(0, 212, 216, 0.14)', () => {
+      expect(glassBorder!.DEFAULT).toBe('rgba(0, 212, 216, 0.14)');
+    });
+
+    it('glass.border.strong uses cyan rgba(0, 212, 216, 0.22)', () => {
+      expect(glassBorder!.strong).toBe('rgba(0, 212, 216, 0.22)');
+    });
+
+    it('glass.border is NOT translucent white (regression guard)', () => {
+      expect(glassBorder!.subtle).not.toMatch(/rgb\(255\s+255\s+255/);
+      expect(glassBorder!.DEFAULT).not.toMatch(/rgb\(255\s+255\s+255/);
+      expect(glassBorder!.strong).not.toMatch(/rgb\(255\s+255\s+255/);
+    });
+  });
+
   describe('backgroundImage — cyan rgba (Slice 1, T-025)', () => {
     it('aurora-static uses cyan + info rgba (no legacy jade)', () => {
       const value = backgroundImage['aurora-static'];

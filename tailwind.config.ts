@@ -87,9 +87,9 @@ const config: Config = {
           DEFAULT: 'rgb(255 255 255 / 0.10)',
           strong: 'rgb(255 255 255 / 0.16)',
           border: {
-            subtle: 'rgb(255 255 255 / 0.08)',
-            DEFAULT: 'rgb(255 255 255 / 0.14)',
-            strong: 'rgb(255 255 255 / 0.22)',
+            subtle: 'rgba(0, 212, 216, 0.08)',
+            DEFAULT: 'rgba(0, 212, 216, 0.14)',
+            strong: 'rgba(0, 212, 216, 0.22)',
           },
         },
         // Semantic finance colors (pivoted to cyan variants in dark,
