@@ -99,13 +99,16 @@ describe('tailwind.config.ts — Core Interface cyan contract', () => {
    *     gone; the new `glow-cyan` is the alias-of-glow-jade, not a
    *     separate primitive.
    */
-  describe('boxShadow — Core Interface cyan glow (Slice 1, T-025)', () => {
-    it('glow-jade uses the retuned cyan rgba at 0.25 alpha', () => {
-      expect(boxShadow['glow-jade']).toBe('0 0 40px rgba(0,212,216,0.25)');
+  describe('boxShadow — JARVIS HUD cyan glow (v2, REQ-DCF-JV2-003)', () => {
+    // dashboard-jarvis-fidelity-v2 — rgba migrated from (0,212,216) to
+    // (0,229,255) to match the new #00E5FF primary. The 0.25 / 0.16
+    // alphas stay (already tuned for cyan at the JARVIS intensity).
+    it('glow-jade uses the JARVIS cyan rgba at 0.25 alpha', () => {
+      expect(boxShadow['glow-jade']).toBe('0 0 40px rgba(0,229,255,0.25)');
     });
 
-    it('glow-jade-sm uses the retuned cyan rgba at 0.16 alpha', () => {
-      expect(boxShadow['glow-jade-sm']).toBe('0 0 20px rgba(0,212,216,0.16)');
+    it('glow-jade-sm uses the JARVIS cyan rgba at 0.16 alpha', () => {
+      expect(boxShadow['glow-jade-sm']).toBe('0 0 20px rgba(0,229,255,0.16)');
     });
 
     it('exposes glow-cyan as the semantic alias of glow-jade', () => {
@@ -119,13 +122,18 @@ describe('tailwind.config.ts — Core Interface cyan contract', () => {
       // add `glow-cyan-sm` and remove this guard.
       expect(boxShadow['glow-cyan-sm']).toBeUndefined();
     });
+
+    it('does NOT contain the previous Slice-1 rgba(0, 212, 216) family (regression guard)', () => {
+      for (const value of Object.values(boxShadow)) {
+        expect(value).not.toMatch(/rgba\(\s*0\s*,\s*212\s*,\s*216/);
+      }
+    });
   });
 
-  describe('glass.border — cyan rgba (post-Slice 4 visual review)', () => {
-    // Slice 1 pivoted glow-jade + backgroundImage to cyan but missed
-    // the glass.border family (they stayed as translucent white rgba
-    // which read as "white borders" on dark bg). Post-Slice 4 visual
-    // review pivoted them to cyan rgba at the retuned alphas.
+  describe('glass.border — JARVIS cyan rgba (v2, REQ-DCF-JV2-003)', () => {
+    // Slice 1 used rgba(0, 212, 216); v2 pivots to rgba(0, 229, 255).
+    // Strong bumped from 0.22 → 0.30 so the chamfered cards read as
+    // crisp frames on the new radial navy bg.
     const colors = resolved.theme.colors as unknown as Record<
       string,
       string | Record<string, string | Record<string, string>>
@@ -133,16 +141,16 @@ describe('tailwind.config.ts — Core Interface cyan contract', () => {
     const glass = colors.glass as Record<string, Record<string, string>>;
     const glassBorder = glass.border;
 
-    it('glass.border.subtle uses cyan rgba(0, 212, 216, 0.08)', () => {
-      expect(glassBorder!.subtle).toBe('rgba(0, 212, 216, 0.08)');
+    it('glass.border.subtle uses cyan rgba(0, 229, 255, 0.14)', () => {
+      expect(glassBorder!.subtle).toBe('rgba(0, 229, 255, 0.14)');
     });
 
-    it('glass.border.DEFAULT uses cyan rgba(0, 212, 216, 0.14)', () => {
-      expect(glassBorder!.DEFAULT).toBe('rgba(0, 212, 216, 0.14)');
+    it('glass.border.DEFAULT uses cyan rgba(0, 229, 255, 0.22)', () => {
+      expect(glassBorder!.DEFAULT).toBe('rgba(0, 229, 255, 0.22)');
     });
 
-    it('glass.border.strong uses cyan rgba(0, 212, 216, 0.22)', () => {
-      expect(glassBorder!.strong).toBe('rgba(0, 212, 216, 0.22)');
+    it('glass.border.strong uses cyan rgba(0, 229, 255, 0.30)', () => {
+      expect(glassBorder!.strong).toBe('rgba(0, 229, 255, 0.30)');
     });
 
     it('glass.border is NOT translucent white (regression guard)', () => {
@@ -152,48 +160,81 @@ describe('tailwind.config.ts — Core Interface cyan contract', () => {
     });
   });
 
-  describe('backgroundImage — cyan rgba (Slice 1, T-025)', () => {
-    it('aurora-static uses cyan + info rgba (no legacy jade)', () => {
+  describe('backgroundImage — JARVIS cyan rgba (v2)', () => {
+    it('aurora-static uses the new cyan + info rgba (no legacy jade)', () => {
       const value = backgroundImage['aurora-static'];
       expect(value).toBeDefined();
       expect(value).not.toContain('0,255,157');
       expect(value).not.toContain('0,255,255');
-      expect(value).toContain('rgba(0,212,216,0.18)');
+      expect(value).toContain('rgba(0,229,255,0.18)');
       expect(value).toContain('rgba(0,184,255,0.12)');
     });
 
-    it('site-gradient uses cyan rgba (no legacy jade)', () => {
+    it('site-gradient uses the new cyan rgba (no legacy jade)', () => {
       const value = backgroundImage['site-gradient'];
       expect(value).toBeDefined();
       expect(value).not.toContain('0,255,157');
       expect(value).not.toContain('0,255,255');
-      expect(value).toContain('rgba(0,212,216,0.10)');
+      expect(value).toContain('rgba(0,229,255,0.10)');
     });
 
-    it('portal-selector uses cyan + info rgba (no legacy jade)', () => {
+    it('portal-selector uses the new cyan + info rgba (no legacy jade)', () => {
       const value = backgroundImage['portal-selector'];
       expect(value).toBeDefined();
       expect(value).not.toContain('0,255,157');
       expect(value).not.toContain('0,255,255');
-      expect(value).toContain('rgba(0,212,216,0.16)');
+      expect(value).toContain('rgba(0,229,255,0.16)');
       expect(value).toContain('rgba(0,184,255,0.10)');
     });
   });
 
-  describe('keyframes.auth-pulse — cyan halo (Slice 1, T-025)', () => {
-    it('animates boxShadow with cyan rgba (not legacy jade)', () => {
+  describe('keyframes.auth-pulse — JARVIS cyan halo (v2)', () => {
+    it('animates boxShadow with the new cyan rgba (not legacy jade)', () => {
       const kf = keyframes['auth-pulse'] as Record<string, { boxShadow: string }> | undefined;
       expect(kf).toBeDefined();
       const start = kf?.['0%, 100%'];
       const mid = kf?.['50%'];
       expect(start).toBeDefined();
       expect(mid).toBeDefined();
-      expect(start?.boxShadow).toContain('rgba(0,212,216,');
+      expect(start?.boxShadow).toContain('rgba(0,229,255,');
       expect(start?.boxShadow).not.toContain('0,255,157');
       expect(start?.boxShadow).not.toContain('0,255,255');
-      expect(mid?.boxShadow).toContain('rgba(0,212,216,');
+      expect(mid?.boxShadow).toContain('rgba(0,229,255,');
       expect(mid?.boxShadow).not.toContain('0,255,157');
       expect(mid?.boxShadow).not.toContain('0,255,255');
+    });
+  });
+
+  /*
+   * dashboard-jarvis-fidelity-v2 — new Tailwind utilities:
+   *   - text-shadow-glow: `text-shadow: 0 0 8px rgba(0, 229, 255, 0.6)`
+   *     for titles + big numbers (per spec).
+   *   - bg-radial-hud: a 2-stop radial gradient from --color-bg-deep
+   *     to --color-bg-mid for the page background (REQ-DCF-JV2-004).
+   *   - hud-glass + border-hud-cyan: chrome utilities that consumers
+   *     can layer onto existing Tailwind cards without opting into the
+   *     full HudPanel component.
+   */
+  describe('JARVIS v2 utilities', () => {
+    // Tailwind's resolved theme type doesn't declare `textShadow` as a
+    // top-level key (it inherits through `extend.textShadow`), so we
+    // cast through `unknown` to read the value.
+    const textShadow = (resolved.theme as unknown as Record<string, unknown>)['textShadow'] as
+      | Record<string, string>
+      | undefined;
+    const bgImage = backgroundImage;
+
+    it('exposes text-shadow-glow utility', () => {
+      expect(textShadow).toBeDefined();
+      expect(textShadow!['glow']).toContain('rgba(0, 229, 255, 0.6)');
+    });
+
+    it('exposes bg-radial-hud backgroundImage utility', () => {
+      const v = bgImage['radial-hud'];
+      expect(v).toBeDefined();
+      expect(v).toContain('radial-gradient');
+      expect(v).toContain('#030c14');
+      expect(v).toContain('#0a192f');
     });
   });
 });
