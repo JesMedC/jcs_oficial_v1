@@ -36,12 +36,17 @@ export interface CurveChartTheme {
 }
 
 export const CURVE_THEME: CurveChartTheme = {
-  perf: '#00E676',
-  balance: '#00B8FF',
-  volume: 'rgba(0, 230, 118, 0.30)',
+  // Slice B (T-044, REQ-DCF-003): pivot from hardcoded jade hex
+  // to the cyan CSS-var ladder so the chart palette honours the
+  // theme. The `rgba(13, 21, 30, 0.7)` background + the muted
+  // `rgba(255, 255, 255, 0.45)` axis text stay as-is — no token
+  // equivalent exists for them in `themes.css`.
+  perf: 'var(--color-jade-profit)',
+  balance: 'var(--color-jade-info)',
+  volume: 'rgba(60, 224, 184, 0.30)',
   background: 'rgba(13, 21, 30, 0.7)',
-  border: 'rgba(0, 255, 157, 0.18)',
-  grid: 'rgba(0, 255, 157, 0.10)',
+  border: 'rgba(0, 212, 216, 0.18)',
+  grid: 'rgba(0, 212, 216, 0.10)',
   axisText: 'rgba(255, 255, 255, 0.45)',
 } as const;
 
