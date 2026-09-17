@@ -177,19 +177,30 @@ export function DashboardPage() {
                */}
               <CoreInterfaceWatermark />
             </div>
-        {/* ---- Header ---- */}
-        <div className="flex items-start justify-between gap-4 flex-wrap py-4">
+        {/* ---- Header (jarvis-ui-redesign T-12) ----
+         *
+         * Hero row of the dashboard: brand sub-label "MAIN PANEL" +
+         * oversized uppercase H1 "HOLA, JESUS" with a strong cyan
+         * glow halo (--jarvis-h1-glow) + sub-line subtitle. The CTA
+         * is now a HudButton (T-08) for the outlined JARVIS look.
+         */}
+        <div className="flex items-start justify-between gap-4 flex-wrap py-6">
           <div>
-            <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
-              Panel principal
+            <span
+              data-testid="dash-hero-label"
+              className="font-display uppercase tracking-[0.4em] text-[10px] md:text-xs text-primary"
+            >
+              MAIN PANEL
             </span>
             <h1
-              className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
-              style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}
+              className="font-display uppercase tracking-wide text-4xl md:text-5xl lg:text-6xl mt-2 text-text-primary"
+              style={{
+                textShadow: '0 0 24px var(--jarvis-h1-glow), 0 0 48px var(--jarvis-h1-glow)',
+              }}
             >
               Hola, {user?.first_name ?? 'trader'}
             </h1>
-            <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
+            <p className="text-text-secondary font-body text-sm md:text-base mt-3 max-w-2xl">
               Tu centro de mando: cashflow, mercado y disciplina, todo en
               una sola vista.
             </p>
