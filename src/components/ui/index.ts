@@ -85,3 +85,7 @@ export type {
   HudPanelProps,
   HudPanelVariant,
 } from './HudPanel';
+
+/* jarvis-ui-redesign (T-04) — JARVIS double-track HUD ring. */
+export { HudRing } from './HudRing';
+export type { HudRingProps, HudRingSize, HudRingTone } from './HudRing';
