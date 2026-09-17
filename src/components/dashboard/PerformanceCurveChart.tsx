@@ -35,8 +35,12 @@ import {
   CrosshairMode,
   HistogramSeries,
   createChart,
+  createSeriesMarkers,
   type IChartApi,
   type ISeriesApi,
+  type ISeriesMarkersPluginApi,
+  type SeriesMarker,
+  type Time,
 } from 'lightweight-charts';
 
 import {
@@ -79,6 +83,13 @@ export function PerformanceCurveChart({
   const chartRef = useRef<IChartApi | null>(null);
   const perfSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
   const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
+  // dashboard-jarvis-fidelity (Slice B, T-046, REQ-DCF-005) —
+  // Cached series-markers plugin ref. Created once per mount
+  // and only mutated via `setMarkers()` on data changes. This
+  // avoids the costly plugin re-creation path on every render
+  // (lightweight-charts v5 expects markers to live behind a
+  // stable plugin reference for fast diffing).
+  const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   /* ---- mount + theme + series ---- */
   useEffect(() => {
@@ -167,6 +178,13 @@ export function PerformanceCurveChart({
     perfSeriesRef.current = perfSeries;
     volumeSeriesRef.current = volumeSeries;
 
+    // Attach the markers plugin to the per-day P&L series so
+    // deposit / withdraw triangles render above / below the
+    // bars. Plugin is stored in a ref so subsequent data pushes
+    // call `setMarkers()` instead of re-creating the plugin.
+    const markersPlugin = createSeriesMarkers(perfSeries, []);
+    markersPluginRef.current = markersPlugin;
+
     const ro = new ResizeObserver(() => {
       if (chartRef.current !== null && container !== null) {
         chartRef.current.applyOptions({
@@ -183,6 +201,9 @@ export function PerformanceCurveChart({
       chartRef.current = null;
       perfSeriesRef.current = null;
       volumeSeriesRef.current = null;
+      // Plugin detaches automatically when the series is removed
+      // via `chart.remove()`; nulling the ref keeps GC happy.
+      markersPluginRef.current = null;
     };
   }, [height]);
 
@@ -219,6 +240,25 @@ export function PerformanceCurveChart({
     perfSeries.setData(perfData);
     volumeSeries.setData(volumeData);
 
+    // dashboard-jarvis-fidelity (Slice B, T-046, REQ-DCF-005) —
+    // Deposit / withdraw triangles for days with non-zero
+    // capital volume. Cyan ▲ for deposits, red ▼ for withdraws.
+    // Cached behind `markersPluginRef` so we never re-create
+    // the plugin — `setMarkers()` diffs in-place.
+    const depositMarkers: SeriesMarker<Time>[] = points
+      .filter((p) => p.capital_volume !== 0)
+      .map((p) => ({
+        time: toChartTime(p.date),
+        position: p.capital_volume > 0 ? 'aboveBar' : 'belowBar',
+        color:
+          p.capital_volume > 0
+            ? 'var(--color-jade-profit)'
+            : 'var(--color-jade-loss)',
+        shape: p.capital_volume > 0 ? 'arrowUp' : 'arrowDown',
+        text: `$${Math.abs(p.capital_volume).toFixed(0)}`,
+      }));
+    markersPluginRef.current?.setMarkers(depositMarkers);
+
     chartRef.current?.timeScale().fitContent();
   }, [points]);
 
@@ -232,12 +272,53 @@ export function PerformanceCurveChart({
     return { delta: last.cumulative_net_pnl };
   }, [points]);
 
+  /*
+   * dashboard-jarvis-fidelity (Slice B, T-045, REQ-DCF-004) —
+   * Last-point tooltip badge. Renders the absolute `+$X.XX`
+   * (cumulative trading P&L) and the relative `+Y.Y%` (delta
+   * vs the window's first point). Anchored top-right of the
+   * card via absolute positioning; the parent card carries
+   * `position: relative` via its flex/grid layout.
+   */
+  const lastPointBadge = useMemo(() => {
+    if (points.length === 0) return null;
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    const base = first.cumulative_net_pnl;
+    const lastPnl = last.cumulative_net_pnl;
+    const deltaPnl = lastPnl - base;
+    // Delta pct is computed against |base| so a user who
+    // started at 0 still gets a meaningful "+∞%" label on the
+    // first winning day. We cap at +9999% so a single big win
+    // doesn't blow the layout.
+    const deltaPct =
+      base === 0
+        ? lastPnl > 0
+          ? 9999
+          : lastPnl < 0
+            ? -9999
+            : 0
+        : Math.max(-9999, Math.min(9999, (deltaPnl / Math.abs(base)) * 100));
+    return {
+      absText: `${lastPnl >= 0 ? '+' : '-'}$${Math.abs(lastPnl).toFixed(2)}`,
+      pctText: `${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%`,
+    };
+  }, [points]);
+
   return (
     <div
       data-testid="dash-performance-curve"
-      className={CURVE_CARD_CLASS}
+      className={`${CURVE_CARD_CLASS} relative`}
       style={CURVE_CARD_BORDER_STYLE}
     >
+      {lastPointBadge !== null ? (
+        <div
+          data-testid="dash-performance-lastpoint"
+          className="absolute top-3 right-3 font-mono text-[10px] text-text-secondary bg-surface/60 backdrop-blur-sm px-2 py-1 rounded"
+        >
+          {lastPointBadge.absText} · {lastPointBadge.pctText}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span

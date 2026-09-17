@@ -185,12 +185,48 @@ export function CapitalCurveChart({
     return { delta: last.account_balance - first.account_balance };
   }, [points]);
 
+  /*
+   * dashboard-jarvis-fidelity (Slice B, T-045, REQ-DCF-004) —
+   * Last-point tooltip badge. Same shape as the Performance
+   * badge: absolute `+$X.XX` (window delta) + a `+Y.Y%`
+   * relative delta. Anchored top-right via absolute on the
+   * parent card (which carries `position: relative`).
+   */
+  const lastPointBadge = useMemo(() => {
+    if (points.length === 0) return null;
+    const first = points[0]!;
+    const last = points[points.length - 1]!;
+    const base = first.account_balance;
+    const lastBal = last.account_balance;
+    const deltaBal = lastBal - base;
+    const deltaPct =
+      base === 0
+        ? lastBal > 0
+          ? 9999
+          : lastBal < 0
+            ? -9999
+            : 0
+        : Math.max(-9999, Math.min(9999, (deltaBal / Math.abs(base)) * 100));
+    return {
+      absText: `${deltaBal >= 0 ? '+' : '-'}$${Math.abs(deltaBal).toFixed(2)}`,
+      pctText: `${deltaPct >= 0 ? '+' : ''}${deltaPct.toFixed(1)}%`,
+    };
+  }, [points]);
+
   return (
     <div
       data-testid="dash-capital-curve"
-      className={CURVE_CARD_CLASS}
+      className={`${CURVE_CARD_CLASS} relative`}
       style={CURVE_CARD_BORDER_STYLE}
     >
+      {lastPointBadge !== null ? (
+        <div
+          data-testid="dash-capital-lastpoint"
+          className="absolute top-3 right-3 font-mono text-[10px] text-text-secondary bg-surface/60 backdrop-blur-sm px-2 py-1 rounded"
+        >
+          {lastPointBadge.absText} · {lastPointBadge.pctText}
+        </div>
+      ) : null}
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span
