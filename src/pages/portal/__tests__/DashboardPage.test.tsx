@@ -167,4 +167,26 @@ describe('DashboardPage', () => {
 
     expect(drawerOpen).toHaveBeenCalledTimes(1);
   });
+
+  /*
+   * dashboard-jarvis-fidelity (Slice B, T-043, REQ-DHF-005) —
+   * H1 greeting MUST upgrade to `text-3xl md:text-4xl` (was
+   * `text-2xl md:text-3xl`). The cyan textShadow stays.
+   */
+  it('T-043: H1 greeting usa text-3xl md:text-4xl y conserva el textShadow cyan', () => {
+    mockAccounts([fakeAccount]);
+    renderDashboard(buildMe());
+
+    const h1 = screen.getByRole('heading', { level: 1, name: 'Hola, Demo' });
+    // Tokenised check so the `md:text-*` variant doesn't trip a
+    // naive substring on `text-3xl`.
+    const tokens = h1.className.split(/\s+/);
+    expect(tokens).toContain('text-3xl');
+    expect(tokens).toContain('md:text-4xl');
+    // Old size classes are gone.
+    expect(tokens).not.toContain('text-2xl');
+    expect(tokens).not.toContain('md:text-3xl');
+    // Cyan glow preserved.
+    expect(h1.getAttribute('style')).toContain('rgba(0,212,216,0.35)');
+  });
 });

@@ -184,7 +184,7 @@ export function DashboardPage() {
               Panel principal
             </span>
             <h1
-              className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
+              className="font-display uppercase tracking-wide text-3xl md:text-4xl mt-1"
               style={{ textShadow: '0 0 20px rgba(0,212,216,0.35)' }}
             >
               Hola, {user?.first_name ?? 'trader'}
