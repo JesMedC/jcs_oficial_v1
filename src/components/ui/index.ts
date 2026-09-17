@@ -89,3 +89,7 @@ export type {
 /* jarvis-ui-redesign (T-04) — JARVIS double-track HUD ring. */
 export { HudRing } from './HudRing';
 export type { HudRingProps, HudRingSize, HudRingTone } from './HudRing';
+
+/* jarvis-ui-redesign (T-08) — JARVIS outlined CTA button. */
+export { HudButton } from './HudButton';
+export type { HudButtonProps, HudButtonSize, HudButtonVariant } from './HudButton';
