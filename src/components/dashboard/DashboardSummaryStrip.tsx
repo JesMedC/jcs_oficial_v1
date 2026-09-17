@@ -115,7 +115,7 @@ export function DashboardSummaryStrip({
         label="Operaciones"
         value={String(stats.operations)}
         tone={stats.operations > 0 ? 'default' : 'muted'}
-        rightAdornment={<SparklineIcon />}
+        adornment={<SparklineIcon />}
         testId="summary-operations"
       />
       <SummaryCard
@@ -169,7 +169,11 @@ interface SummaryCardProps {
   readonly value: string;
   readonly tone: 'profit' | 'loss' | 'muted' | 'default';
   readonly sub?: string | undefined;
-  readonly rightAdornment?: ReactNode;
+  /** Optional inline decoration rendered inside the card body,
+   *  BELOW the value. Used by the Operaciones sparkline
+   *  (T-042, REQ-DHF-004) so the 25% right rail doesn't clip
+   *  the icon. */
+  readonly adornment?: ReactNode;
   readonly testId: string;
 }
 
@@ -178,7 +182,7 @@ function SummaryCard({
   value,
   tone,
   sub,
-  rightAdornment,
+  adornment,
   testId,
 }: SummaryCardProps) {
   const toneClass =
@@ -198,13 +202,15 @@ function SummaryCard({
         <span className="font-display uppercase tracking-widest text-[10px] text-text-muted truncate">
           {label}
         </span>
-        {rightAdornment}
       </div>
       <span
         className={`font-mono text-xl md:text-2xl font-bold tabular-nums leading-tight truncate ${toneClass}`}
       >
         {value}
       </span>
+      {adornment !== undefined ? (
+        <div className="mx-auto -my-1">{adornment}</div>
+      ) : null}
       {sub !== undefined ? (
         <span className="font-mono text-[10px] text-text-muted truncate">
           {sub}
