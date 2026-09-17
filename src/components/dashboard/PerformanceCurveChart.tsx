@@ -1,39 +1,36 @@
 /*
- * PerformanceCurveChart — Curva de Rendimiento.
+ * PerformanceCurveChart — Curva de Rendimiento (v2 spline pivot).
  *
- * Per-day histogram of trading P&L. Each bar = one day:
- *   - Positive day → jade bar above zero
- *   - Negative day → red bar below zero
- *   - Quiet day    → no bar (zero-height row)
+ * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-009) — the chart now
+ * renders a smooth Lightweight-Charts LineSeries on the cumulative
+ * net P&L, with a parallel AreaSeries providing the cyan gradient
+ * fill (CURVE_AREA_TOP → CURVE_AREA_BOTTOM). The pre-Slice-B
+ * histogram bars + secondary volume histogram are gone — the
+ * curve's slope tells the per-day P&L story directly.
  *
- * Companion to ``CapitalCurveChart``: the histogram tells the
- * "skill story" (how the user traded each day), while the capital
- * curve tells the "money story" (how the account balance evolved
- * after capital movements too).
+ * The capital movements (FUND / WITHDRAW) still surface as
+ * triangular markers (`createSeriesMarkers`) on the spline series
+ * so the user can see when money moved in/out without losing the
+ * cumulative-P&L curve.
  *
- * Pure skill metric: cashflow in/out is NOT reflected on these
- * bars, so a flat chart means "neither won nor lost on the
- * markets", regardless of how much capital moved.
+ * Visual contract:
+ *   - Spline (lineType: 2 — Curved) in JARVIS cyan
+ *   - Gradient area fill above the spline (top 0.30 alpha → bottom
+ *     0 alpha)
+ *   - Deposit markers: cyan ▲ aboveBar; withdraw markers: red ▼
+ *     belowBar. Both bound to the spline series.
+ *   - Dotted grid + JetBrains Mono axis labels (per Slice B).
  *
- * The legend chip in the header reports the CUMULATIVE trading
- * P&L (Σ daily bars, e.g. +$9.20 for a user who started the window
- * flat and closed it +$9.20) — this matches what the user expects
- * to see as "their edge" without the initial-fund amount baked in.
- *
- * Two series on the same canvas:
- *   - HistogramSeries for ``daily_pnl`` (jade on +days, red on
- *     −days) on the right price scale.
- *   - HistogramSeries for ``capital_volume`` (FUND/WITHDRAW, jade
- *     low-opacity / red low-opacity) on a dedicated ``volume``
- *     scale pinned to the bottom strip.
- *
- * Resize-aware via ResizeObserver; crosshair enabled.
+ * Resize-aware via ResizeObserver; crosshair enabled; price-line off
+ * (the right-side badge shows the latest cumulative P&L).
  */
 import { useEffect, useMemo, useRef } from 'react';
 import {
+  AreaSeries,
   ColorType,
   CrosshairMode,
-  HistogramSeries,
+  LineSeries,
+  LineType,
   createChart,
   createSeriesMarkers,
   type IChartApi,
@@ -44,6 +41,8 @@ import {
 } from 'lightweight-charts';
 
 import {
+  CURVE_AREA_BOTTOM,
+  CURVE_AREA_TOP,
   CURVE_CARD_BORDER_STYLE,
   CURVE_CARD_CLASS,
   CURVE_THEME,
@@ -54,9 +53,12 @@ interface EquityPoint {
   readonly date: string;
   /** Real broker balance (includes deposits / withdrawals). */
   readonly account_balance: number;
-  /** Cumulative trading P&L above the initial fund (= Σ daily_pnl). */
+  /** Cumulative trading P&L above the initial fund (= Σ daily_pnl).
+   *  v2 — drives the SPLINE on the performance chart (was the
+   *  per-day histogram of `daily_pnl` in pre-Slice-B). */
   readonly cumulative_net_pnl: number;
-  /** Net trading P&L on this day only — drives the histogram bar. */
+  /** Per-day net P&L (kept on the type for caller compatibility;
+   *  v2 uses it only to compute the trend, not to render bars). */
   readonly daily_pnl: number;
   /** Net capital volume for the day (FUND − WITHDRAW). */
   readonly capital_volume: number;
@@ -81,14 +83,18 @@ export function PerformanceCurveChart({
 }: Props) {
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
-  const perfSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  const volumeSeriesRef = useRef<ISeriesApi<'Histogram'> | null>(null);
-  // dashboard-jarvis-fidelity (Slice B, T-046, REQ-DCF-005) —
-  // Cached series-markers plugin ref. Created once per mount
-  // and only mutated via `setMarkers()` on data changes. This
-  // avoids the costly plugin re-creation path on every render
-  // (lightweight-charts v5 expects markers to live behind a
-  // stable plugin reference for fast diffing).
+  // v2 — the spline series is the chart's PRIMARY visual element.
+  const perfSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  // v2 — the area fill sits as a sibling series below the spline
+  // so it never crosses the line (lightweight-charts renders the
+  // lower-priority series behind higher-priority ones when both
+  // share the same price scale).
+  const areaSeriesRef = useRef<ISeriesApi<'Area'> | null>(null);
+
+  // Slice B (T-046) — Cached series-markers plugin ref. Created
+  // once per mount and only mutated via `setMarkers()` on data
+  // changes. The plugin is now attached to the SPLINE series (was
+  // the histogram in Slice B).
   const markersPluginRef = useRef<ISeriesMarkersPluginApi<Time> | null>(null);
 
   /* ---- mount + theme + series ---- */
@@ -111,7 +117,7 @@ export function PerformanceCurveChart({
       },
       rightPriceScale: {
         borderColor: CURVE_THEME.border,
-        scaleMargins: { top: 0.12, bottom: 0.22 },
+        scaleMargins: { top: 0.12, bottom: 0.18 },
       },
       leftPriceScale: { visible: false },
       timeScale: {
@@ -124,16 +130,16 @@ export function PerformanceCurveChart({
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: CURVE_THEME.perf,
+          color: CURVE_THEME.primary,
           width: 1,
           style: 2,
-          labelBackgroundColor: CURVE_THEME.perf,
+          labelBackgroundColor: CURVE_THEME.primary,
         },
         horzLine: {
-          color: CURVE_THEME.perf,
+          color: CURVE_THEME.primary,
           width: 1,
           style: 2,
-          labelBackgroundColor: CURVE_THEME.perf,
+          labelBackgroundColor: CURVE_THEME.primary,
         },
       },
       handleScroll: {
@@ -149,39 +155,42 @@ export function PerformanceCurveChart({
       },
     });
 
-    // PRIMARY — per-day trading P&L as a histogram.
-    // jade for +days, red for −days. The Y-axis on the right reads
-    // directly in USD so the user sees "+$9.20" or "-$2.00" on each
-    // bar without translation.
-    const perfSeries = chart.addSeries(HistogramSeries, {
-      color: CURVE_THEME.perf,
+    // PRIMARY — cumulative P&L as a smooth cyan spline (v2).
+    // The slope of the line tells the per-day P&L story; the area
+    // fill below paints the "lit" JARVIS look.
+    const perfSeries = chart.addSeries(LineSeries, {
+      color: CURVE_THEME.primary,
+      lineWidth: 2,
+      lineType: LineType.Curved,
       priceScaleId: 'right',
       lastValueVisible: true,
       priceLineVisible: false,
+      crosshairMarkerVisible: true,
+      crosshairMarkerRadius: 3,
+      crosshairMarkerBorderColor: CURVE_THEME.primary,
+      crosshairMarkerBackgroundColor: CURVE_THEME.primary,
     });
 
-    // SECONDARY — FUND / WITHDRAW volume bars on a dedicated scale
-    // pinned to the bottom 20% so the daily-P&L histogram owns the
-    // visual real estate above.
-    const volumeSeries = chart.addSeries(HistogramSeries, {
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'volume',
-      color: CURVE_THEME.volume,
+    // SECONDARY — area fill under the spline. Same scale + the
+    // gradient stops exported from curveChartTheme so the chart
+    // reads as a "powered" cyan beam.
+    const areaSeries = chart.addSeries(AreaSeries, {
+      priceScaleId: 'right',
+      lineColor: CURVE_THEME.primary,
+      topColor: CURVE_AREA_TOP,
+      bottomColor: CURVE_AREA_BOTTOM,
+      lineWidth: 2,
+      lineType: LineType.Curved,
       lastValueVisible: false,
       priceLineVisible: false,
-    });
-    chart.priceScale('volume').applyOptions({
-      scaleMargins: { top: 0.80, bottom: 0 },
     });
 
     chartRef.current = chart;
     perfSeriesRef.current = perfSeries;
-    volumeSeriesRef.current = volumeSeries;
+    areaSeriesRef.current = areaSeries;
 
-    // Attach the markers plugin to the per-day P&L series so
-    // deposit / withdraw triangles render above / below the
-    // bars. Plugin is stored in a ref so subsequent data pushes
-    // call `setMarkers()` instead of re-creating the plugin.
+    // Attach the markers plugin to the SPLINE series so deposit /
+    // withdraw triangles ride on top of the curve.
     const markersPlugin = createSeriesMarkers(perfSeries, []);
     markersPluginRef.current = markersPlugin;
 
@@ -200,9 +209,7 @@ export function PerformanceCurveChart({
       chart.remove();
       chartRef.current = null;
       perfSeriesRef.current = null;
-      volumeSeriesRef.current = null;
-      // Plugin detaches automatically when the series is removed
-      // via `chart.remove()`; nulling the ref keeps GC happy.
+      areaSeriesRef.current = null;
       markersPluginRef.current = null;
     };
   }, [height]);
@@ -210,41 +217,25 @@ export function PerformanceCurveChart({
   /* ---- push data ---- */
   useEffect(() => {
     const perfSeries = perfSeriesRef.current;
-    const volumeSeries = volumeSeriesRef.current;
-    if (perfSeries === null || volumeSeries === null) return;
+    const areaSeries = areaSeriesRef.current;
+    if (perfSeries === null || areaSeries === null) return;
 
-    // Per-day trading P&L — jade for green days, red for losing
-    // days. Zero-height rows (quiet days) are omitted entirely so
-    // the histogram reads as "the days that actually had trades".
-    const perfData = points
-      .filter((p) => p.daily_pnl !== 0)
-      .map((p) => ({
-        time: toChartTime(p.date),
-        value: p.daily_pnl,
-        color:
-          p.daily_pnl > 0
-            ? 'rgba(0, 230, 118, 0.85)'
-            : 'rgba(244, 67, 54, 0.85)',
-      }));
-    const volumeData = points
-      .filter((p) => p.capital_volume !== 0)
-      .map((p) => ({
-        time: toChartTime(p.date),
-        value: p.capital_volume,
-        color:
-          p.capital_volume > 0
-            ? 'rgba(0, 230, 118, 0.55)'
-            : 'rgba(244, 67, 54, 0.55)',
-      }));
+    // v2 — the spline + area series both consume cumulative_net_pnl
+    // so the line and the gradient fill match exactly. We skip
+    // zero-trade days (no cumulative movement = no point on the
+    // curve), but the cumulative figure carries the running sum
+    // across quiet days so the slope is preserved.
+    const seriesData = points.map((p) => ({
+      time: toChartTime(p.date),
+      value: p.cumulative_net_pnl,
+    }));
+    perfSeries.setData(seriesData);
+    areaSeries.setData(seriesData);
 
-    perfSeries.setData(perfData);
-    volumeSeries.setData(volumeData);
-
-    // dashboard-jarvis-fidelity (Slice B, T-046, REQ-DCF-005) —
-    // Deposit / withdraw triangles for days with non-zero
-    // capital volume. Cyan ▲ for deposits, red ▼ for withdraws.
-    // Cached behind `markersPluginRef` so we never re-create
-    // the plugin — `setMarkers()` diffs in-place.
+    // Deposit / withdraw triangles for days with non-zero capital
+    // volume. Cyan ▲ for deposits, red ▼ for withdraws. The plugin
+    // ref caches the instance so we never re-create it on data
+    // pushes.
     const depositMarkers: SeriesMarker<Time>[] = points
       .filter((p) => p.capital_volume !== 0)
       .map((p) => ({
@@ -266,19 +257,15 @@ export function PerformanceCurveChart({
   const headerLabel = useMemo(() => {
     if (points.length === 0) return null;
     const last = points[points.length - 1]!;
-    // ``cumulative_net_pnl`` is already the cumulative trading
-    // profit (no firstFund baked in) — same number the Y axis
-    // would read at the rightmost bar's height.
+    // ``cumulative_net_pnl`` is the running trading profit. Same
+    // number the Y axis reads at the spline's rightmost point.
     return { delta: last.cumulative_net_pnl };
   }, [points]);
 
   /*
-   * dashboard-jarvis-fidelity (Slice B, T-045, REQ-DCF-004) —
-   * Last-point tooltip badge. Renders the absolute `+$X.XX`
-   * (cumulative trading P&L) and the relative `+Y.Y%` (delta
-   * vs the window's first point). Anchored top-right of the
-   * card via absolute positioning; the parent card carries
-   * `position: relative` via its flex/grid layout.
+   * Slice B (T-045, REQ-DCF-004) — Last-point tooltip badge.
+   * Renders the absolute `+$X.XX` (cumulative trading P&L) and
+   * the relative `+Y.Y%` (delta vs the window's first point).
    */
   const lastPointBadge = useMemo(() => {
     if (points.length === 0) return null;
@@ -287,10 +274,6 @@ export function PerformanceCurveChart({
     const base = first.cumulative_net_pnl;
     const lastPnl = last.cumulative_net_pnl;
     const deltaPnl = lastPnl - base;
-    // Delta pct is computed against |base| so a user who
-    // started at 0 still gets a meaningful "+∞%" label on the
-    // first winning day. We cap at +9999% so a single big win
-    // doesn't blow the layout.
     const deltaPct =
       base === 0
         ? lastPnl > 0
@@ -322,8 +305,8 @@ export function PerformanceCurveChart({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span
-            className="inline-block w-1.5 h-1.5 rounded-full bg-[#00E676]"
-            style={{ boxShadow: '0 0 6px #00E676' }}
+            className="inline-block w-1.5 h-1.5 rounded-full bg-[#00E5FF]"
+            style={{ boxShadow: '0 0 6px #00E5FF' }}
             aria-hidden="true"
           />
           <div className="flex flex-col min-w-0">
@@ -339,7 +322,7 @@ export function PerformanceCurveChart({
               </span>
             ) : (
               <span className="font-mono text-[10px] text-text-muted truncate">
-                P&amp;L diario · +US$ verde · −US$ rojo
+                P&amp;L acumulado · curva cyan
               </span>
             )}
           </div>
@@ -358,7 +341,7 @@ export function PerformanceCurveChart({
         <span className="inline-flex items-center gap-1.5">
           <span
             className="inline-block w-2.5 h-2.5 rounded-sm"
-            style={{ background: 'rgba(0, 230, 118, 0.85)' }}
+            style={{ background: CURVE_THEME.primary }}
           />
           <span className="text-text-secondary">Σ Trading P&amp;L</span>
           {headerLabel !== null ? (
@@ -378,12 +361,12 @@ export function PerformanceCurveChart({
         <span className="inline-flex items-center gap-1.5 ml-auto text-[9px]">
           <span
             className="inline-block w-2.5 h-2.5 rounded-sm"
-            style={{ background: 'rgba(0, 230, 118, 0.55)' }}
+            style={{ background: 'var(--color-jade-profit)' }}
           />
           <span>Depósito</span>
           <span
             className="inline-block w-2.5 h-2.5 rounded-sm"
-            style={{ background: 'rgba(244, 67, 54, 0.55)' }}
+            style={{ background: 'var(--color-jade-loss)' }}
           />
           <span>Retiro</span>
         </span>

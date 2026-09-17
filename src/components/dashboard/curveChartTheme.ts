@@ -1,30 +1,23 @@
 /*
  * Shared theme + card chrome for the dashboard curve charts.
  *
- * Both ``PerformanceCurveChart`` (jade area + deposit/withdraw
- * histogram) and ``CapitalCurveChart`` (cyan dashed balance line)
- * render on the same TradingView lightweight-charts canvas with the
- * same dark glass background, the same grid colour and the same
- * JetBrains-Mono axis label stack. Centralising the palette keeps
- * the two cards visually aligned side by side without forcing each
- * component to redeclare tokens.
+ * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-009) — spline + area
+ * fill pivot. Both `PerformanceCurveChart` (cyan-shaded area on the
+ * cumulative_net_pnl curve) and `CapitalCurveChart` (cyan spline on
+ * the account_balance) now render as a smooth Lightweight-Charts
+ * LineSeries with the JARVIS gradient fill. The previous histogram +
+ * volume bars on the performance chart are removed — the per-day
+ * P&L story is told by the area fill's height instead.
  *
- * Kept intentionally tiny: just constants + a single helper. The
- * chart-mount boilerplate (createChart, ResizeObserver, cleanup) is
- * duplicated between the two components on purpose — each component
- * wires a different set of series, and inlining the mount keeps
- * each file easy to scan top-to-bottom.
+ * Centralising the palette keeps the two cards visually aligned side
+ * by side without forcing each component to redeclare tokens.
  */
 import type { CSSProperties } from 'react';
 import type { Time } from 'lightweight-charts';
 
 export interface CurveChartTheme {
-  /** Primary jade neon — used by the performance area. */
-  readonly perf: string;
-  /** Cool cyan — used by the capital/balance line. */
-  readonly balance: string;
-  /** Jade at low opacity — volume bars. */
-  readonly volume: string;
+  /** Primary cyan — used by both the performance area + capital line. */
+  readonly primary: string;
   /** Glass panel background. */
   readonly background: string;
   /** Glass border + grid stroke. */
@@ -36,20 +29,36 @@ export interface CurveChartTheme {
 }
 
 export const CURVE_THEME: CurveChartTheme = {
-  // Slice B (T-044, REQ-DCF-003): pivot from hardcoded jade hex
-  // to the cyan CSS-var ladder so the chart palette honours the
-  // theme. The `rgba(13, 21, 30, 0.7)` background + the muted
-  // `rgba(255, 255, 255, 0.45)` axis text stay as-is — no token
-  // equivalent exists for them in `themes.css`.
-  perf: 'var(--color-jade-profit)',
-  balance: 'var(--color-jade-info)',
-  volume: 'rgba(60, 224, 184, 0.30)',
+  // v2 — primary unified to the JARVIS cyan CSS-var so the spline +
+  // gradient fill share the same token. The previous split between
+  // perf (jade-profit) + balance (info) was right when the two
+  // charts told different stories; with the spline pivot they share
+  // a single visual language.
+  primary: 'var(--color-jade)',
   background: 'rgba(13, 21, 30, 0.7)',
-  border: 'rgba(0, 212, 216, 0.18)',
-  grid: 'rgba(0, 212, 216, 0.10)',
+  // v2 — cyan border now reads as the JARVIS chromatic halo
+  // (rgba 0,229,255 at 0.18) so the cards line up with the HudPanel
+  // glass border instead of feeling like a different chrome.
+  border: 'rgba(0, 229, 255, 0.18)',
+  grid: 'rgba(0, 229, 255, 0.10)',
   axisText: 'rgba(255, 255, 255, 0.45)',
 } as const;
 
+/*
+ * Gradient stops for the area-fill on the spline curve. Lightweight-
+ * Charts consumes `topColor` + `bottomColor` for `AreaSeries.setData`;
+ * for the v2 spline we still want the gradient feel on the line's
+ * underlay, so the chart components paint a parallel AreaSeries
+ * with these stops.
+ */
+export const CURVE_AREA_TOP = 'rgba(0, 229, 255, 0.30)';
+export const CURVE_AREA_BOTTOM = 'rgba(0, 229, 255, 0)';
+
+/**
+ * Card chrome — the rounded "frame" + glass background + cyan border.
+ * Kept as a Tailwind class string so consumers compose it with
+ * layout utilities (padding, gap, etc.).
+ */
 export const CURVE_CARD_CLASS =
   'rounded-xl border bg-[rgba(13,21,30,0.7)] backdrop-blur-md p-5 md:p-6 overflow-hidden';
 

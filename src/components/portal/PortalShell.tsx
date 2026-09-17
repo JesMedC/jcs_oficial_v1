@@ -9,8 +9,13 @@
  * keeps the preference and the value survives a hard reload
  * (sessionStorage per the `zustand-stores` spec).
  *
- * Cyber-Jade spec — fondo global #060B10 puro. Sin lineas ni redes.
- * La textura de puntos blancos la aporta #root::before.
+ * dashboard-jarvis-fidelity-v2 — the shell bg migrates from the
+ * flat solid `bg-[var(--color-bg)]` to a softer deep navy (still
+ * cyan-tinted) so the page never reads as pure black. Each route
+ * underneath can still paint its own radial gradient on top
+ * (DashboardPage does this with `bg-radial-hud`); the shell just
+ * ensures the FALLBACK bg (used by routes without their own
+ * gradient) stays in the same family.
  *
  * FloatingActionButton + global modals (NewTradeDrawer +
  * QuickActionModals for fund/withdraw with account picker) live
@@ -27,7 +32,7 @@ import { ThemeToggle } from '../common/ThemeToggle';
 
 export function PortalShell() {
   return (
-    <div className="relative min-h-dvh flex bg-[var(--color-bg)] text-[var(--color-jade-text-pri)]">
+    <div className="relative min-h-dvh flex bg-[var(--color-bg-deep)] text-[var(--color-jade-text-pri)]">
       <PortalSidebar />
       <main className="relative z-10 flex-1 px-4 md:px-6 py-4 overflow-x-auto min-w-0">
         <Outlet />

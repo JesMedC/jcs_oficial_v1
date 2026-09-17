@@ -1,38 +1,42 @@
 /*
- * CapitalCurveChart — Curva de Capital.
+ * CapitalCurveChart — Curva de Capital (v2 spline pivot).
+ *
+ * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-009) — the chart now
+ * renders a smooth Lightweight-Charts LineSeries on the user's
+ * account_balance, with a parallel AreaSeries providing the cyan
+ * gradient fill. The previous dashed-step line style stays, but
+ * the curve is now `lineType: Curved` so the eye reads the
+ * capital trajectory as a smooth flow rather than a stepped
+ * chart. The two charts on the same column (performance + capital)
+ * now share the same spline visual language.
  *
  * Single-axis chart that tracks the user's *account balance* over
  * time (the broker-reported figure: Σ deposits − Σ withdrawals
  * + Σ closed trade P&L). Includes cashflow — this is the
  * "real money in the account" view, not the trading skill view.
  *
- * Companion chart to ``PerformanceCurveChart``: a flat performance
- * line + a rising capital line means the user deposited without
- * winning on the markets.
- *
- * One series on a single Y axis:
- *   - LineSeries for ``account_balance`` (cyan, dashed). Dashed on
- *     purpose so the eye does not confuse it with the jade
- *     performance area on the card above; the two cards stack
- *     vertically and share the same column.
- *
  * No volume bars here — cashflow is already summarised on the
- * performance card via the deposit/withdraw histogram legend.
+ * performance card via the deposit/withdraw markers.
  *
  * Resize-aware via ResizeObserver; crosshair enabled; price-line
  * off (the right-side value badge shows the latest balance).
  */
 import { useEffect, useMemo, useRef } from 'react';
 import {
+  AreaSeries,
   ColorType,
   CrosshairMode,
   LineSeries,
+  LineStyle,
+  LineType,
   createChart,
   type IChartApi,
   type ISeriesApi,
 } from 'lightweight-charts';
 
 import {
+  CURVE_AREA_BOTTOM,
+  CURVE_AREA_TOP,
   CURVE_CARD_BORDER_STYLE,
   CURVE_CARD_CLASS,
   CURVE_THEME,
@@ -70,6 +74,8 @@ export function CapitalCurveChart({
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<IChartApi | null>(null);
   const balanceSeriesRef = useRef<ISeriesApi<'Line'> | null>(null);
+  // v2 — parallel area fill on the capital curve.
+  const balanceAreaRef = useRef<ISeriesApi<'Area'> | null>(null);
 
   /* ---- mount + theme + series ---- */
   useEffect(() => {
@@ -104,16 +110,16 @@ export function CapitalCurveChart({
       crosshair: {
         mode: CrosshairMode.Normal,
         vertLine: {
-          color: CURVE_THEME.balance,
+          color: CURVE_THEME.primary,
           width: 1,
           style: 2,
-          labelBackgroundColor: CURVE_THEME.balance,
+          labelBackgroundColor: CURVE_THEME.primary,
         },
         horzLine: {
-          color: CURVE_THEME.balance,
+          color: CURVE_THEME.primary,
           width: 1,
           style: 2,
-          labelBackgroundColor: CURVE_THEME.balance,
+          labelBackgroundColor: CURVE_THEME.primary,
         },
       },
       handleScroll: {
@@ -129,21 +135,42 @@ export function CapitalCurveChart({
       },
     });
 
+    // PRIMARY — the balance spline. v2 keeps the dashed style so
+    // the eye still distinguishes it from the performance spline
+    // on the card above (different visual rhythm) but renders the
+    // line itself as a smooth curve instead of a step.
     const balanceSeries = chart.addSeries(LineSeries, {
-      color: CURVE_THEME.balance,
+      color: CURVE_THEME.primary,
       lineWidth: 2,
-      lineStyle: 2, // dotted — distinguishes from the solid jade perf line
+      lineType: LineType.Curved,
+      lineStyle: LineStyle.Dashed,
       priceScaleId: 'right',
       lastValueVisible: true,
       priceLineVisible: false,
       crosshairMarkerVisible: true,
       crosshairMarkerRadius: 3,
-      crosshairMarkerBorderColor: CURVE_THEME.balance,
-      crosshairMarkerBackgroundColor: CURVE_THEME.balance,
+      crosshairMarkerBorderColor: CURVE_THEME.primary,
+      crosshairMarkerBackgroundColor: CURVE_THEME.primary,
+    });
+
+    // SECONDARY — area fill mirroring the balance spline with a
+    // softer gradient so the "money in the account" reads as a
+    // gentle cyan wash instead of a flat block.
+    const balanceArea = chart.addSeries(AreaSeries, {
+      priceScaleId: 'right',
+      lineColor: CURVE_THEME.primary,
+      topColor: CURVE_AREA_TOP,
+      bottomColor: CURVE_AREA_BOTTOM,
+      lineWidth: 1,
+      lineType: LineType.Curved,
+      lineStyle: LineStyle.Dashed,
+      lastValueVisible: false,
+      priceLineVisible: false,
     });
 
     chartRef.current = chart;
     balanceSeriesRef.current = balanceSeries;
+    balanceAreaRef.current = balanceArea;
 
     const ro = new ResizeObserver(() => {
       if (chartRef.current !== null && container !== null) {
@@ -160,13 +187,15 @@ export function CapitalCurveChart({
       chart.remove();
       chartRef.current = null;
       balanceSeriesRef.current = null;
+      balanceAreaRef.current = null;
     };
   }, [height]);
 
   /* ---- push data ---- */
   useEffect(() => {
     const balanceSeries = balanceSeriesRef.current;
-    if (balanceSeries === null) return;
+    const balanceArea = balanceAreaRef.current;
+    if (balanceSeries === null || balanceArea === null) return;
 
     const balanceData = points.map((p) => ({
       time: toChartTime(p.date),
@@ -174,6 +203,7 @@ export function CapitalCurveChart({
     }));
 
     balanceSeries.setData(balanceData);
+    balanceArea.setData(balanceData);
     chartRef.current?.timeScale().fitContent();
   }, [points]);
 
@@ -186,11 +216,9 @@ export function CapitalCurveChart({
   }, [points]);
 
   /*
-   * dashboard-jarvis-fidelity (Slice B, T-045, REQ-DCF-004) —
-   * Last-point tooltip badge. Same shape as the Performance
-   * badge: absolute `+$X.XX` (window delta) + a `+Y.Y%`
-   * relative delta. Anchored top-right via absolute on the
-   * parent card (which carries `position: relative`).
+   * Slice B (T-045, REQ-DCF-004) — Last-point tooltip badge.
+   * Same shape as the Performance badge: absolute `+$X.XX`
+   * (window delta) + a `+Y.Y%` relative delta.
    */
   const lastPointBadge = useMemo(() => {
     if (points.length === 0) return null;
@@ -230,8 +258,8 @@ export function CapitalCurveChart({
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div className="flex items-center gap-3 min-w-0">
           <span
-            className="inline-block w-1.5 h-1.5 rounded-full bg-[#00B8FF]"
-            style={{ boxShadow: '0 0 6px #00B8FF' }}
+            className="inline-block w-1.5 h-1.5 rounded-full bg-[#00E5FF]"
+            style={{ boxShadow: '0 0 6px #00E5FF' }}
             aria-hidden="true"
           />
           <div className="flex flex-col min-w-0">
@@ -266,7 +294,7 @@ export function CapitalCurveChart({
         <span className="inline-flex items-center gap-1.5">
           <span
             className="inline-block w-3 border-t border-dashed"
-            style={{ borderColor: CURVE_THEME.balance }}
+            style={{ borderColor: CURVE_THEME.primary }}
           />
           <span className="text-text-secondary">Total Balance</span>
           {headerLabel !== null ? (

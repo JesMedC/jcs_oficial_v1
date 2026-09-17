@@ -39,6 +39,7 @@ import { RecentActivityFeed } from '../../components/dashboard/RecentActivityFee
 import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
 import { DotGrid } from '../../components/decor/DotGrid';
 import { NeuralNetwork } from '../../components/decor/NeuralNetwork';
+import { Scanlines } from '../../components/decor/Scanlines';
 import { CoreInterfaceWatermark } from '../../components/dashboard/CoreInterfaceWatermark';
 import { AlertsToast } from '../../components/scanner/AlertsToast';
 import { DashboardKPIsGrid } from '../../features/trades/DashboardKPIsGrid';
@@ -139,7 +140,25 @@ export function DashboardPage() {
           and the component renders the most recent alerts as
           toasts that auto-dismiss after 8s. */}
       <AlertsToast />
-      <div className="relative w-full px-2 md:px-4">
+      {/*
+       * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-004) — JARVIS
+       * radial navy gradient bg. The page wrapper carries the
+       * `bg-radial-hud` utility (defined in tailwind.config.ts as a
+       * 2-stop radial gradient from --color-bg-deep to
+       * --color-bg-mid) so the dashboard reads as a deep "underwater"
+       * canvas instead of the previous flat near-black. The gradient
+       * paints on top of the portal shell's solid bg so the rest of
+       * the portal keeps its existing theme.
+       */}
+      <div className="relative w-full px-2 md:px-4 bg-radial-hud">
+        {/*
+         * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-010) — global
+         * scanline overlay mounted inside the dashboard container so
+         * it sits at z-50 above the chrome without needing the
+         * portal shell to know about it. `pointer-events-none`
+         * keeps the lines decorative.
+         */}
+        <Scanlines data-testid="dash-scanlines-overlay" />
             {/* core-interface-redesign (Slice 2, T-030) — JARVIS HUD decor.
              *
              * Mounted as absolute-positioned background layers behind
@@ -203,7 +222,7 @@ export function DashboardPage() {
               type="button"
               data-testid="dash-new-trade"
               onClick={openDrawer}
-              className="px-3 py-1.5 rounded-md border border-primary text-primary bg-transparent font-display uppercase tracking-wide text-xs hover:bg-primary/10 hover:shadow-glow-cyan transition-colors"
+              className="px-3 py-1.5 rounded-md border border-[#00E5FF] text-[#00E5FF] bg-transparent font-display uppercase tracking-wide text-xs hover:bg-[rgba(0,229,255,0.1)] hover:shadow-[0_0_15px_rgba(0,229,255,0.5)] transition-all duration-200"
             >
               + Nuevo trade
             </button>

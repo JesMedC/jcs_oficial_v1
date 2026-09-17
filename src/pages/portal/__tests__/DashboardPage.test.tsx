@@ -130,15 +130,18 @@ describe('DashboardPage', () => {
     renderDashboard(buildMe());
 
     const cta = screen.getByTestId('dash-new-trade');
+    // dashboard-jarvis-fidelity-v2 — outlined cyan pill uses the
+    // exact [#00E5FF] hex tokens (per spec) instead of the
+    // previous `border-primary` / `text-primary` indirection.
     expect(cta).toHaveClass('border');
-    expect(cta).toHaveClass('border-primary');
-    expect(cta).toHaveClass('text-primary');
+    expect(cta.className).toContain('border-[#00E5FF]');
+    expect(cta.className).toContain('text-[#00E5FF]');
     // Opaque fill is gone — outline only.
-    expect(cta).not.toHaveClass('bg-primary');
     expect(cta.className).toContain('bg-transparent');
+    expect(cta.className).not.toContain('bg-primary');
     // Hover glow stays so the CTA still reads as primary on hover.
-    expect(cta).toHaveClass('hover:shadow-glow-cyan');
-    expect(cta).toHaveClass('hover:bg-primary/10');
+    expect(cta.className).toContain('hover:bg-[rgba(0,229,255,0.1)]');
+    expect(cta.className).toContain('hover:shadow-[0_0_15px_rgba(0,229,255,0.5)]');
   });
 
   it('"+ Nuevo trade" CTA no longer carries the opaque text-bg + bg-primary standalone pair (regression guard)', () => {

@@ -228,4 +228,105 @@ describe('PerformanceCurveChart — T-045 badge + T-046 markers', () => {
     expect(upMarker?.shape).toBe('arrowUp');
     expect(downMarker?.shape).toBe('arrowDown');
   });
+
+  /*
+   * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-009) — spline pivot.
+   * The performance chart now renders a smooth Lightweight-Charts
+   * LineSeries (NOT a histogram) for cumulative_net_pnl. The
+   * per-day P&L story is told by the curve's slope + an
+   * AreaSeries that fills the area under the line with the JARVIS
+   * gradient (CURVE_AREA_TOP → CURVE_AREA_BOTTOM). The deposit /
+   * withdraw markers stay — they live on the spline series now.
+   *
+   * The test asserts:
+   *   - the chart registers an `addLineSeries` for the spline.
+   *   - the spline's setData payload carries the cumulative_net_pnl
+   *     points (NOT daily_pnl bars).
+   *   - the chart registers an AreaSeries for the gradient fill.
+   */
+  describe('v2 spline + area fill (REQ-DCF-JV2-009)', () => {
+    it('registra un LineSeries con el cyan primary (spline principal)', async () => {
+      const points = [
+        mkPoint({ date: '2026-09-08', cumulative_net_pnl: 0 }),
+        mkPoint({ date: '2026-09-09', cumulative_net_pnl: 5 }),
+        mkPoint({ date: '2026-09-10', cumulative_net_pnl: 9.2 }),
+      ];
+      render(<PerformanceCurveChart points={points} />, { wrapper: makeWrapper() });
+
+      await waitFor(() => {
+        expect(setMarkersMock).toHaveBeenCalled();
+      });
+
+      const actual = await import('lightweight-charts');
+      const createChartMock = (actual.createChart as unknown as ReturnType<typeof vi.fn>);
+      expect(createChartMock).toHaveBeenCalled();
+      const chartInstance = createChartMock.mock.results[0]?.value as
+        | { addSeries: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(chartInstance).toBeDefined();
+      // The spline pivot calls addSeries TWICE: once for the
+      // LineSeries (spline) and once for the AreaSeries (gradient
+      // fill). The AreaSeries registration must come after the
+      // LineSeries registration so the fill sits behind the line.
+      expect(chartInstance!.addSeries.mock.calls.length).toBeGreaterThanOrEqual(2);
+
+      // Lightweight-charts exports series as ES module objects;
+      // they don't carry a `.name` property. We identify them by
+      // their `seriesType` field or by their reference identity
+      // against the original module exports.
+      const expectedSplineCtor = actual.LineSeries;
+      const expectedAreaCtor = actual.AreaSeries;
+      const splineRegistered = chartInstance!.addSeries.mock.calls.some(
+        (c) => c[0] === expectedSplineCtor,
+      );
+      const areaRegistered = chartInstance!.addSeries.mock.calls.some(
+        (c) => c[0] === expectedAreaCtor,
+      );
+      expect(splineRegistered, 'LineSeries should be registered').toBe(true);
+      expect(areaRegistered, 'AreaSeries should be registered').toBe(true);
+    });
+
+    it('el spline carga los puntos cumulative_net_pnl (no daily_pnl)', async () => {
+      const points = [
+        mkPoint({ date: '2026-09-08', cumulative_net_pnl: 0, daily_pnl: 0 }),
+        mkPoint({ date: '2026-09-09', cumulative_net_pnl: 5, daily_pnl: 5 }),
+        mkPoint({ date: '2026-09-10', cumulative_net_pnl: 12.5, daily_pnl: 7.5 }),
+      ];
+      render(<PerformanceCurveChart points={points} />, { wrapper: makeWrapper() });
+
+      await waitFor(() => {
+        expect(setMarkersMock).toHaveBeenCalled();
+      });
+
+      const actual = await import('lightweight-charts');
+      const createChartMock = (actual.createChart as unknown as ReturnType<typeof vi.fn>);
+      const chartInstance = createChartMock.mock.results[0]?.value as
+        | { addSeries: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(chartInstance).toBeDefined();
+
+      const expectedSplineCtor = actual.LineSeries;
+      const calls = chartInstance!.addSeries.mock.calls;
+      const splineIdx = calls.findIndex((c) => c[0] === expectedSplineCtor);
+      expect(splineIdx).toBeGreaterThanOrEqual(0);
+
+      const splineSeries = chartInstance!.addSeries.mock.results[splineIdx]?.value as
+        | { setData: ReturnType<typeof vi.fn> }
+        | undefined;
+      expect(splineSeries).toBeDefined();
+      expect(splineSeries!.setData).toHaveBeenCalled();
+      const data = splineSeries!.setData.mock.calls[0]?.[0] as ReadonlyArray<{
+        readonly time: string;
+        readonly value: number;
+      }>;
+      expect(data).toBeDefined();
+      // The spline payload MUST reflect cumulative_net_pnl, NOT
+      // daily_pnl — the per-day P&L story is told by the curve's
+      // slope.
+      expect(data).toHaveLength(3);
+      expect(data![0]!.value).toBe(0);
+      expect(data![1]!.value).toBe(5);
+      expect(data![2]!.value).toBe(12.5);
+    });
+  });
 });
