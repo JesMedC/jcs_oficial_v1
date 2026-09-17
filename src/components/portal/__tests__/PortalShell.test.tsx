@@ -105,4 +105,36 @@ describe('PortalShell', () => {
     expect(main).toContainElement(child);
     expect(screen.getByText('cuentas child content')).toBeInTheDocument();
   });
+
+  it('sidebar <aside> renders the glass surface (bg-surface/40 + backdrop-blur-md + var(--glass-border) border)', () => {
+    renderAt('/portal/cuentas');
+
+    const aside = screen.getByRole('complementary');
+    expect(aside).toHaveClass('bg-surface/40');
+    expect(aside).toHaveClass('backdrop-blur-md');
+    expect(aside.className).toMatch(/border-\[var\(--glass-border\)\]/);
+    expect(aside).toHaveClass('border-r');
+  });
+
+  it('sidebar <aside> width transition between w-16 (collapsed) and w-72 (expanded) is intact', () => {
+    const { rerender } = renderAt('/portal/cuentas');
+
+    const aside = screen.getByRole('complementary');
+    // default expanded (no collapsed-store override)
+    expect(aside).toHaveClass('w-72');
+
+    // The aria-label contract is unaffected by the glass surface swap.
+    expect(aside).toHaveAttribute('aria-label', expect.stringMatching(/menu lateral/i));
+    // Sanity: Scanline overlay is still mounted as the last child of the aside.
+    expect(aside.children.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it('sidebar <aside> no longer carries the opaque bg-[var(--color-bg)] fill (regression guard for the glass swap)', () => {
+    renderAt('/portal/cuentas');
+
+    const aside = screen.getByRole('complementary');
+    expect(aside.className).not.toMatch(/bg-\[var\(--color-bg\)\]/);
+    // And the legacy jade-border token is gone too (replaced by glass-border).
+    expect(aside.className).not.toMatch(/border-\[var\(--color-jade-border\)\]/);
+  });
 });

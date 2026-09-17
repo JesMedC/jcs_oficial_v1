@@ -41,9 +41,14 @@ export function PortalSidebar() {
         // previously hidden lg:hidden while PortalNav drew the horizontal
         // nav; PortalNav is archived now, so this rail is visible on
         // lg+ screens (240px expanded / 64px collapsed).
-        // Cyber-Jade: sidebar plana, fondo #060B10 puro, sin glass fuerte.
-        'shrink-0 sticky top-0 self-start h-dvh border-r border-[var(--color-jade-border)]',
-        'bg-[var(--color-bg)]',
+        // dashboard-jarvis-fidelity (Slice A, T-030, REQ-CWM-001) —
+        // swap the opaque #060B10 fill for the glass surface so the
+        // JARVIS-style decor + neon cyan primary bleed through the
+        // chrome. `border-[var(--glass-border)]` replaces the
+        // jade-border token: the glass surface implies a glass border.
+        'shrink-0 sticky top-0 self-start h-dvh',
+        'bg-surface/40 backdrop-blur-md',
+        'border-r border-[var(--glass-border)]',
         'flex flex-col transition-[width] duration-200',
         isCollapsed ? 'w-16' : 'w-72',
       ].join(' ')}
