@@ -9,8 +9,12 @@
  *         still rendered by PortalShell via the PortalSidebar; this
  *         file now wraps with AuthProvider so WorkspaceSelector can
  *         call useAuth without tripping the guard.
+ * dashboard-jarvis-fidelity (Slice A, T-030, T-031) — sidebar glass
+ *         surface + brand-row visibility. The class assertions pin
+ *         the chrome contract: bg-surface/40, backdrop-blur-md,
+ *         glass-border, and text-text-primary with the cyan glow.
  */
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -19,6 +23,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { PortalShell } from '../PortalShell';
 import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
 import type { AuthMeOut } from '../../../features/auth/types';
+import { useSidebarCollapsed } from '../../../stores/useSidebarCollapsed';
 
 const buildAuth = (): AuthContextValue => ({
   user: {
@@ -42,6 +47,14 @@ const buildAuth = (): AuthContextValue => ({
   refresh: () => Promise.resolve({} as AuthMeOut | null),
   setPortal: () => Promise.resolve(),
   clearError: () => undefined,
+});
+
+afterEach(() => {
+  // Reset the collapsed store after each test so the default expanded
+  // state is restored. The triangulation test (T-031 collapsed mode)
+  // mutates the store; without this reset the next test would render
+  // collapsed by accident.
+  useSidebarCollapsed.setState({ isCollapsed: false });
 });
 
 function renderAt(path: string) {
@@ -136,5 +149,44 @@ describe('PortalShell', () => {
     expect(aside.className).not.toMatch(/bg-\[var\(--color-bg\)\]/);
     // And the legacy jade-border token is gone too (replaced by glass-border).
     expect(aside.className).not.toMatch(/border-\[var\(--color-jade-border\)\]/);
+  });
+
+  it('brand row uses text-text-primary + cyan textShadow for visibility over the glass surface', () => {
+    renderAt('/portal/cuentas');
+
+    // Brand row label sits inside the header; the existing PortalShell test
+    // asserts "JadeCapitalSuite" is in the document. Pin its computed
+    // classes + inline textShadow so the cyan glow stays over the glass.
+    const brand = screen.getByText('JadeCapitalSuite');
+    expect(brand).toHaveClass('text-text-primary');
+    // Legacy `text-white` is gone (would wash out over the glass surface).
+    expect(brand).not.toHaveClass('text-white');
+    // Inline textShadow is the cyan glow specified in design.md §CWM-002.
+    expect(brand.getAttribute('style') ?? '').toMatch(
+      /text-shadow:\s*0 0 8px rgba\(0,\s*212,\s*216,\s*0\.35\)/,
+    );
+  });
+
+  it('brand sub-label USUARIO stays muted + is hidden in collapsed mode', () => {
+    renderAt('/portal/cuentas');
+
+    const sub = screen.getByText('USUARIO');
+    expect(sub).toHaveClass('text-text-muted');
+  });
+
+  it('collapsed sidebar (w-16) hides the brand row + USUARIO sub-label', () => {
+    // Flip the collapsed store before render so the brand row never mounts.
+    useSidebarCollapsed.setState({ isCollapsed: true });
+    try {
+      renderAt('/portal/cuentas');
+
+      const aside = screen.getByRole('complementary');
+      expect(aside).toHaveClass('w-16');
+      // Brand + USUARIO labels are conditionally rendered → absent in collapsed mode.
+      expect(screen.queryByText('JadeCapitalSuite')).toBeNull();
+      expect(screen.queryByText('USUARIO')).toBeNull();
+    } finally {
+      useSidebarCollapsed.setState({ isCollapsed: false });
+    }
   });
 });
