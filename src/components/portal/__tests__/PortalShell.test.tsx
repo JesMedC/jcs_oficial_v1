@@ -14,7 +14,7 @@
  *         the chrome contract: bg-surface/40, backdrop-blur-md,
  *         glass-border, and text-text-primary with the cyan glow.
  */
-import { afterEach, describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -57,11 +57,11 @@ afterEach(() => {
   useSidebarCollapsed.setState({ isCollapsed: false });
 });
 
-function renderAt(path: string) {
+function renderAt(path: string, authOverrides: Partial<AuthContextValue> = {}) {
   const queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } });
   return render(
     <QueryClientProvider client={queryClient}>
-      <AuthContext.Provider value={buildAuth()}>
+      <AuthContext.Provider value={{ ...buildAuth(), ...authOverrides }}>
         <HelmetProvider>
           <MemoryRouter initialEntries={[path]}>
             <Routes>
@@ -188,5 +188,32 @@ describe('PortalShell', () => {
     } finally {
       useSidebarCollapsed.setState({ isCollapsed: false });
     }
+  });
+
+  it('logout pill renders as an outlined button (no opaque bg-primary/15 fill)', () => {
+    renderAt('/portal/cuentas');
+
+    const logout = screen.getByTestId('sidebar-logout');
+    // Tokenized class lookup: standalone `bg-primary/15` is gone.
+    const tokens = (logout.className ?? '').split(/\s+/);
+    expect(tokens).not.toContain('bg-primary/15');
+    // The btn-cyber-jade base class + the outline-on-hover behavior stay.
+    expect(logout).toHaveClass('btn-cyber-jade');
+    // Icon + label structure is intact.
+    expect(logout).toHaveAttribute('aria-label', 'Cerrar sesion');
+    expect(logout).toHaveTextContent(/cerrar sesion/i);
+  });
+
+  it('clicking the logout pill triggers the auth logout flow (regression)', async () => {
+    // Spy on the auth context's `logout` so we can assert the click
+    // wires through the SidebarFooter's `handleLogout` → `useAuth().logout`.
+    const authLogout = vi.fn().mockResolvedValue(undefined);
+    renderAt('/portal/cuentas', { logout: authLogout });
+
+    const logout = screen.getByTestId('sidebar-logout');
+    logout.click();
+    // The handler calls `logout()` (returns a promise) then catches.
+    await Promise.resolve();
+    expect(authLogout).toHaveBeenCalledTimes(1);
   });
 });
