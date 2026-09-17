@@ -70,3 +70,18 @@ export type { SkeletonProps, SkeletonVariant } from './Skeleton';
 
 export { Toast } from './Toast';
 export type { ToastProps } from './Toast';
+
+/* jarvis-ui-redesign (T-03) — JARVIS HUD panel primitive.
+ *
+ * Replaces ad-hoc glass-card patterns across the dashboard/portal
+ * chrome with a single JARVIS-themed container (border + cyan glow
+ * + optional corner brackets for hero panels). See HudPanel.tsx for
+ * the variant contract; tests pin the visual layer.
+ */
+export { HudPanel } from './HudPanel';
+export type {
+  HudPanelOwnProps,
+  HudPanelPadding,
+  HudPanelProps,
+  HudPanelVariant,
+} from './HudPanel';
