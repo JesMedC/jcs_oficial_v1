@@ -156,7 +156,13 @@ export function DashboardPage() {
               className="pointer-events-none absolute inset-0 overflow-hidden"
             >
               <div className="absolute inset-0 opacity-[0.06]">
-                <DotGrid />
+                {/*
+                 * dashboard-jarvis-fidelity (Slice A, T-038, REQ-DCF-002) —
+                 * dashboard-only density bump: spacing 24 → 20 (denser
+                 * dots) and opacity 0.04 → 0.05 (slightly brighter).
+                 * Other surfaces keep the default decor density.
+                 */}
+                <DotGrid spacing={20} opacity={0.05} />
               </div>
               <div className="absolute inset-0 opacity-[0.08]">
                 <NeuralNetwork />
