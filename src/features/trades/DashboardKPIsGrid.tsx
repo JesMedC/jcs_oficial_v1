@@ -102,10 +102,13 @@ export function DashboardKPIsGrid({
     return wins / losses;
   }, [tradesQuery.data, activeAccountIds]);
 
-  const pfDisplay = !Number.isFinite(pf)
-    ? '∞'
-    : pf.toFixed(2);
-  const pfTone =
+  // Profit Factor is computed for future reuse (kept on the row's
+  // monthlyKpis scope when extracted to a dedicated card). Slice B
+  // (T-041) dropped the standalone Profit Factor stat card in favor
+  // of the HudProgressBar trio — the math stays here so we don't
+  // re-derive it later.
+  const _pfDisplay = !Number.isFinite(pf) ? '∞' : pf.toFixed(2);
+  const _pfTone =
     pf === 0
       ? 'muted'
       : !Number.isFinite(pf) || pf >= 1.5
@@ -113,6 +116,8 @@ export function DashboardKPIsGrid({
         : pf >= 1
           ? 'default'
           : 'loss';
+  void _pfDisplay;
+  void _pfTone;
 
   // MES aggregates — computed from the same scope so the values stay
   // consistent with the calendar's per-month sums.
@@ -191,10 +196,12 @@ export function DashboardKPIsGrid({
         </div>
       </div>
 
-      {/* MES row — FASE 6 surfaces the THREE most useful monthly KPIs
-          that match the calendar's underlying definitions (Win Rate,
-          R/R, P&L Acumulado %). The placeholder "Próximamente" cards
-          from the previous iteration are gone. */}
+      {/* MES row — FASE 6 + Slice B (T-041, REQ-DHF-003). The three
+          "exposure" KPIs (Win Rate, R/R exposure, Mejor trade) now
+          render as horizontal progress bars so the user reads them
+          as fill-in-the-bar rather than a flat integer; the two
+          headline numbers (Risk/Reward ratio, P&L Acumulado) stay
+          as stat cards. */}
       <div>
         <SectionLabel label="Mes" sub="Agosto · en curso" />
         <div
@@ -204,9 +211,12 @@ export function DashboardKPIsGrid({
               : 'mt-2 grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3'
           }
         >
-          <Kpi
+          <HudProgressBar
             label="Win Rate Mensual"
-            value={`${monthlyKpis.winRatePct.toFixed(0)}%`}
+            value={monthlyKpis.winRatePct}
+            max={100}
+            unit="%"
+            rightHint={`${monthlyKpis.winRatePct.toFixed(0)}%`}
             tone={
               monthlyKpis.winRatePct >= 50
                 ? 'profit'
@@ -214,7 +224,6 @@ export function DashboardKPIsGrid({
                   ? 'loss'
                   : 'muted'
             }
-            sub="Wins / cerradas"
             layout={layout}
           />
           <Kpi
@@ -232,6 +241,25 @@ export function DashboardKPIsGrid({
             sub="Avg win / avg loss"
             layout={layout}
           />
+          <HudProgressBar
+            label="R/R exposure"
+            value={Math.min(monthlyKpis.riskRewardRatio, 3)}
+            max={3}
+            unit="x"
+            rightHint={
+              monthlyKpis.riskRewardRatio > 0
+                ? monthlyKpis.riskRewardRatio.toFixed(2)
+                : '—'
+            }
+            tone={
+              monthlyKpis.riskRewardRatio >= 1.5
+                ? 'profit'
+                : monthlyKpis.riskRewardRatio >= 1
+                  ? 'default'
+                  : 'muted'
+            }
+            layout={layout}
+          />
           <Kpi
             label="P&L Acumulado"
             value={`${monthlyKpis.cumulativePnlPct >= 0 ? '+' : ''}${monthlyKpis.cumulativePnlPct.toFixed(2)}%`}
@@ -245,16 +273,24 @@ export function DashboardKPIsGrid({
             sub={`Σ ${formatMoney(monthlyKpis.netPnlUsd)} · base ${formatMoney(monthlyKpis.capitalBaseUsd)}`}
             layout={layout}
           />
-          <Kpi
-            label="Profit Factor"
-            value={pfDisplay}
-            tone={pfTone}
-            sub="Σ wins / |Σ losses|"
-            layout={layout}
-          />
-          <Kpi
+          <HudProgressBar
             label="Mejor trade"
             value={(() => {
+              let best = 0;
+              let worstAbs = 0;
+              for (const t of tradesForKpis) {
+                if (t.status === 'OPEN') continue;
+                const pnl = Number(t.pnl_usd ?? 0);
+                if (pnl > best) best = pnl;
+                if (pnl < 0 && Math.abs(pnl) > worstAbs) worstAbs = Math.abs(pnl);
+              }
+              // Ratio of best trade to its peer worst-loss magnitude.
+              // 0 when no wins, 1 when best == worst.
+              return worstAbs > 0 ? Math.min(best / worstAbs, 1) : best > 0 ? 1 : 0;
+            })()}
+            max={1}
+            unit="x"
+            rightHint={(() => {
               let best = 0;
               for (const t of tradesForKpis) {
                 if (t.status === 'OPEN') continue;
@@ -264,7 +300,6 @@ export function DashboardKPIsGrid({
               return best > 0 ? `+${formatMoney(best)}` : '—';
             })()}
             tone="profit"
-            sub="Mayor P&L del mes"
             layout={layout}
           />
         </div>
@@ -347,3 +382,99 @@ function Kpi({
 }
 
 // (Format helpers live in `./format`; consumers import them directly.)
+
+/*
+ * dashboard-jarvis-fidelity (Slice B, T-041, REQ-DHF-003) —
+ * HudProgressBar: horizontal cyan-tinted progress row used by
+ * the MES section of `DashboardKPIsGrid`. Mirrors the visual
+ * language of `<HudRing>` (cyan gradient, glass track) but
+ * renders as a full-width bar instead of a circle.
+ *
+ * Caps at 95% width per the spec so a 100% value never reads
+ * as a solid block — there's always a sliver of track visible
+ * for the user to see "I'm at the ceiling, not over it".
+ *
+ * Accepts a `tone` for the label/value colour so the same
+ * primitive drives both the green "good" rows and the muted
+ * "no data" rows. The fill colour stays cyan (the brand) on
+ * every tone — only the label/rightHint colour flips.
+ */
+interface HudProgressBarProps {
+  readonly label: string;
+  /** Current value. Clamped to ``[0, max]`` before painting. */
+  readonly value: number;
+  /** Maximum value (default 100). */
+  readonly max?: number;
+  readonly unit?: string;
+  /** Right-aligned numeric label rendered next to the label
+   *  (e.g. ``"75%"`` or ``"+$50.00"``). */
+  readonly rightHint?: string;
+  readonly tone?: 'profit' | 'loss' | 'muted' | 'default';
+  readonly layout?: Layout;
+}
+
+function HudProgressBar({
+  label,
+  value,
+  max = 100,
+  unit,
+  rightHint,
+  tone = 'default',
+  layout = 'horizontal',
+}: HudProgressBarProps) {
+  const clamped = Math.max(0, Math.min(max, value));
+  const fraction = clamped / max;
+  // 95% cap keeps a sliver of track visible at the ceiling.
+  const widthPct = Math.min(fraction * 100, 95);
+  const toneClass =
+    tone === 'profit'
+      ? 'text-profit'
+      : tone === 'loss'
+        ? 'text-loss'
+        : tone === 'muted'
+          ? 'text-text-muted'
+          : 'text-text-primary';
+  // Vertical mode matches the right-rail KPI block; horizontal
+  // mode is a wide strip where the bar can breathe full-width.
+  const containerClass =
+    layout === 'vertical'
+      ? 'rounded-lg border border-primary/20 bg-[rgba(13,21,30,0.55)] px-4 py-3 flex flex-col gap-2'
+      : 'rounded-lg border border-primary/20 bg-[rgba(13,21,30,0.55)] px-3 py-2.5 flex flex-col gap-1.5';
+  return (
+    <div
+      data-testid={`hud-progress-bar-${label}`}
+      className={containerClass}
+    >
+      <div className="flex items-baseline justify-between gap-2 min-w-0">
+        <span className="font-display uppercase tracking-widest text-[10px] text-text-muted truncate">
+          {label}
+        </span>
+        {rightHint !== undefined ? (
+          <span
+            data-testid={`hud-progress-bar-hint-${label}`}
+            className={`font-mono text-[11px] font-semibold tabular-nums shrink-0 ${toneClass}`}
+          >
+            {rightHint}
+            {unit !== undefined && rightHint !== '—' ? (
+              <span className="ml-0.5 text-text-muted">{unit}</span>
+            ) : null}
+          </span>
+        ) : null}
+      </div>
+      <div
+        className="relative h-1.5 rounded-full overflow-hidden bg-primary/15 border border-primary/20"
+        data-testid={`hud-progress-bar-track-${label}`}
+        aria-hidden="true"
+      >
+        <div
+          data-testid={`hud-progress-bar-fill-${label}`}
+          className="absolute inset-y-0 left-0 rounded-full bg-primary"
+          style={{
+            width: `${widthPct}%`,
+            boxShadow: '0 0 6px var(--color-jade-profit)',
+          }}
+        />
+      </div>
+    </div>
+  );
+}
