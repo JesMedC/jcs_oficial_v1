@@ -70,3 +70,37 @@ export type { SkeletonProps, SkeletonVariant } from './Skeleton';
 
 export { Toast } from './Toast';
 export type { ToastProps } from './Toast';
+
+/* jarvis-ui-redesign (T-03) — JARVIS HUD panel primitive.
+ *
+ * Replaces ad-hoc glass-card patterns across the dashboard/portal
+ * chrome with a single JARVIS-themed container (border + cyan glow
+ * + optional corner brackets for hero panels). See HudPanel.tsx for
+ * the variant contract; tests pin the visual layer.
+ */
+export { HudPanel } from './HudPanel';
+export type {
+  HudPanelOwnProps,
+  HudPanelPadding,
+  HudPanelProps,
+  HudPanelVariant,
+} from './HudPanel';
+
+/* jarvis-ui-redesign (T-04) — JARVIS double-track HUD ring. */
+export { HudRing } from './HudRing';
+export type { HudRingProps, HudRingSize, HudRingTone } from './HudRing';
+
+/* jarvis-ui-redesign (T-08) — JARVIS outlined CTA button. */
+export { HudButton } from './HudButton';
+export type { HudButtonProps, HudButtonSize, HudButtonVariant } from './HudButton';
+
+/* jarvis-ui-redesign (T-09) — JARVIS HUD divider with notch label. */
+export { HudDivider } from './HudDivider';
+export type { HudDividerProps, HudDividerTone } from './HudDivider';
+
+/* jarvis-ui-redesign (T-11) — Reusable JARVIS online indicator. */
+export { OnlineIndicator } from './OnlineIndicator';
+export type {
+  OnlineIndicatorProps,
+  OnlineIndicatorSize,
+} from './OnlineIndicator';

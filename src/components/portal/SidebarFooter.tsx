@@ -24,6 +24,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '../../features/auth/useAuth';
 import { useSidebarCollapsed } from '../../stores/useSidebarCollapsed';
+import { OnlineIndicator } from '../ui/OnlineIndicator';
 
 function CollapseIcon({ isCollapsed }: { readonly isCollapsed: boolean }) {
   return (
@@ -109,11 +110,18 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
           <>
             {!isCollapsed ? (
               <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div
-                  className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
-                  aria-hidden="true"
-                >
-                  {initials(displayName)}
+                <div className="relative shrink-0">
+                  <div
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
+                    aria-hidden="true"
+                  >
+                    {initials(displayName)}
+                  </div>
+                  <OnlineIndicator
+                    size="sm"
+                    ariaLabel="Sesión activa"
+                    className="absolute -bottom-0.5 -right-0.5"
+                  />
                 </div>
                 <span
                   className="font-body text-sm text-text-primary truncate min-w-0"
@@ -123,12 +131,19 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
                 </span>
               </div>
             ) : (
-              <div
-                className="inline-flex shrink-0 items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
-                aria-hidden="true"
-                title={displayName}
-              >
-                {initials(displayName)}
+              <div className="relative shrink-0">
+                <div
+                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
+                  aria-hidden="true"
+                  title={displayName}
+                >
+                  {initials(displayName)}
+                </div>
+                <OnlineIndicator
+                  size="sm"
+                  ariaLabel="Sesión activa"
+                  className="absolute -bottom-0.5 -right-0.5"
+                />
               </div>
             )}
             <button
