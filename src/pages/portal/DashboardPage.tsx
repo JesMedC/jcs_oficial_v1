@@ -39,6 +39,7 @@ import { RecentActivityFeed } from '../../components/dashboard/RecentActivityFee
 import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
 import { DotGrid } from '../../components/decor/DotGrid';
 import { NeuralNetwork } from '../../components/decor/NeuralNetwork';
+import { CoreInterfaceWatermark } from '../../components/dashboard/CoreInterfaceWatermark';
 import { AlertsToast } from '../../components/scanner/AlertsToast';
 import { DashboardKPIsGrid } from '../../features/trades/DashboardKPIsGrid';
 import { useEquityCurve } from '../../features/dashboard/useEquityCurve';
@@ -160,6 +161,15 @@ export function DashboardPage() {
               <div className="absolute inset-0 opacity-[0.08]">
                 <NeuralNetwork />
               </div>
+              {/*
+               * dashboard-jarvis-fidelity (Slice A, T-033) —
+               * JARVIS chrome watermark mounts inside the existing
+               * chrome layer. z-0 inside the component keeps it above
+               * the decor (-z-10) but below content (z-10+ from the
+               * dashboard container). Pointer-events-none keeps it
+               * non-interactive.
+               */}
+              <CoreInterfaceWatermark />
             </div>
         {/* ---- Header ---- */}
         <div className="flex items-start justify-between gap-4 flex-wrap py-4">
