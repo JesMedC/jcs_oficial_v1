@@ -1,24 +1,13 @@
 /*
  * portal-fase0a-base — extracted footer row of PortalSidebar.
+ * jarvis-ui-redesign (T-11 refactor, post-deploy polish) —
  *
- * After p0d.2 the workspace selector + collapse toggle lived here.
- * FASE 4B rolled the user identity (first/last name + logout) into
- * the same panel since the public TopNav is no longer mounted on
- * /portal/* — the footer is now the only place where "who am I" and
- * "sign out" surface.
- *
- * FASE 4C simplified the footer further:
- *   - Workspace selector was removed (workspace chrome lives in the
- *     account-level screens, not on the global chrome).
- *   - Toggle label changed from "Colapsar" to "Ocultar" to match the
- *     common "show/hide rail" mental model.
- *
- * Order from top to bottom:
- *   1. User identity block (avatar + display name + logout button)
- *   2. Hide / Show rail toggle
- *
- * On a collapsed 64px sidebar the user block collapses to an
- * icon-only logout button to keep the rail readable.
+ * The footer now mirrors the reference image: bottom-right block
+ * with the user identity card (avatar + name + meta info), the
+ * "Cerrar sesion" pill, the "Ocultar" rail toggle, and the giant
+ * "JARVIS" wordmark anchored to the corner. We keep the collapsed
+ * state readable by collapsing the meta lines and keeping the
+ * avatar + logout icon.
  */
 import { useNavigate } from 'react-router-dom';
 
@@ -96,83 +85,92 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
   };
 
   const displayName = user ? buildDisplayName(user) : null;
+  const email = user?.email ?? '';
+  const role = (user?.role ?? 'USER').toUpperCase();
+  const workspace = user?.workspaces?.[0]?.name ?? 'Principal';
 
   return (
-    <div className="border-t border-[var(--color-jade-border)] p-3 space-y-3">
-      {/* User identity + logout */}
+    <div
+      className={[
+        'border-t border-[var(--color-jade-border)] p-3 space-y-3',
+        isCollapsed ? 'flex flex-col items-center' : '',
+      ].join(' ')}
+    >
+      {/* User identity card — bigger + with online dot + meta info */}
+      {user && displayName ? (
+        <div
+          className={[
+            'flex items-start gap-3',
+            isCollapsed ? 'justify-center flex-col' : '',
+          ].join(' ')}
+        >
+          <div className="relative shrink-0">
+            <div
+              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-sm"
+              aria-hidden="true"
+            >
+              {initials(displayName)}
+            </div>
+            <OnlineIndicator
+              size="sm"
+              ariaLabel="Sesión activa"
+              className="absolute -bottom-0.5 -right-0.5"
+            />
+          </div>
+          {!isCollapsed ? (
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="font-display uppercase tracking-wide text-text-primary text-xs truncate">
+                {displayName}
+              </span>
+              <span className="font-mono text-[10px] text-text-muted truncate">
+                {email}
+              </span>
+              <span className="font-display uppercase tracking-[0.15em] text-[9px] text-primary mt-0.5">
+                {role} · {workspace}
+              </span>
+            </div>
+          ) : null}
+        </div>
+      ) : null}
+
+      {/* Logout pill + collapse toggle in a row */}
       <div
         className={[
-          'flex items-center gap-3',
-          isCollapsed ? 'justify-center flex-col' : '',
+          'flex gap-2',
+          isCollapsed ? 'flex-col items-center' : 'items-stretch',
         ].join(' ')}
       >
-        {user && displayName ? (
-          <>
-            {!isCollapsed ? (
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <div className="relative shrink-0">
-                  <div
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
-                    aria-hidden="true"
-                  >
-                    {initials(displayName)}
-                  </div>
-                  <OnlineIndicator
-                    size="sm"
-                    ariaLabel="Sesión activa"
-                    className="absolute -bottom-0.5 -right-0.5"
-                  />
-                </div>
-                <span
-                  className="font-body text-sm text-text-primary truncate min-w-0"
-                  title={displayName}
-                >
-                  {displayName}
-                </span>
-              </div>
-            ) : (
-              <div className="relative shrink-0">
-                <div
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-xs"
-                  aria-hidden="true"
-                  title={displayName}
-                >
-                  {initials(displayName)}
-                </div>
-                <OnlineIndicator
-                  size="sm"
-                  ariaLabel="Sesión activa"
-                  className="absolute -bottom-0.5 -right-0.5"
-                />
-              </div>
-            )}
-            <button
-              type="button"
-              data-testid="sidebar-logout"
-              onClick={handleLogout}
-              aria-label="Cerrar sesion"
-              className="btn-cyber-jade px-2 py-1 rounded-md text-xs flex items-center gap-1.5 shrink-0"
-            >
-              <LogoutIcon />
-              {!isCollapsed ? <span>Cerrar sesion</span> : null}
-            </button>
-          </>
-        ) : null}
+        <button
+          type="button"
+          data-testid="sidebar-logout"
+          onClick={handleLogout}
+          aria-label="Cerrar sesion"
+          className={[
+            'flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md',
+            'border border-primary/60 text-primary bg-primary/10',
+            'font-display uppercase tracking-[0.15em] text-[10px]',
+            'hover:bg-primary/20 hover:shadow-glow-cyan transition-colors',
+          ].join(' ')}
+        >
+          <LogoutIcon />
+          {!isCollapsed ? <span>Cerrar sesion</span> : null}
+        </button>
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={isCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
+          className={[
+            'inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-md',
+            'border border-primary/30 text-text-secondary bg-[var(--color-jade-border)]/40',
+            'font-display uppercase tracking-[0.15em] text-[10px]',
+            'hover:border-primary/70 hover:text-primary transition-colors',
+            isCollapsed ? '' : '',
+          ].join(' ')}
+        >
+          <CollapseIcon isCollapsed={isCollapsed} />
+          {!isCollapsed ? <span>Ocultar</span> : null}
+        </button>
       </div>
-
-      <button
-        type="button"
-        onClick={toggle}
-        aria-label={isCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
-        className={[
-          'w-full flex items-center gap-3 px-3 py-2 rounded-lg',
-          'text-text-secondary hover:bg-primary/10 hover:text-primary transition-colors',
-          isCollapsed ? 'justify-center' : '',
-        ].join(' ')}
-      >
-        <CollapseIcon isCollapsed={isCollapsed} />
-        {!isCollapsed ? <span className="font-body text-sm">Ocultar</span> : null}
-      </button>
     </div>
   );
 }

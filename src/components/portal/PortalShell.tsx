@@ -34,9 +34,11 @@ export function PortalShell() {
       <ServerRoomBackground />
 
       {/* JARVIS wordmark in the corners of the chrome (top-left + bottom-right).
-          Watermarks are aria-hidden + pointer-events-none (decorative). */}
+          Bottom-right is the BIG one (matches the reference image), top-left
+          is the smaller brand mark. Watermarks are aria-hidden +
+          pointer-events-none (decorative). */}
       <JarvisWatermark position="top-left" />
-      <JarvisWatermark position="bottom-right" />
+      <JarvisWatermark position="bottom-right" opacity={0.45} />
 
       <PortalSidebar />
 

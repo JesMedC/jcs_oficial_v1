@@ -156,6 +156,18 @@ const config: Config = {
           '0%': { top: '-2%' },
           '100%': { top: '102%' },
         },
+        // jarvis-ui-redesign (T-11 refactor, post-deploy polish) —
+        // subtle border pulse for the active sidebar nav item so it
+        // reads as 'live / online' without blooming into the chrome.
+        'jarvis-active-pulse': {
+          '0%, 100%': { boxShadow: '0 0 12px rgba(0,212,216,0.35)' },
+          '50%': { boxShadow: '0 0 20px rgba(0,212,216,0.55)' },
+        },
+        // Subtle marquee for the brand sub-header in PortalHeader.
+        'jarvis-marquee': {
+          '0%': { transform: 'translateX(0%)' },
+          '100%': { transform: 'translateX(-50%)' },
+        },
       },
       animation: {
         'aurora-drift': 'aurora-drift 18s ease-in-out infinite',
@@ -166,6 +178,8 @@ const config: Config = {
         // design-system-v1 (Wave 5) — Jarvis HUD primitives.
         'hud-rotate': 'hud-rotate 24s linear infinite',
         'hud-scanline': 'hud-scanline 4s linear infinite',
+        'jarvis-active-pulse': 'jarvis-active-pulse 2.4s ease-in-out infinite',
+        'jarvis-marquee': 'jarvis-marquee 30s linear infinite',
       },
       backgroundImage: {
         'aurora-static':

@@ -79,12 +79,13 @@ describe('src/components — Wave 3b drift cleanup contract', () => {
       );
     });
 
-    it('keeps the active-state border-l-primary shorthand (NOT border-primary)', () => {
-      // Per design §11.2 the active line uses `border-l-4 border-l-primary`
-      // (border-left-color only), NOT the `border-primary` shorthand which
-      // would set all four sides.
-      expect(SIDEBAR_NAV).toMatch(/border-l-primary/);
-      expect(SIDEBAR_NAV).not.toMatch(/(^|\s)border-primary(\s|$)/);
+    it('keeps the active-state border-primary on the pill container (jarvis T-11 polish — full pill border)', () => {
+      // jarvis-ui-redesign T-11 refactor switched the active nav item
+      // from a `border-l-primary` left-edge to a full pill border so
+      // the items read as outlined JARVIS cards. The contract here
+      // is now: `border-primary` shorthand stays on the active item
+      // (it used to be forbidden by the jade-era contract).
+      expect(SIDEBAR_NAV).toMatch(/border-primary/);
     });
   });
 

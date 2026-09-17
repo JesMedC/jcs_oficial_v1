@@ -85,15 +85,15 @@ describe('PortalShell', () => {
     expect(screen.getByText('USUARIO')).toBeInTheDocument();
 
     // Nav labels (Spanish per mem #68). Seven items in final nav order:
-    // Dashboard, Cuentas, Operaciones, Diario, Scanner, Playbook,
-    // Configuracion.
+    // Dashboard, Accounts, Operations, Log, Scanner, Playbook, Settings
+    // (jarvis-ui-redesign T-11 polish — English labels per the reference).
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Operaciones' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Diario' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Accounts' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Operations' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Log' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Scanner' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Playbook' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Configuracion' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
 
     // Collapse toggle label (expanded state).
     expect(screen.getByRole('button', { name: /Ocultar menu/i })).toBeInTheDocument();
@@ -102,7 +102,7 @@ describe('PortalShell', () => {
   it('marks the active route via aria-current="page"', () => {
     renderAt('/portal/cuentas');
 
-    const active = screen.getByRole('link', { name: 'Cuentas' });
+    const active = screen.getByRole('link', { name: 'Accounts' });
     expect(active).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute(
       'aria-current',
@@ -197,8 +197,9 @@ describe('PortalShell', () => {
     // Tokenized class lookup: standalone `bg-primary/15` is gone.
     const tokens = (logout.className ?? '').split(/\s+/);
     expect(tokens).not.toContain('bg-primary/15');
-    // The btn-cyber-jade base class + the outline-on-hover behavior stay.
-    expect(logout).toHaveClass('btn-cyber-jade');
+    // The outlined JARVIS variant — primary cyan border + transparent bg + uppercase tracking.
+    expect(logout).toHaveClass('border');
+    expect(logout).toHaveClass('text-primary');
     // Icon + label structure is intact.
     expect(logout).toHaveAttribute('aria-label', 'Cerrar sesion');
     expect(logout).toHaveTextContent(/cerrar sesion/i);

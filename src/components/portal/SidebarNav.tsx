@@ -1,11 +1,12 @@
 /*
- * portal-fase0a-base — extracted nav row of PortalSidebar.
+ * jarvis-ui-redesign (T-11 refactor, post-deploy polish) —
+ * SidebarNav with JARVIS HUD pill buttons.
  *
- * Renders the seven portal routes (Dashboard / Cuentas / Operaciones
- * / Diario / Scanner / Playbook / Configuracion) with the same jade
- * active-state treatment the wider design uses (jade left-border +
- * soft glow). Icons are local to SidebarNav so the test surface is
- * self-contained.
+ * Each nav item renders as a rectangular pill with a cyan border,
+ * uppercase tracked-wide label, and a glow halo on the active
+ * state. Items that open drawers (Cuentas / Operaciones / Scanner /
+ * Playbook) get a small `+` glyph anchored to the right edge as a
+ * visual hint.
  */
 import { NavLink } from 'react-router-dom';
 
@@ -14,6 +15,7 @@ interface NavItem {
   readonly label: string;
   readonly icon: JSX.Element;
   readonly end?: boolean;
+  readonly showAdd?: boolean;
 }
 
 function DashboardIcon() {
@@ -73,7 +75,7 @@ function OperacionesIcon() {
   );
 }
 
-function DiarioIcon() {
+function LogIcon() {
   return (
     <svg
       className="w-5 h-5"
@@ -93,9 +95,6 @@ function DiarioIcon() {
 }
 
 function ScannerIcon() {
-  /* Radar-style concentric arcs — visual weight matches the other
-   * icons in the file. Three arcs (outer ring split + inner ticks)
-   * evoke "scanning" without being a literal radar dish. */
   return (
     <svg
       className="w-5 h-5"
@@ -140,7 +139,7 @@ function PlaybookIcon() {
   );
 }
 
-function ConfiguracionIcon() {
+function SettingsIcon() {
   return (
     <svg
       className="w-5 h-5"
@@ -162,12 +161,12 @@ function ConfiguracionIcon() {
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: <DashboardIcon />, end: true },
-  { to: '/portal/cuentas', label: 'Cuentas', icon: <CuentasIcon /> },
-  { to: '/portal/operaciones', label: 'Operaciones', icon: <OperacionesIcon /> },
-  { to: '/portal/diario', label: 'Diario', icon: <DiarioIcon /> },
-  { to: '/portal/scanner', label: 'Scanner', icon: <ScannerIcon /> },
-  { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon /> },
-  { to: '/portal/configuracion', label: 'Configuracion', icon: <ConfiguracionIcon /> },
+  { to: '/portal/cuentas', label: 'Accounts', icon: <CuentasIcon />, showAdd: true },
+  { to: '/portal/operaciones', label: 'Operations', icon: <OperacionesIcon />, showAdd: true },
+  { to: '/portal/diario', label: 'Log', icon: <LogIcon /> },
+  { to: '/portal/scanner', label: 'Scanner', icon: <ScannerIcon />, showAdd: true },
+  { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon />, showAdd: true },
+  { to: '/portal/configuracion', label: 'Settings', icon: <SettingsIcon /> },
 ];
 
 export interface SidebarNavProps {
@@ -176,7 +175,7 @@ export interface SidebarNavProps {
 
 export function SidebarNav({ isCollapsed }: SidebarNavProps) {
   return (
-    <nav className="flex-1 py-4 px-2 space-y-1">
+    <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto">
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.to}
@@ -185,17 +184,25 @@ export function SidebarNav({ isCollapsed }: SidebarNavProps) {
           title={isCollapsed ? item.label : undefined}
           className={({ isActive }) =>
             [
-              'group flex items-center gap-3 pl-3 pr-3 py-2 rounded-r-lg',
-              'border-l-4 transition-colors font-body text-sm',
+              'group relative flex items-center gap-3 px-3 py-2.5 rounded-lg',
+              'border transition-all duration-150 font-display uppercase tracking-[0.15em] text-xs',
               isActive
-                ? 'border-l-primary bg-primary/15 text-primary shadow-glow-cyan-sm' // core-interface-redesign (Slice 3, T-032) — cyan active glow via the Slice 1 glow-cyan alias.
-                : 'border-l-transparent text-text-secondary hover:bg-primary/10 hover:text-primary',
-              isCollapsed ? 'justify-center pl-2 pr-2' : '',
+                ? 'border-primary bg-primary/15 text-primary shadow-[0_0_16px_rgba(0,212,216,0.45)] animate-jarvis-active-pulse'
+                : 'border-primary/30 text-text-secondary hover:border-primary/70 hover:text-primary hover:bg-primary/5',
+              isCollapsed ? 'justify-center px-2' : '',
             ].join(' ')
           }
         >
           {item.icon}
-          {!isCollapsed ? <span className="truncate">{item.label}</span> : null}
+          {!isCollapsed ? <span className="truncate flex-1">{item.label}</span> : null}
+          {!isCollapsed && item.showAdd ? (
+            <span
+              aria-hidden="true"
+              className="ml-auto text-primary/70 group-hover:text-primary text-base leading-none"
+            >
+              +
+            </span>
+          ) : null}
         </NavLink>
       ))}
     </nav>
