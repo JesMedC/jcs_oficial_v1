@@ -29,6 +29,7 @@ import { useState } from 'react';
 
 import { CloseTradeModal } from '../../features/trades/CloseTradeModal';
 import { formatMoney, pnlColor } from '../../features/trades/format';
+import { formatHour } from '../../features/trades/formatHour';
 import type { TradeOut } from '../../features/trades/types';
 
 interface Props {
@@ -112,13 +113,31 @@ export function RecentActivityFeed({ trades, limit = 5 }: Props) {
             const size = Number(t.investment_usd ?? 0);
             const dir = directionLabel(t);
             const isOpen = t.status === 'OPEN';
+            // dashboard-jarvis-fidelity (Slice B, T-047) — closed
+            // trades surface their CLOSE hour; open trades fall
+            // back to the OPEN hour so the row always reads as
+            // "when did this happen?".
+            const hourIso = t.closed_at ?? t.opened_at;
             return (
               <li
                 key={t.id}
                 data-testid={`dash-recent-activity-row-${t.id}`}
                 className="flex items-center gap-3 py-2 border-b border-primary/10 last:border-b-0"
               >
-                <div className="text-xl leading-none">{pairFlag(t.instrument)}</div>
+                {/*
+                 * dashboard-jarvis-fidelity (Slice B, T-047,
+                 * REQ-DCF-007) — pair-avatar cyan chip. The
+                 * emoji flag stays inside; only the wrapper
+                 * changes to the cyan-tinted circular badge.
+                 */}
+                <span
+                  data-testid="dash-recent-activity-pair-chip"
+                  className="w-7 h-7 rounded-full bg-primary/15 border border-primary/30 inline-flex items-center justify-center text-xs shrink-0"
+                >
+                  <span className="text-base leading-none">
+                    {pairFlag(t.instrument)}
+                  </span>
+                </span>
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-sm text-text-primary truncate">
                     {t.instrument}
@@ -126,6 +145,9 @@ export function RecentActivityFeed({ trades, limit = 5 }: Props) {
                   <div className="font-mono text-[10px] text-text-muted flex items-center gap-2">
                     <span className={dir.cls}>▲ {dir.label}</span>
                     <span>{size.toFixed(2)} Lot</span>
+                    <span data-testid="dash-recent-activity-hour" className="ml-auto tabular-nums">
+                      {formatHour(hourIso)}
+                    </span>
                   </div>
                 </div>
                 {isOpen ? (
