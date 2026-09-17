@@ -88,16 +88,29 @@ function GeneralTile({ tile }: { readonly tile: SessionTile }) {
   return (
     <div
       data-testid="session-tile-general"
-      className="rounded-lg border border-primary/30 bg-primary/5 backdrop-blur-md p-3"
+      className="md:col-span-2 rounded-lg border border-primary/30 bg-primary/5 backdrop-blur-md p-3 flex flex-row items-center justify-between gap-3 min-w-0"
     >
-      <div className="text-[10px] font-display uppercase tracking-widest text-primary">
-        General
+      <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="text-[10px] font-display uppercase tracking-widest text-primary">
+          General
+        </div>
+        <div className={`text-2xl font-display ${empty ? 'text-text-muted' : 'text-primary'}`}>
+          {empty ? '—' : `${tile.winrate_pct}%`}
+        </div>
+        <div className="text-[11px] font-mono text-text-secondary truncate">
+          {empty ? 'Sin ops' : `${tile.wins} gan / ${tile.trades} tot`}
+        </div>
       </div>
-      <div className={`text-2xl font-display mt-1 ${empty ? 'text-text-muted' : 'text-primary'}`}>
-        {empty ? '—' : `${tile.winrate_pct}%`}
-      </div>
-      <div className="text-[11px] font-mono text-text-secondary">
-        {empty ? 'Sin ops' : `${tile.wins} gan / ${tile.trades} tot`}
+      <div className="relative shrink-0">
+        {/* Outer halo ring at low opacity — same HudRing primitive
+            (no separate wrapper), painted at 40% via className so
+            the inner stroke still uses the gradient. The overlay is
+            positioned absolutely so the two rings share the same
+            bounding box without an extra layout box. */}
+        <div className="absolute inset-0 opacity-40 pointer-events-none">
+          <HudRing value={tile.winrate_pct} max={100} size="md" />
+        </div>
+        <HudRing value={tile.winrate_pct} max={100} unit="%" size="md" />
       </div>
     </div>
   );

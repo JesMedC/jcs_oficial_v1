@@ -299,4 +299,79 @@ describe('WinrateBySessionCard', () => {
     // 100% fill → dashoffset must equal 0 (full ring painted).
     expect(valueCircle?.getAttribute('stroke-dashoffset')).toBe('0');
   });
+
+  /*
+   * dashboard-jarvis-fidelity (Slice B, T-040, REQ-DHF-002) —
+   * GENERAL tile MUST span 2 columns inside the parent grid AND
+   * render TWO concentric `<HudRing>` (outer halo at 0.4 opacity
+   * + inner ring at 1.0). The outer testid `session-tile-general`
+   * stays attached to the wrapper.
+   */
+  it('T-040: GENERAL tile spans 2 columnas (md:col-span-2) y monta doble anillo', async () => {
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: SAMPLE_RESPONSE,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('56%');
+    });
+
+    const general = screen.getByTestId('session-tile-general');
+    // 1) Layout: col-span-2 only applies at md+; we assert the class
+    //    is present (Tailwind picks it up via responsive variant).
+    expect(general.className).toContain('md:col-span-2');
+
+    // 2) Double ring: TWO `<svg>` elements inside the GENERAL tile.
+    //    HudRing renders 1 SVG per instance (outer + inner halo +
+    //    tick marks). Each instance contributes a single <svg>.
+    const svgs = general.querySelectorAll('svg');
+    expect(svgs.length).toBeGreaterThanOrEqual(2);
+
+    // 3) Each ring carries a value circle with a dashoffset that
+    //    encodes its fill fraction. We assert at least 2 such
+    //    circles (one per ring instance).
+    const valueCircles = Array.from(general.querySelectorAll('circle')).filter(
+      (c) => c.getAttribute('stroke-dashoffset') !== null,
+    );
+    expect(valueCircles.length).toBeGreaterThanOrEqual(2);
+
+    // 4) The wrapper still exposes the glass chrome so the GENERAL
+    //    tile reads as a card (not a plain element).
+    expect(general.className).toContain('backdrop-blur-md');
+  });
+
+  it('T-040 (triangulate): GENERAL tile vacio mantiene doble anillo y label "—"', async () => {
+    const empty = {
+      ...SAMPLE_RESPONSE,
+      sessions: {
+        ASIA: { trades: 0, wins: 0, winrate_pct: 0 },
+        LONDON: { trades: 0, wins: 0, winrate_pct: 0 },
+        NEW_YORK: { trades: 0, wins: 0, winrate_pct: 0 },
+        SYDNEY: { trades: 0, wins: 0, winrate_pct: 0 },
+      },
+      general: { trades: 0, wins: 0, winrate_pct: 0 },
+    };
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: empty,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('—');
+    });
+
+    const general = screen.getByTestId('session-tile-general');
+    expect(general.className).toContain('md:col-span-2');
+    // Even empty, the double-ring chrome stays mounted.
+    expect(general.querySelectorAll('svg').length).toBeGreaterThanOrEqual(2);
+  });
 });
