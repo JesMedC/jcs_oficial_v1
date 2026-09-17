@@ -159,12 +159,12 @@ const server = http.createServer(async (req, res) => {
       date_to: '2026-09-15',
       account_id: null,
       sessions: {
-        ASIA: { trades: 24, wins: 18, winrate_pct: 75 },
-        LONDON: { trades: 35, wins: 22, winrate_pct: 63 },
-        NEW_YORK: { trades: 35, wins: 25, winrate_pct: 71 },
-        SYDNEY: { trades: 25, wins: 17, winrate_pct: 68 },
+        ASIA: { trades: 8, wins: 6, winrate_pct: 75 },
+        LONDON: { trades: 0, wins: 0, winrate_pct: 0 },
+        NEW_YORK: { trades: 0, wins: 0, winrate_pct: 0 },
+        SYDNEY: { trades: 0, wins: 0, winrate_pct: 0 },
       },
-      general: { trades: 119, wins: 82, winrate_pct: 69 },
+      general: { trades: 14, wins: 10, winrate_pct: 71 },
     });
   }
   if (path.startsWith('/api/v1/trades')) {
