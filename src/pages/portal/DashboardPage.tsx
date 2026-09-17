@@ -197,7 +197,7 @@ export function DashboardPage() {
               type="button"
               data-testid="dash-new-trade"
               onClick={openDrawer}
-              className="px-3 py-1.5 rounded-md bg-primary text-bg font-display uppercase tracking-wide text-xs hover:shadow-glow-cyan transition-shadow"
+              className="px-3 py-1.5 rounded-md border border-primary text-primary bg-transparent font-display uppercase tracking-wide text-xs hover:bg-primary/10 hover:shadow-glow-cyan transition-colors"
             >
               + Nuevo trade
             </button>

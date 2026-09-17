@@ -27,6 +27,7 @@ import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthP
 import type { AuthMeOut } from '../../../features/auth/types';
 import * as accountsApi from '../../../features/accounts/api';
 import type { AccountList, AccountOut } from '../../../features/accounts/types';
+import { useNewTradeDrawer } from '../../../stores/useNewTradeDrawer';
 import { DashboardPage } from '../DashboardPage';
 
 vi.mock('../../../features/subscription/api', async () => {
@@ -118,5 +119,52 @@ describe('DashboardPage', () => {
     expect(
       screen.getByRole('heading', { level: 1, name: 'Hola, Demo' }),
     ).toBeInTheDocument();
+  });
+
+  it('"+ Nuevo trade" CTA renders as an outlined cyan pill (border + text-primary, transparent bg)', () => {
+    // Two accounts so the AccountSelector stays mounted — but the CTA
+    // contract is independent of the selector's presence.
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    const drawerOpen = vi.fn();
+    useNewTradeDrawer.setState({ open: drawerOpen });
+    renderDashboard(buildMe());
+
+    const cta = screen.getByTestId('dash-new-trade');
+    expect(cta).toHaveClass('border');
+    expect(cta).toHaveClass('border-primary');
+    expect(cta).toHaveClass('text-primary');
+    // Opaque fill is gone — outline only.
+    expect(cta).not.toHaveClass('bg-primary');
+    expect(cta.className).toContain('bg-transparent');
+    // Hover glow stays so the CTA still reads as primary on hover.
+    expect(cta).toHaveClass('hover:shadow-glow-cyan');
+    expect(cta).toHaveClass('hover:bg-primary/10');
+  });
+
+  it('"+ Nuevo trade" CTA no longer carries the opaque text-bg + bg-primary standalone pair (regression guard)', () => {
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    renderDashboard(buildMe());
+
+    const cta = screen.getByTestId('dash-new-trade');
+    // Tokenise the className so `hover:bg-primary/10` doesn't trip
+    // a naive substring check — only standalone `bg-primary` /
+    // `text-bg` classes are forbidden.
+    const tokens = cta.className.split(/\s+/);
+    expect(tokens).not.toContain('bg-primary');
+    expect(tokens).not.toContain('text-bg');
+    // Label text is preserved verbatim.
+    expect(cta).toHaveTextContent('+ Nuevo trade');
+  });
+
+  it('clicking "+ Nuevo trade" CTA still opens the new-trade drawer (regression)', () => {
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    const drawerOpen = vi.fn();
+    useNewTradeDrawer.setState({ open: drawerOpen });
+    renderDashboard(buildMe());
+
+    const cta = screen.getByTestId('dash-new-trade');
+    cta.click();
+
+    expect(drawerOpen).toHaveBeenCalledTimes(1);
   });
 });
