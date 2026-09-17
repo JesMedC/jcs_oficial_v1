@@ -1,5 +1,5 @@
 /*
- * jarvis-ui-redesign (T-10) — PortalHeader primitive.
+ * jarvis-ui-redesign (T-10, T-11) — PortalHeader primitive.
  *
  * The persistent JARVIS status bar that sits at the top of the
  * authenticated portal main area. The HUD equivalent of the
@@ -15,6 +15,8 @@
  *
  * Visual contract pinned by `PortalHeader.test.tsx`.
  */
+import { OnlineIndicator } from '../ui/OnlineIndicator';
+
 export function PortalHeader(): JSX.Element {
   return (
     <header
@@ -35,16 +37,7 @@ export function PortalHeader(): JSX.Element {
       </div>
 
       {/* Status pill: online indicator + session label */}
-      <div className="flex items-center gap-2">
-        <span
-          data-jarvis-online-dot
-          aria-hidden="true"
-          className="inline-block w-2 h-2 rounded-full bg-[var(--jarvis-online)] shadow-[0_0_10px_var(--jarvis-online)] animate-status-dot-pulse"
-        />
-        <span className="font-display uppercase tracking-[0.2em] text-[10px] md:text-xs text-text-secondary">
-          SESIÓN ACTIVA
-        </span>
-      </div>
+      <OnlineIndicator label="SESIÓN ACTIVA" ariaLabel="Sesión activa" />
     </header>
   );
 }

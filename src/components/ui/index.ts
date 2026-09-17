@@ -97,3 +97,10 @@ export type { HudButtonProps, HudButtonSize, HudButtonVariant } from './HudButto
 /* jarvis-ui-redesign (T-09) — JARVIS HUD divider with notch label. */
 export { HudDivider } from './HudDivider';
 export type { HudDividerProps, HudDividerTone } from './HudDivider';
+
+/* jarvis-ui-redesign (T-11) — Reusable JARVIS online indicator. */
+export { OnlineIndicator } from './OnlineIndicator';
+export type {
+  OnlineIndicatorProps,
+  OnlineIndicatorSize,
+} from './OnlineIndicator';
