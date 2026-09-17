@@ -93,3 +93,7 @@ export type { HudRingProps, HudRingSize, HudRingTone } from './HudRing';
 /* jarvis-ui-redesign (T-08) — JARVIS outlined CTA button. */
 export { HudButton } from './HudButton';
 export type { HudButtonProps, HudButtonSize, HudButtonVariant } from './HudButton';
+
+/* jarvis-ui-redesign (T-09) — JARVIS HUD divider with notch label. */
+export { HudDivider } from './HudDivider';
+export type { HudDividerProps, HudDividerTone } from './HudDivider';
