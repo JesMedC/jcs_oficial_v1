@@ -87,7 +87,7 @@ describe('AccountSelector', () => {
   it('renders the same <option> labels (Todas las cuentas + every account name)', async () => {
     mockAccounts([
       fakeAccount,
-      { ...fakeAccount, id: 'a2', name: 'Second', type: 'CRYPTO' },
+      { ...fakeAccount, id: 'a2', name: 'Second', type: 'BINARY' },
     ]);
     render(<AccountSelector value={null} onChange={() => {}} />, { wrapper: makeWrapper() });
 

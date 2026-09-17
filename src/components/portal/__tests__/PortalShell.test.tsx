@@ -130,7 +130,7 @@ describe('PortalShell', () => {
   });
 
   it('sidebar <aside> width transition between w-16 (collapsed) and w-72 (expanded) is intact', () => {
-    const { rerender } = renderAt('/portal/cuentas');
+    renderAt('/portal/cuentas');
 
     const aside = screen.getByRole('complementary');
     // default expanded (no collapsed-store override)
