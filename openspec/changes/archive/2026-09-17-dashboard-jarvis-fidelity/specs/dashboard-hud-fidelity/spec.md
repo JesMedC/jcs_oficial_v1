@@ -92,3 +92,17 @@ The H1 greeting on `DashboardPage.tsx` line 171 MUST be `text-3xl md:text-4xl` (
 - Layout restructure beyond MES row swap (covered by `chrome-watermarks`)
 - Sparkline visual redesign (only repositioned)
 - New tokens or token rebalance
+---
+
+## v2 note (dashboard-jarvis-fidelity-v2, 2026-09-17)
+
+The cyan family referenced in this spec (Slice 1 `rgba(0,212,216,*)` /
+`#00D4D8`) was deepened to the JARVIS HUD ladder by the v2 polishing
+pass:
+
+- Primary cyan: `#00D4D8` → `#00E5FF` (rgba `0,229,255`).
+- `textShadow` inline rgba values in this spec now resolve to
+  `rgba(0,229,255,*)` (the new v2 cyan family) — the visual halo
+  reads the same intensity at the new saturation.
+- No structural requirement changes; the chrome contract (cards +
+  KPIs + summary strip + chart cards) is unchanged.

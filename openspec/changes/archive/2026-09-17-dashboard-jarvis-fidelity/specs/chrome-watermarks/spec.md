@@ -95,3 +95,18 @@ The `Cerrar sesión` button on `SidebarFooter.tsx` line 139 MUST drop its `bg-pr
 - Topbar mount-order changes (frozen)
 - Marketing page chrome (`/`, `/pricing`, etc.)
 - `<CoreInterfaceWatermark>` on pages other than the dashboard
+---
+
+## v2 note (dashboard-jarvis-fidelity-v2, 2026-09-17)
+
+The cyan family referenced in this spec (`rgba(0,212,216,*)` /
+`#00D4D8`) was deepened to the JARVIS HUD ladder by the v2 polishing
+pass:
+
+- Primary cyan: `#00D4D8` → `#00E5FF` (rgba `0,229,255`).
+- The SidebarHeader `textShadow` inline value (line 23, see
+  `rgba(0,212,216,0.35)` above) now resolves to the v2 family
+  `rgba(0,229,255,0.35)` — the halo reads the same intensity at
+  the new saturation.
+- The Sidebar active item (3px vertical cyan bar + cyan border) is
+  preserved; the cyan hex is the v2 `#00E5FF`.

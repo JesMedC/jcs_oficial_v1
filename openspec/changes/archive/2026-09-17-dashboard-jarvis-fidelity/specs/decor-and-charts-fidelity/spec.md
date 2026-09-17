@@ -113,3 +113,19 @@ Both `PerformanceCurveChart.tsx` and `CapitalCurveChart.tsx` MUST render a `abso
 - Sparkline repaint on `DashboardSummaryStrip` reposition (covered by `dashboard-hud-fidelity` REQ-DHF-004)
 - New chart types (heatmap, gantt, etc.)
 - New decor primitives beyond the existing `DotGrid` + `NeuralNetwork` + `Scanline` + `HudRing` set
+---
+
+## v2 note (dashboard-jarvis-fidelity-v2, 2026-09-17)
+
+The chart palette referenced in this spec (`rgba(0,212,216,*)` /
+`#00D4D8`) was deepened to the JARVIS HUD ladder by the v2 polishing
+pass:
+
+- Primary cyan: `#00D4D8` → `#00E5FF` (rgba `0,229,255`).
+- v2 also pivoted the PerformanceCurveChart from a histogram +
+  volume bars to a smooth `LineSeries` (cumulative_net_pnl) +
+  parallel `AreaSeries` providing the cyan gradient fill (top
+  `rgba(0,229,255,0.30)` → bottom `rgba(0,229,255,0)`). The deposit
+  / withdraw markers contract from T-046 is preserved.
+- The CapitalCurveChart stays dashed + now renders as a smooth
+  curved spline with the same gradient area fill.
