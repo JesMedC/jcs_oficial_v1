@@ -52,11 +52,6 @@ export function AccountSelector({ value, onChange }: Props) {
   // most needed to confirm it.
   // if (sorted.length <= 1) return null;
 
-  const selectedLabel =
-    value === null
-      ? 'Todas las cuentas'
-      : sorted.find((a) => a.id === value)?.name ?? 'Todas las cuentas';
-
   return (
     <div
       data-testid="dash-account-selector"
@@ -90,9 +85,13 @@ export function AccountSelector({ value, onChange }: Props) {
           <polyline points="5 8 10 13 15 8" />
         </svg>
       </div>
-      <span className="font-mono text-[11px] text-text-muted">
-        {selectedLabel}
-      </span>
+      {/*
+       * dashboard-jarvis-fidelity (Slice A, T-036, REQ-CWM-006) —
+       * the trailing `<span className="font-mono text-[11px]">`
+       * caption duplicating the selected option is gone. The
+       * `<select>` already shows the chosen label and the chrome
+       * "Alcance" label + chevron anchor the control.
+       */}
     </div>
   );
 }
