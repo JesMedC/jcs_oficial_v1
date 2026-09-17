@@ -27,6 +27,7 @@ import {
   SESSION_LABELS,
   SESSION_ORDER,
 } from '../../features/sessions';
+import { HudRing } from '../decor/HudRing';
 
 interface Props {
   readonly workspaceId: string;
@@ -62,16 +63,21 @@ function Tile({ band, tile }: { readonly band: SessionBand; readonly tile: Sessi
   return (
     <div
       data-testid={`session-tile-${band}`}
-      className="rounded-lg border border-primary/20 bg-surface/40 backdrop-blur-md p-3"
+      className="rounded-lg border border-primary/20 bg-surface/40 backdrop-blur-md p-3 flex flex-row items-center justify-between gap-2 min-w-0"
     >
-      <div className="text-[10px] font-display uppercase tracking-widest text-text-muted">
-        {SESSION_LABELS[band]}
+      <div className="min-w-0 flex flex-col gap-0.5">
+        <div className="text-[10px] font-display uppercase tracking-widest text-text-muted">
+          {SESSION_LABELS[band]}
+        </div>
+        <div className={`text-xl font-display ${empty ? 'text-text-muted' : 'text-primary'}`}>
+          {empty ? '—' : `${tile.winrate_pct}%`}
+        </div>
+        <div className="text-[11px] font-mono text-text-secondary truncate">
+          {empty ? 'Sin ops' : `${tile.wins} gan / ${tile.trades} tot`}
+        </div>
       </div>
-      <div className={`text-xl font-display mt-1 ${empty ? 'text-text-muted' : 'text-primary'}`}>
-        {empty ? '—' : `${tile.winrate_pct}%`}
-      </div>
-      <div className="text-[11px] font-mono text-text-secondary">
-        {empty ? 'Sin ops' : `${tile.wins} gan / ${tile.trades} tot`}
+      <div className="shrink-0">
+        <HudRing value={tile.winrate_pct} max={100} unit="%" size="sm" />
       </div>
     </div>
   );
