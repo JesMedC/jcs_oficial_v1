@@ -85,7 +85,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
 
 ## Slice B — Sessions ring + right-rail MES + chart markers
 
-- [ ] T-039 — Sessions ring progress in `WinrateBySessionCard.tsx` (REQ-DHF-001) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-039 — Sessions ring progress in `WinrateBySessionCard.tsx` (REQ-DHF-001) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend `src/components/dashboard/__tests__/WinrateBySessionCard.test.tsx` asserting each session tile (`session-tile-{band}`) contains a `<HudRing>` instance (read via `data-testid` or component name in render output).
   - **GREEN**: rewrite `WinrateBySessionCard.tsx:60-78` `Tile` body to `flex-row` + `<HudRing value={tile.winrate_pct} max={100} unit="%" size="sm" />` at right.
   - **TRIANGULATE**: assert empty session (trades: 0) shows `<HudRing value={0}>` + muted `—`; assert 100% winrate shows full ring; assert GENERAL tile still uses the existing `session-tile-general` testid.
@@ -93,7 +93,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~30
   - **Acceptance**: `pnpm test` green; sessions render a ring on every tile.
 
-- [ ] T-040 — GENERAL tile double-ring in `WinrateBySessionCard.tsx` (REQ-DHF-002) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-040 — GENERAL tile double-ring in `WinrateBySessionCard.tsx` (REQ-DHF-002) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend the same test asserting `data-testid="session-tile-general"` spans `md:col-span-2` and contains TWO `<HudRing>` instances (inner + outer halo).
   - **GREEN**: rewrite `WinrateBySessionCard.tsx:80-98` `GeneralTile` body to `flex-row` + two nested `<HudRing>` (outer `opacity-40`, inner `opacity-100`).
   - **TRIANGULATE**: assert `md:col-span-2` only applies at `md+` (use `grid` querySelector and check inline class).
@@ -101,7 +101,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~25
   - **Acceptance**: `pnpm test` green; GENERAL tile visibly larger with double ring.
 
-- [ ] T-041 — MES row progress bars in `DashboardKPIsGrid.tsx` (REQ-DHF-003) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-041 — MES row progress bars in `DashboardKPIsGrid.tsx` (REQ-DHF-003) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: write or extend `src/features/trades/__tests__/DashboardKPIsGrid.test.tsx` asserting the MES section renders 2 stat cards + 3 progress bars (each with `data-testid="hud-progress-bar-{label}"`) when `layout="vertical"` and `tradesForKpis` has ≥ 1 closed trade.
   - **GREEN**: author `<HudProgressBar>` (~25 LOC) at the bottom of `DashboardKPIsGrid.tsx`. Replace 3 of the 5 stat cards (`Win Rate Mensual`, `R/R exposure`, `Mejor trade`) with progress bars. Keep `Risk/Reward` + `P&L Acumulado` as stat cards.
   - **TRIANGULATE**: assert empty MES (no closed trades) renders 3 empty progress bars at 0% width; assert cap at 95% width for max value.
@@ -109,7 +109,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~50
   - **Acceptance**: `pnpm test` green; MES row reads as 2 stat + 3 progress bars.
 
-- [ ] T-042 — Sparkline reposition in `DashboardSummaryStrip.tsx` (REQ-DHF-004) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-042 — Sparkline reposition in `DashboardSummaryStrip.tsx` (REQ-DHF-004) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend `src/components/dashboard/__tests__/DashboardSummaryStrip.test.tsx` asserting `data-testid="summary-sparkline"` is inside the card body (sibling of the value `<span>`), NOT inside the label row.
   - **GREEN**: drop `rightAdornment={<SparklineIcon />}` prop at line 118. Add `<div className="mx-auto -my-1">{<SparklineIcon />}</div>` inside the card body.
   - **TRIANGULATE**: assert Operations card value still renders; assert sparkline SVG still has the cyan stroke.
@@ -117,7 +117,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~10
   - **Acceptance**: `pnpm test` green; sparkline visible inside card body.
 
-- [ ] T-043 — H1 greeting size + balance tone in `DashboardPage.tsx` + `DashboardSummaryStrip.tsx` (REQ-DHF-005 + REQ-DHF-006) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-043 — H1 greeting size + balance tone in `DashboardPage.tsx` + `DashboardSummaryStrip.tsx` (REQ-DHF-005 + REQ-DHF-006) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend `DashboardPage.test.tsx` asserting the H1 has classes `text-3xl md:text-4xl`. Extend `DashboardSummaryStrip.test.tsx` asserting Balance Total card uses `text-profit` when `balanceTotal > 0` and `text-text-muted` when `balanceTotal === 0`.
   - **GREEN**: swap `DashboardPage.tsx:171` `text-2xl md:text-3xl` → `text-3xl md:text-4xl`. Confirm `DashboardSummaryStrip.tsx:111` already uses the correct tone branch.
   - **TRIANGULATE**: assert textShadow unchanged on H1; assert P&L card still uses profit/loss tone correctly.
@@ -125,7 +125,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~5
   - **Acceptance**: `pnpm test` green; H1 visibly larger; balance tone rule confirmed.
 
-- [ ] T-044 — `CURVE_THEME` hex → CSS vars in `curveChartTheme.ts` (REQ-DCF-003) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-044 — `CURVE_THEME` hex → CSS vars in `curveChartTheme.ts` (REQ-DCF-003) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: write `src/components/dashboard/__tests__/curveChartTheme.test.ts` asserting `CURVE_THEME.perf === 'var(--color-jade-profit)'`, `CURVE_THEME.balance === 'var(--color-jade-info)'`, `CURVE_THEME.border === 'rgba(0, 212, 216, 0.18)'`, `CURVE_THEME.grid === 'rgba(0, 212, 216, 0.10)'`.
   - **GREEN**: swap hex literals at `curveChartTheme.ts:38-46` per design.md.
   - **TRIANGULATE**: assert `background` + `axisText` rgba unchanged.
@@ -133,7 +133,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~12
   - **Acceptance**: `pnpm test` green; chart theme resolves cyan.
 
-- [ ] T-045 — Chart tooltip badges in `PerformanceCurveChart.tsx` + `CapitalCurveChart.tsx` (REQ-DCF-004) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-045 — Chart tooltip badges in `PerformanceCurveChart.tsx` + `CapitalCurveChart.tsx` (REQ-DCF-004) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend `src/components/dashboard/__tests__/PerformanceCurveChart.test.tsx` asserting `data-testid="dash-performance-lastpoint"` exists with the formatted `+$X.XX` text. Same for `CapitalCurveChart.test.tsx` → `dash-capital-lastpoint`.
   - **GREEN**: append the absolute-positioned badge `<div>` per design.md to both chart card headers. Compute the `deltaPct` from first/last point.
   - **TRIANGULATE**: assert badge is hidden when `points.length === 0`; assert absolute positioning `top-3 right-3`; assert glass backdrop blur.
@@ -141,7 +141,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~30
   - **Acceptance**: `pnpm test` green; badge visible top-right of both charts.
 
-- [ ] T-046 — Deposit / withdraw markers in `PerformanceCurveChart.tsx` (REQ-DCF-005) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-046 — Deposit / withdraw markers in `PerformanceCurveChart.tsx` (REQ-DCF-005) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend `PerformanceCurveChart.test.tsx` asserting:
     - A point with `capital_volume: 500` produces an `arrowUp` marker at the corresponding time with cyan color.
     - A point with `capital_volume: -200` produces an `arrowDown` marker with red color.
@@ -152,7 +152,7 @@ Continuing from `core-interface-redesign` (T-024..T-029 used there; T-030 was re
   - **LOC est.**: ~45
   - **Acceptance**: `pnpm test` green; deposit/withdraw triangles visible on Performance curve.
 
-- [ ] T-047 — `RecentActivityFeed` timestamp helper + pair chip (REQ-DCF-006 + REQ-DCF-007) [RED → GREEN → TRIANGULATE → REFACTOR]
+- [x] T-047 — `RecentActivityFeed` timestamp helper + pair chip (REQ-DCF-006 + REQ-DCF-007) [RED → GREEN → TRIANGULATE → REFACTOR]
   - **RED**: extend `src/components/dashboard/__tests__/RecentActivityFeed.test.tsx` asserting:
     - Each row shows a `<span>` with text matching `/^\d{2}:\d{2} hrs$/`.
     - Closed trade uses `t.closed_at`; OPEN trade falls back to `t.opened_at`.
