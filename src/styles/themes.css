@@ -79,6 +79,45 @@
   --hud-ring-value: rgba(0, 212, 216, 0.85);
   --scanline-color: rgba(0, 212, 216, 0.12);
   --selection-bg: rgba(0, 212, 216, 0.35);
+
+  /* ---- JARVIS chrome (jarvis-ui-redesign, T-02) ----
+   *
+   * Tokens for the Iron-Man-HUD aesthetic on top of the Core
+   * Interface cyan ladder. Pairs with primitives
+   * HudPanel / HudRing / HudCorner / JarvisWatermark defined in
+   * `src/components/ui/`.
+   */
+  /* chrome label (sidebar nav, topbar section labels) */
+  --jarvis-chrome-label: rgba(0, 212, 216, 0.4);
+  /* watermark wordmark (logo "JARVIS" en las esquinas) */
+  --jarvis-watermark: rgba(0, 212, 216, 0.13);
+  /* online indicator (sidebar status dot, header pulse) */
+  --jarvis-online: #3ce0b8;
+  /* divider + divider strong (HUD notched separator) */
+  --jarvis-divider: rgba(0, 212, 216, 0.18);
+  --jarvis-divider-strong: rgba(0, 212, 216, 0.32);
+  /* decorative corner (L-shape chrome brackets) */
+  --jarvis-corner: rgba(0, 212, 216, 0.6);
+  /* h1 glow (hero greeting textShadow) */
+  --jarvis-h1-glow: rgba(0, 212, 216, 0.45);
+
+  /* ---- JARVIS backgrounds (REQ-JAR-004) ---- */
+  /* radial gradient simulating a dim server room behind glass */
+  --jarvis-bg-server:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0, 212, 216, 0.08) 0%, rgba(0, 184, 255, 0.04) 40%, transparent 70%),
+    radial-gradient(circle at 20% 80%, rgba(0, 212, 216, 0.05) 0%, transparent 50%);
+  /* repeating linear gradient for the chrome grid pattern */
+  --jarvis-bg-grid:
+    linear-gradient(rgba(0, 212, 216, 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 212, 216, 0.04) 1px, transparent 1px);
+
+  /* ---- JARVIS HUD progress rings (REQ-JAR-005) ---- */
+  /* outer ring: brighter, more prominent */
+  --jarvis-progress-track: rgba(0, 212, 216, 0.10);
+  --jarvis-progress-value: rgba(0, 212, 216, 0.9);
+  /* inner ring: dimmer, doubles the depth without competing */
+  --jarvis-progress-track-inner: rgba(0, 212, 216, 0.06);
+  --jarvis-progress-value-inner: rgba(0, 212, 216, 0.7);
 }
 
 [data-theme='light'] {
@@ -131,4 +170,31 @@
   --hud-ring-value: rgba(0, 131, 143, 0.85);
   --scanline-color: rgba(0, 131, 143, 0.14);
   --selection-bg: rgba(0, 131, 143, 0.18);
+
+  /* ---- JARVIS chrome (light variant, jarvis-ui-redesign T-02) ----
+   *
+   * Light mode lifts the cyan alphas so the chrome stays readable
+   * on white backgrounds. Same ladder shape as dark, deeper base
+   * cyan (0, 131, 143 from the WCAG-AA primary).
+   */
+  --jarvis-chrome-label: rgba(0, 131, 143, 0.7);
+  --jarvis-watermark: rgba(0, 131, 143, 0.22);
+  --jarvis-online: #1f8a8a;
+  --jarvis-divider: rgba(0, 131, 143, 0.22);
+  --jarvis-divider-strong: rgba(0, 131, 143, 0.4);
+  --jarvis-corner: rgba(0, 131, 143, 0.55);
+  --jarvis-h1-glow: rgba(0, 131, 143, 0.35);
+
+  /* ---- JARVIS backgrounds (light variant) ---- */
+  --jarvis-bg-server:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0, 131, 143, 0.06) 0%, rgba(0, 107, 179, 0.03) 40%, transparent 70%);
+  --jarvis-bg-grid:
+    linear-gradient(rgba(0, 131, 143, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 131, 143, 0.05) 1px, transparent 1px);
+
+  /* ---- JARVIS HUD progress rings (light variant) ---- */
+  --jarvis-progress-track: rgba(0, 131, 143, 0.12);
+  --jarvis-progress-value: rgba(0, 131, 143, 0.95);
+  --jarvis-progress-track-inner: rgba(0, 131, 143, 0.08);
+  --jarvis-progress-value-inner: rgba(0, 131, 143, 0.8);
 }
