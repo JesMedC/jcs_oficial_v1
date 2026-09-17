@@ -60,12 +60,12 @@ export function AccountSelector({ value, onChange }: Props) {
       <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
         Alcance
       </span>
-      <div className="relative">
+<div className="relative">
         <select
           data-testid="dash-account-selector-input"
           value={value ?? ''}
           onChange={(e) => onChange(e.target.value === '' ? null : e.target.value)}
-          className="appearance-none cursor-pointer font-body text-sm pl-3 pr-8 py-1.5 rounded-md bg-[rgba(13,21,30,0.7)] border border-[rgba(0,255,157,0.35)] text-text-primary hover:border-[#00FF9D] focus:border-[#00FF9D] focus:outline-none focus:ring-2 focus:ring-[#00FF9D]/30 transition-colors"
+          className="appearance-none cursor-pointer font-body text-sm pl-3 pr-8 py-1.5 rounded-md bg-transparent border border-[#00E5FF] text-[#00E5FF] hover:bg-[rgba(0,229,255,0.1)] hover:shadow-[0_0_15px_rgba(0,229,255,0.5)] focus:outline-none focus:ring-2 focus:ring-[#00E5FF]/30 transition-all duration-200"
         >
           <option value="">Todas las cuentas</option>
           {sorted.map((acc) => (
@@ -80,9 +80,9 @@ export function AccountSelector({ value, onChange }: Props) {
           fill="none"
           stroke="currentColor"
           strokeWidth="1.5"
-          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-[#00FF9D]"
+          className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 h-4 w-4 text-[#00E5FF]"
         >
-          <polyline points="5 8 10 13 15 8" />
+          <polyline points="5 8, 10 13, 15 8" />
         </svg>
       </div>
       {/*

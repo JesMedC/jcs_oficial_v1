@@ -31,6 +31,8 @@ import { CloseTradeModal } from '../../features/trades/CloseTradeModal';
 import { formatMoney, pnlColor } from '../../features/trades/format';
 import { formatHour } from '../../features/trades/formatHour';
 import type { TradeOut } from '../../features/trades/types';
+import { HudPanel } from '../ui/HudPanel';
+import { useCountUp } from '../../lib/useCountUp';
 
 interface Props {
   readonly trades: ReadonlyArray<TradeOut>;
@@ -60,6 +62,29 @@ function directionLabel(t: TradeOut): { label: string; cls: string } {
   return { label: 'Trade', cls: 'text-text-muted' };
 }
 
+/**
+ * PnlCell — the closed-trade P&L value. Mounts inside its own
+ * useCountUp so each row "powers up" alongside the summary strip
+ * when the feed mounts (instead of snapping to the static value).
+ */
+function PnlCell({ pnl }: { readonly pnl: number }) {
+  const animated = useCountUp({ target: pnl });
+  const formatted = (() => {
+    if (animated === 0) return '—';
+    // `formatMoney` already adds a sign by default; we pass
+    // `signed: false` so we can attach our own sign + get a clean
+    // single-prefix output (the original code produced `++US$`
+    // because both formatters added their own `+`).
+    const abs = formatMoney(Math.abs(animated), { signed: false });
+    return `${animated > 0 ? '+' : '-'}${abs}`;
+  })();
+  return (
+    <div className={`font-mono text-sm font-semibold tabular-nums ${pnlColor(pnl)} text-shadow-glow`}>
+      {formatted}
+    </div>
+  );
+}
+
 export function RecentActivityFeed({ trades, limit = 5 }: Props) {
   // Single shared close-modal instance: at most one trade in the
   // close flow at a time. ``closingTrade`` is the trade the modal
@@ -79,9 +104,9 @@ export function RecentActivityFeed({ trades, limit = 5 }: Props) {
     .slice(0, limit);
 
   return (
-    <div
+    <HudPanel
       data-testid="dash-recent-activity"
-      className="rounded-xl border border-primary/20 bg-[rgba(13,21,30,0.7)] backdrop-blur-md p-5 flex flex-col gap-3 min-w-0"
+      className="p-5 flex flex-col gap-3 min-w-0 transition-shadow duration-200 hover:shadow-hud-glow"
     >
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
@@ -160,15 +185,7 @@ export function RecentActivityFeed({ trades, limit = 5 }: Props) {
                     Cerrar
                   </button>
                 ) : (
-                  <div
-                    className={`font-mono text-sm font-semibold tabular-nums ${pnlColor(pnl)}`}
-                  >
-                    {pnl === 0
-                      ? '—'
-                      : pnl > 0
-                        ? `+${formatMoney(pnl)}`
-                        : `-${formatMoney(Math.abs(pnl))}`}
-                  </div>
+                  <PnlCell pnl={pnl} />
                 )}
               </li>
             );
@@ -185,6 +202,6 @@ export function RecentActivityFeed({ trades, limit = 5 }: Props) {
         trade={closingTrade}
         onClose={() => setClosingTrade(null)}
       />
-    </div>
+    </HudPanel>
   );
 }

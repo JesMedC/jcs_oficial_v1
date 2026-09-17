@@ -87,4 +87,64 @@ describe('DashboardSummaryStrip — sparkline + balance tone (T-042 / T-043)', (
     expect(screen.getByTestId('summary-pnl')).toBeInTheDocument();
     expect(screen.getByTestId('summary-winrate')).toBeInTheDocument();
   });
+
+  /*
+   * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-005) — JARVIS HUD
+   * polish on the summary strip:
+   *   - each card lives inside `<HudPanel>` so it carries the glass
+   *     background + chamfered hex corners + cyan border.
+   *   - the headline value paints with the cyan glow
+   *     (`text-shadow-glow`) when profit-toned so the eye reads it
+   *     as a "lit" HUD number.
+   *   - numeric values animate via `useCountUp` to the target
+   *     (asserted by checking the formatted text settles on the
+   *     target value once the animation completes — we rely on
+   *     useCountUp's tests for the rAF path).
+   */
+  describe('JARVIS v2 chrome + count-up (REQ-DCF-JV2-005)', () => {
+    it('each card mounts inside a HudPanel (chamfered hex + glass)', () => {
+      render(<DashboardSummaryStrip balanceTotal={1000} tradesForCount={[]} />);
+
+      for (const testId of [
+        'summary-balance',
+        'summary-operations',
+        'summary-pnl',
+        'summary-winrate',
+      ]) {
+        const card = screen.getByTestId(testId);
+        const style = card.getAttribute('style') ?? '';
+        // The HudPanel inline style carries the JARVIS chrome.
+        expect(style, `${testId} should carry HUD panel chrome`).toContain(
+          'rgba(10, 25, 47, 0.6)',
+        );
+        expect(style, `${testId} should carry hex clip-path`).toContain(
+          'clip-path: polygon(',
+        );
+        expect(style, `${testId} should carry cyan border`).toContain(
+          'rgba(0, 229, 255, 0.3)',
+        );
+      }
+    });
+
+    it('profit-toned values apply the cyan text-shadow-glow', () => {
+      render(<DashboardSummaryStrip balanceTotal={1250.5} tradesForCount={[]} />);
+
+      const balance = screen.getByTestId('summary-balance');
+      const valueSpan = balance.querySelector('span.font-mono');
+      expect(valueSpan).not.toBeNull();
+      // text-shadow-glow is a Tailwind utility mapped from the
+      // `textShadow.glow` token; the rendered class name should
+      // contain it.
+      expect(valueSpan!.className).toContain('text-shadow-glow');
+    });
+
+    it('muted values do NOT apply the glow (no LED ring on empty state)', () => {
+      render(<DashboardSummaryStrip balanceTotal={0} tradesForCount={[]} />);
+
+      const balance = screen.getByTestId('summary-balance');
+      const valueSpan = balance.querySelector('span.font-mono');
+      expect(valueSpan).not.toBeNull();
+      expect(valueSpan!.className).not.toContain('text-shadow-glow');
+    });
+  });
 });

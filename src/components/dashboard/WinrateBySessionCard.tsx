@@ -28,6 +28,7 @@ import {
   SESSION_ORDER,
 } from '../../features/sessions';
 import { HudRing } from '../decor/HudRing';
+import { HudPanel } from '../ui/HudPanel';
 
 interface Props {
   readonly workspaceId: string;
@@ -61,15 +62,15 @@ function isoToday(): string {
 function Tile({ band, tile }: { readonly band: SessionBand; readonly tile: SessionTile }) {
   const empty = tile.trades === 0;
   return (
-    <div
+    <HudPanel
       data-testid={`session-tile-${band}`}
-      className="rounded-lg border border-primary/20 bg-surface/40 backdrop-blur-md p-3 flex flex-row items-center justify-between gap-2 min-w-0"
+      className="p-3 flex flex-row items-center justify-between gap-2 min-w-0 transition-shadow duration-200 hover:shadow-hud-glow"
     >
       <div className="min-w-0 flex flex-col gap-0.5">
         <div className="text-[10px] font-display uppercase tracking-widest text-text-muted">
           {SESSION_LABELS[band]}
         </div>
-        <div className={`text-xl font-display ${empty ? 'text-text-muted' : 'text-primary'}`}>
+        <div className={`text-xl font-display ${empty ? 'text-text-muted' : 'text-primary text-shadow-glow'}`}>
           {empty ? '—' : `${tile.winrate_pct}%`}
         </div>
         <div className="text-[11px] font-mono text-text-secondary truncate">
@@ -79,22 +80,22 @@ function Tile({ band, tile }: { readonly band: SessionBand; readonly tile: Sessi
       <div className="shrink-0">
         <HudRing value={tile.winrate_pct} max={100} unit="%" size="sm" />
       </div>
-    </div>
+    </HudPanel>
   );
 }
 
 function GeneralTile({ tile }: { readonly tile: SessionTile }) {
   const empty = tile.trades === 0;
   return (
-    <div
+    <HudPanel
       data-testid="session-tile-general"
-      className="md:col-span-2 rounded-lg border border-primary/30 bg-primary/5 backdrop-blur-md p-3 flex flex-row items-center justify-between gap-3 min-w-0"
+      className="md:col-span-2 p-3 flex flex-row items-center justify-between gap-3 min-w-0 border-[rgba(0,229,255,0.45)] bg-[rgba(0,229,255,0.06)] transition-shadow duration-200 hover:shadow-hud-glow"
     >
       <div className="min-w-0 flex flex-col gap-0.5">
         <div className="text-[10px] font-display uppercase tracking-widest text-primary">
           General
         </div>
-        <div className={`text-2xl font-display ${empty ? 'text-text-muted' : 'text-primary'}`}>
+        <div className={`text-2xl font-display ${empty ? 'text-text-muted' : 'text-primary text-shadow-glow'}`}>
           {empty ? '—' : `${tile.winrate_pct}%`}
         </div>
         <div className="text-[11px] font-mono text-text-secondary truncate">
@@ -112,7 +113,7 @@ function GeneralTile({ tile }: { readonly tile: SessionTile }) {
         </div>
         <HudRing value={tile.winrate_pct} max={100} unit="%" size="md" />
       </div>
-    </div>
+    </HudPanel>
   );
 }
 
@@ -147,9 +148,9 @@ export function WinrateBySessionCard({
   const general = data?.general;
 
   return (
-    <div
+    <HudPanel
       data-testid="winrate-by-session-card"
-      className="rounded-lg border border-primary/20 bg-surface/40 backdrop-blur-md p-4"
+      className="p-4 transition-shadow duration-200 hover:shadow-hud-glow"
     >
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h3 className="font-display uppercase tracking-wide text-sm md:text-base">
@@ -218,6 +219,6 @@ export function WinrateBySessionCard({
           )}
         </div>
       )}
-    </div>
+    </HudPanel>
   );
 }

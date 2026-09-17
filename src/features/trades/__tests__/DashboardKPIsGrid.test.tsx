@@ -192,4 +192,50 @@ describe('DashboardKPIsGrid — MES row (T-041)', () => {
     // Width MUST be capped at 95% per the spec (not 100%).
     expect(fill!.getAttribute('style')).toContain('width: 95%');
   });
+
+  /*
+   * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-007) — JARVIS HUD
+   * polish on the KPI grid:
+   *   - each KPI card (Kpi + HudProgressBar) mounts inside a
+   *     <HudPanel> so the chrome + chamfered hex corners travel
+   *     with the right-rail block.
+   *   - the HOY + MES sections each carry the JARVIS glass
+   *     background + cyan border via HudPanel.
+   * The progress-bar testids are unchanged so the T-041 suite
+   * stays green.
+   */
+  describe('JARVIS v2 chrome (REQ-DCF-JV2-007)', () => {
+    it('KPI cards + progress bars live inside a HudPanel (chamfered hex)', async () => {
+      const trades = [
+        makeTrade({ id: 't1', status: 'CLOSED_WIN', pnl_usd: '50.00' }),
+        makeTrade({ id: 't2', status: 'CLOSED_WIN', pnl_usd: '30.00' }),
+        makeTrade({ id: 't3', status: 'CLOSED_LOSS', pnl_usd: '-20.00' }),
+      ];
+      mockTrades(trades);
+      mockAccounts(ACCOUNTS);
+
+      render(
+        <DashboardKPIsGrid tradesForKpis={trades} layout="vertical" />,
+        { wrapper: makeWrapper() },
+      );
+
+      await waitFor(() => {
+        expect(
+          screen.getByTestId('hud-progress-bar-Win Rate Mensual'),
+        ).toBeInTheDocument();
+      });
+
+      // Each progress bar wrapper carries the JARVIS chrome in its
+      // inline style (HudPanel renders the glass + cyan border +
+      // clip-path via inline style, not Tailwind classes).
+      const labels = ['Win Rate Mensual', 'R/R exposure', 'Mejor trade'];
+      for (const label of labels) {
+        const wrapper = screen.getByTestId(`hud-progress-bar-${label}`);
+        const style = wrapper.getAttribute('style') ?? '';
+        expect(style).toContain('rgba(10, 25, 47, 0.6)');
+        expect(style).toContain('clip-path: polygon(');
+        expect(style).toContain('rgba(0, 229, 255, 0.3)');
+      }
+    });
+  });
 });

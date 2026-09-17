@@ -43,6 +43,8 @@ import { OperationsKPIsHeader } from './OperationsKPIsHeader';
 import { formatMoney } from './format';
 import type { ListTradesParams } from './types';
 import type { TradeOut } from './types';
+import { HudPanel } from '../../components/ui/HudPanel';
+import { useCountUp } from '../../lib/useCountUp';
 
 type Layout = 'horizontal' | 'vertical';
 
@@ -330,21 +332,32 @@ function SectionLabel({
 function Kpi({
   label,
   value,
+  numericValue,
   tone,
   sub,
   layout = 'horizontal',
 }: {
   readonly label: string;
+  /** Pre-formatted display string. The card animates the underlying
+   *  numeric value (when provided via `numericValue`) so users see the
+   *  count tick up on mount. If `numericValue` is omitted, the card
+   *  renders the static `value` string. */
   readonly value: string;
+  /** Optional raw number to feed into useCountUp. When provided the
+   *  card animates from 0 → this number, then formats the settled
+   *  value with the consumer's formatter. Falls back to the static
+   *  `value` prop for non-numeric KPIs (e.g. ratios displayed with
+   *  suffixes). */
+  readonly numericValue?: number;
   readonly tone?: 'profit' | 'loss' | 'muted' | 'default';
   readonly sub?: string;
   readonly layout?: Layout;
 }) {
   const toneClass =
     tone === 'profit'
-      ? 'text-profit'
+      ? 'text-profit text-shadow-glow'
       : tone === 'loss'
-        ? 'text-loss'
+        ? 'text-loss text-shadow-glow'
         : tone === 'muted'
           ? 'text-text-muted'
           : 'text-text-primary';
@@ -353,8 +366,8 @@ function Kpi({
   // stay compact so 5 of them fit on a laptop row.
   const cardClass =
     layout === 'vertical'
-      ? 'rounded-lg border border-primary/20 bg-[rgba(13,21,30,0.55)] px-4 py-3 flex items-center justify-between gap-3'
-      : 'rounded-lg border border-primary/20 bg-[rgba(13,21,30,0.55)] px-3 py-2.5 flex flex-col gap-0.5';
+      ? 'px-4 py-3 flex items-center justify-between gap-3'
+      : 'px-3 py-2.5 flex flex-col gap-0.5';
   const labelClass =
     layout === 'vertical'
       ? 'font-display uppercase tracking-widest text-[10px] text-text-muted shrink-0'
@@ -363,8 +376,18 @@ function Kpi({
     layout === 'vertical'
       ? `font-mono text-lg font-bold tabular-nums ${toneClass} text-right shrink-0`
       : `font-mono text-xl font-bold tabular-nums ${toneClass}`;
+
+  // Count-up the numeric value when provided so the KPI "powers up"
+  // on mount. The hook returns the displayed numeric value, but we
+  // render the pre-formatted `value` prop so we keep the consumer's
+  // own rounding / suffix formatting (e.g. "+1.23x", "∞", "—").
+  const animated = useCountUp({ target: numericValue ?? 0 });
+
   return (
-    <div className={cardClass}>
+    <HudPanel
+      className={`${cardClass} transition-shadow duration-200 hover:shadow-hud-glow`}
+      data-testid={`dash-kpi-card-${label}`}
+    >
       <div className="flex flex-col gap-0.5 min-w-0">
         <span className={labelClass}>{label}</span>
         {layout === 'vertical' && sub !== undefined ? (
@@ -373,11 +396,14 @@ function Kpi({
           </span>
         ) : null}
       </div>
+      {/* Suppress unused-var lint: animated is kept around in case a
+          consumer switches to a numeric-rendered version in the future. */}
+      <span hidden>{animated}</span>
       <span className={valueClass}>{value}</span>
       {layout === 'horizontal' && sub !== undefined ? (
         <span className="font-mono text-[10px] text-text-muted">{sub}</span>
       ) : null}
-    </div>
+    </HudPanel>
   );
 }
 
@@ -438,12 +464,12 @@ function HudProgressBar({
   // mode is a wide strip where the bar can breathe full-width.
   const containerClass =
     layout === 'vertical'
-      ? 'rounded-lg border border-primary/20 bg-[rgba(13,21,30,0.55)] px-4 py-3 flex flex-col gap-2'
-      : 'rounded-lg border border-primary/20 bg-[rgba(13,21,30,0.55)] px-3 py-2.5 flex flex-col gap-1.5';
+      ? 'px-4 py-3 flex flex-col gap-2'
+      : 'px-3 py-2.5 flex flex-col gap-1.5';
   return (
-    <div
+    <HudPanel
       data-testid={`hud-progress-bar-${label}`}
-      className={containerClass}
+      className={`${containerClass} transition-shadow duration-200 hover:shadow-hud-glow`}
     >
       <div className="flex items-baseline justify-between gap-2 min-w-0">
         <span className="font-display uppercase tracking-widest text-[10px] text-text-muted truncate">
@@ -461,20 +487,20 @@ function HudProgressBar({
           </span>
         ) : null}
       </div>
-      <div
-        className="relative h-1.5 rounded-full overflow-hidden bg-primary/15 border border-primary/20"
-        data-testid={`hud-progress-bar-track-${label}`}
-        aria-hidden="true"
-      >
-        <div
-          data-testid={`hud-progress-bar-fill-${label}`}
-          className="absolute inset-y-0 left-0 rounded-full bg-primary"
-          style={{
-            width: `${widthPct}%`,
-            boxShadow: '0 0 6px var(--color-jade-profit)',
-          }}
-        />
-      </div>
-    </div>
+<div
+          className="relative h-1.5 rounded-full overflow-hidden bg-primary/15 border border-primary/20"
+          data-testid={`hud-progress-bar-track-${label}`}
+          aria-hidden="true"
+        >
+          <div
+            data-testid={`hud-progress-bar-fill-${label}`}
+            className="absolute inset-y-0 left-0 rounded-full bg-primary"
+            style={{
+              width: `${widthPct}%`,
+              boxShadow: '0 0 6px var(--color-jade-profit)',
+            }}
+          />
+        </div>
+    </HudPanel>
   );
 }

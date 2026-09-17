@@ -224,9 +224,12 @@ describe('WinrateBySessionCard', () => {
     // The GENERAL tile keeps its own testid (not part of SESSION_ORDER).
     expect(screen.getByTestId('session-tile-general')).toBeInTheDocument();
 
-    // Sanity: the inline class still includes the glass card chrome
-    // so the visual contract (backdrop blur + border) is preserved.
-    expect(asiaTile.className).toContain('backdrop-blur-md');
+    // Sanity: the panel now lives inside `<HudPanel>` so the glass chrome
+    // (background + backdrop-filter) is on the inline style instead of
+    // a Tailwind class. We assert the JARVIS chrome is preserved.
+    const tileStyle = asiaTile.getAttribute('style') ?? '';
+    expect(tileStyle).toContain('rgba(10, 25, 47, 0.6)');
+    expect(tileStyle).toContain('clip-path: polygon(');
     expect(container).toBeTruthy();
   });
 
@@ -341,8 +344,14 @@ describe('WinrateBySessionCard', () => {
     expect(valueCircles.length).toBeGreaterThanOrEqual(2);
 
     // 4) The wrapper still exposes the glass chrome so the GENERAL
-    //    tile reads as a card (not a plain element).
-    expect(general.className).toContain('backdrop-blur-md');
+    //    tile reads as a card (not a plain element). dashboard-
+    //    jarvis-fidelity-v2: the wrapper now uses `<HudPanel>` so the
+    //    glass chrome lives on the panel's inline style (background
+    //    + backdrop-filter) instead of a Tailwind class. We assert
+    //    the panel's inline style carries the JARVIS chrome.
+    const generalStyle = general.getAttribute('style') ?? '';
+    expect(generalStyle).toContain('rgba(10, 25, 47, 0.6)');
+    expect(generalStyle).toContain('clip-path: polygon(');
   });
 
   it('T-040 (triangulate): GENERAL tile vacio mantiene doble anillo y label "—"', async () => {

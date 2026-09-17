@@ -15,7 +15,7 @@
  * own dedicated test suite (``CloseTradeModal.test.tsx``).
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
@@ -108,7 +108,7 @@ describe('RecentActivityFeed', () => {
     ]);
   });
 
-  it('renders a "Cerrar" chip for OPEN trades and opens the modal when clicked', () => {
+  it('renders a "Cerrar" chip for OPEN trades and opens the modal when clicked', async () => {
     const open = mkTrade({
       id: 'open-1',
       status: 'OPEN',
@@ -129,11 +129,17 @@ describe('RecentActivityFeed', () => {
     // OPEN trade exposes the close chip; CLOSED trade exposes its P&L.
     expect(screen.getByTestId('dash-recent-close-open-1')).toBeInTheDocument();
     expect(screen.queryByTestId('dash-recent-close-closed-1')).toBeNull();
-    // Note: the current formatMoney + manual `+` prefix produces
-    // a visible double-sign ("++US$ 0,85") — that's a pre-existing
-    // cosmetic bug not in scope for this change. The test pins the
-    // current shape so we notice if it ever drifts.
-    expect(screen.getByText('++US$ 0,85')).toBeInTheDocument();
+
+    // Note: dashboard-jarvis-fidelity-v2 fixed the pre-existing
+    // double-sign cosmetic bug (`++US$ 0,85`) — the PnlCell now
+    // formats as `+US$ 0,85` with a single sign prefix. The number
+    // animates from 0 → 0.85 via useCountUp, so we wait for the
+    // animation to settle before asserting the formatted value.
+    await waitFor(() => {
+      expect(screen.getByText('+US$ 0,85')).toBeInTheDocument();
+    });
+    // Regression guard: the doubled sign must not reappear.
+    expect(screen.queryByText('++US$ 0,85')).toBeNull();
 
     // Modal starts idle, then binds to the open trade on click.
     const modal = screen.getByTestId('mock-close-modal');
@@ -239,5 +245,35 @@ describe('RecentActivityFeed', () => {
     // confirm the helper runs in both branches without crashing.
     expect(openRow.textContent).toMatch(/\d{2}:\d{2} hrs/);
     expect(closedRow.textContent).toMatch(/\d{2}:\d{2} hrs/);
+  });
+
+  /*
+   * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-006) — Recent Ops feed
+   * mounts inside a <HudPanel> so the right-rail card carries the
+   * JARVIS chamfered hex chrome. Numeric P&L values animate via
+   * useCountUp so the feed "powers up" alongside the summary strip.
+   *
+   * The hook's behaviour is pinned by its own dedicated suite
+   * (src/lib/__tests__/useCountUp.test.ts). Here we only assert the
+   * HUD chrome + that closed P&L values are wrapped by the
+   * count-up primitive (so they reach the formatted target after
+   * the animation settles).
+   */
+  describe('JARVIS v2 chrome (REQ-DCF-JV2-006)', () => {
+    it('mounts inside a HudPanel (chamfered hex + glass + cyan border)', () => {
+      const trade = mkTrade({
+        id: 'jarvis',
+        status: 'CLOSED_WIN',
+        opened_at: '2026-09-13T10:00:00Z',
+        closed_at: '2026-09-13T10:05:00Z',
+      });
+      render(<RecentActivityFeed trades={[trade]} />, { wrapper: makeWrapper() });
+
+      const panel = screen.getByTestId('dash-recent-activity');
+      const style = panel.getAttribute('style') ?? '';
+      expect(style).toContain('rgba(10, 25, 47, 0.6)');
+      expect(style).toContain('clip-path: polygon(');
+      expect(style).toContain('rgba(0, 229, 255, 0.3)');
+    });
   });
 });

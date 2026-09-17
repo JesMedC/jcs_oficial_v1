@@ -99,4 +99,25 @@ describe('AccountSelector', () => {
     expect(screen.getByRole('option', { name: /Test Account/ })).toBeInTheDocument();
     expect(screen.getByRole('option', { name: /Second/ })).toBeInTheDocument();
   });
+
+  /*
+   * dashboard-jarvis-fidelity-v2 (REQ-DCF-JV2-008) — JARVIS outlined
+   * pill for the scope selector: the <select> now reads as a
+   * cyan-bordered outlined control (no fill) so it lines up with the
+   * new "+ NUEVO TRADE" outlined button beside it.
+   */
+  it('REQ-DCF-JV2-008: el <select> usa el outlined cyan pill (border + transparent bg)', async () => {
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    const { container } = render(<AccountSelector value={null} onChange={() => {}} />, {
+      wrapper: makeWrapper(),
+    });
+    await screen.findByRole('option', { name: /Todas las cuentas/ });
+    const select = container.querySelector('select');
+    expect(select).not.toBeNull();
+    const cls = select!.getAttribute('class') ?? '';
+    // Outlined pill = transparent bg + cyan border + cyan text on hover.
+    expect(cls).toContain('bg-transparent');
+    expect(cls).toMatch(/border-\[#00E5FF\]/);
+    expect(cls).toMatch(/text-\[#00E5FF\]/);
+  });
 });
