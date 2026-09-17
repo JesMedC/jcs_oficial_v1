@@ -70,7 +70,12 @@ export interface DotGridProps {
 const DEFAULT_SPACING = 24;
 const DEFAULT_DOT_RADIUS = 1.5;
 const DEFAULT_OPACITY = 0.04;
-const DEFAULT_COLOR = '#00FF9D';
+// dashboard-jarvis-fidelity (Slice A, T-037, REQ-DCF-001) — default
+// color is the cyan CSS var so the dot grid repaints per theme
+// (dark cyan / light deeper cyan for WCAG). The previous jade hex
+// `#00FF9D` is gone; SVG `fill` accepts the `var(...)` string
+// natively and resolves at paint time.
+const DEFAULT_COLOR = 'var(--color-jade)';
 
 export function DotGrid({
   spacing = DEFAULT_SPACING,

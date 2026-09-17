@@ -131,13 +131,40 @@ describe('NeuralNetwork', () => {
       expect(lines.length).toBeLessThanOrEqual(upperBound);
     });
 
-    it('edges are rendered as <line stroke="#00FF9D" stroke-opacity="0.03"> by default', () => {
+    it('edges are rendered as <line stroke="var(--color-jade)" stroke-opacity="0.03"> by default', () => {
       const { container } = render(<NeuralNetwork />);
       const lines = container.querySelectorAll('svg line');
 
-      // Spot-check the first line carries the jade stroke + default opacity.
-      expect(lines[0]).toHaveAttribute('stroke', '#00FF9D');
+      // dashboard-jarvis-fidelity (Slice A, T-037, REQ-DCF-001) —
+      // default color is the cyan CSS var, not the literal jade hex.
+      expect(lines[0]).toHaveAttribute('stroke', 'var(--color-jade)');
       expect(lines[0]).toHaveAttribute('stroke-opacity', '0.03');
+    });
+
+    it('default rendered SVG stroke does NOT contain the literal "#00FF9D" hex (T-037 REQ-DCF-001 regression guard)', () => {
+      const { container } = render(<NeuralNetwork />);
+      const fullMarkup = container.innerHTML;
+      expect(fullMarkup).not.toContain('#00FF9D');
+    });
+
+    it('default line stroke + default node circle fill BOTH use the same cyan var (consistency guard)', () => {
+      const { container } = render(<NeuralNetwork />);
+      const line = container.querySelector('svg line');
+      const circle = container.querySelector('svg circle');
+
+      expect(line).toHaveAttribute('stroke', 'var(--color-jade)');
+      expect(circle).toHaveAttribute('fill', 'var(--color-jade)');
+    });
+
+    it('default color value starts with "var(" so the CSS-var resolution path is documented', () => {
+      // Triangle guard: even if the literal `--color-jade` token name
+      // ever changes in `themes.css`, the contract here is "default
+      // color is a CSS var". The token name is implicit.
+      const { container } = render(<NeuralNetwork />);
+      const line = container.querySelector('svg line');
+      const stroke = line?.getAttribute('stroke') ?? '';
+      expect(stroke.startsWith('var(')).toBe(true);
+      expect(stroke.endsWith(')')).toBe(true);
     });
   });
 

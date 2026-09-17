@@ -91,7 +91,12 @@ const DEFAULT_NODE_COUNT = 30;
 const DEFAULT_EDGE_DENSITY = 0.3;
 const DEFAULT_OPACITY = 0.03;
 const DEFAULT_NODE_RADIUS = 2;
-const DEFAULT_COLOR = '#00FF9D';
+// dashboard-jarvis-fidelity (Slice A, T-037, REQ-DCF-001) — default
+// color is the cyan CSS var so the neural network repaints per
+// theme (dark cyan / light deeper cyan for WCAG). The previous
+// jade hex `#00FF9D` is gone; SVG `stroke` / `fill` accept the
+// `var(...)` string natively and resolve at paint time.
+const DEFAULT_COLOR = 'var(--color-jade)';
 const DEFAULT_SEED = 42;
 const VIEWBOX_WIDTH = 1000;
 const VIEWBOX_HEIGHT = 600;

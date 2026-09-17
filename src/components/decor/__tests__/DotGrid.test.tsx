@@ -65,11 +65,32 @@ describe('DotGrid', () => {
       expect(circle).toHaveAttribute('r', '1.5');
     });
 
-    it('default color="#00FF9D" produces a jade circle fill', () => {
+    it('default color is the cyan CSS var (var(--color-jade)), not the literal jade hex', () => {
       const { container } = render(<DotGrid />);
       const circle = container.querySelector('pattern circle');
 
-      expect(circle).toHaveAttribute('fill', '#00FF9D');
+      // dashboard-jarvis-fidelity (Slice A, T-037, REQ-DCF-001) —
+      // default color is the cyan CSS var so the dot grid repaints
+      // per theme (dark cyan / light deeper cyan for WCAG).
+      expect(circle).toHaveAttribute('fill', 'var(--color-jade)');
+    });
+
+    it('default rendered SVG fill does NOT contain the literal "#00FF9D" hex (T-037 REQ-DCF-001 regression guard)', () => {
+      const { container } = render(<DotGrid />);
+      const fullMarkup = container.innerHTML;
+      expect(fullMarkup).not.toContain('#00FF9D');
+    });
+
+    it('default circle fill starts with "var(" so the CSS-var resolution path is documented', () => {
+      // Triangle guard: the contract is "default color is a CSS var".
+      // Token name (`--color-jade`) is implicit — if themes.css ever
+      // renames the token, this test still passes as long as the
+      // default is a `var(...)` string.
+      const { container } = render(<DotGrid />);
+      const circle = container.querySelector('pattern circle');
+      const fill = circle?.getAttribute('fill') ?? '';
+      expect(fill.startsWith('var(')).toBe(true);
+      expect(fill.endsWith(')')).toBe(true);
     });
 
     it('default opacity=0.04 produces a fill-opacity of 0.04 on the circle', () => {
