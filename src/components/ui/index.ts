@@ -98,9 +98,12 @@ export type { HudButtonProps, HudButtonSize, HudButtonVariant } from './HudButto
 export { HudDivider } from './HudDivider';
 export type { HudDividerProps, HudDividerTone } from './HudDivider';
 
-/* jarvis-ui-redesign (T-11) — Reusable JARVIS online indicator. */
+/* jarvis-ui-redesign (T-15 polish) — Reusable JARVIS online indicator. */
 export { OnlineIndicator } from './OnlineIndicator';
 export type {
   OnlineIndicatorProps,
   OnlineIndicatorSize,
 } from './OnlineIndicator';
+
+/* jarvis-ui-redesign (T-15 polish) — PageHeader primitive. */
+export { PageHeader } from './PageHeader';

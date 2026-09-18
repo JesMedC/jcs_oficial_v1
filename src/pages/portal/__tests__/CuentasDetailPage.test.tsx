@@ -253,7 +253,7 @@ describe('CuentasDetailPage', () => {
 
     await waitFor(() => {
       expect(
-        screen.getByRole('heading', { level: 1, name: 'Cuenta no encontrada' }),
+        screen.getByRole('heading', { level: 1, name: 'Sin resultados' }),
       ).toBeInTheDocument();
     });
     expect(

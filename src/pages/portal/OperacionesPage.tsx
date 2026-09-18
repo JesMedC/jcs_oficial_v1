@@ -26,6 +26,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 
+import { PageHeader } from '../../components/ui/PageHeader';
+import { HudButton } from '../../components/ui/HudButton';
 import { OperationsKPIsHeader } from '../../features/trades/OperationsKPIsHeader';
 import {
   TradeFilters,
@@ -176,19 +178,18 @@ export function OperacionesPage() {
 
   return (
     <div data-testid="operaciones-page" className="flex flex-col gap-4 p-4">
-      <div className="flex items-center justify-between gap-4">
-        <h1 className="font-display uppercase tracking-wide text-2xl text-text-primary">
-          Operaciones
-        </h1>
-        <button
-          type="button"
-          data-testid="operaciones-new-trade"
-          onClick={openDrawer}
-          className="px-4 py-2 rounded bg-primary text-bg font-display uppercase tracking-wide text-sm hover:bg-primary/90"
-        >
-          + Nuevo trade
-        </button>
-      </div>
+      <PageHeader
+        subLabel="Trade Station"
+        title="Operaciones"
+        actions={
+          <HudButton
+            data-testid="operaciones-new-trade"
+            onClick={openDrawer}
+          >
+            + Nuevo trade
+          </HudButton>
+        }
+      />
 
       <OperationsKPIsHeader filters={filters} />
 

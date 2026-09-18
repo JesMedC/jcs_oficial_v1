@@ -23,6 +23,7 @@
  * alert UI for this page.
  */
 import { SeoHead } from '../../components/SeoHead';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { ScannerAlertPanel } from '../../components/scanner/ScannerAlertPanel';
 import { ScannerChart } from '../../components/scanner/ScannerChart';
 
@@ -36,24 +37,12 @@ export function ScannerPage(): JSX.Element {
         noindex
       />
       <div className="w-full px-2 md:px-4 py-3 md:py-4 flex flex-col gap-4">
-        <header className="flex items-end justify-between gap-4 flex-wrap">
-          <div>
-            <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
-              Market Analyzer Bot
-            </span>
-            <h1
-              data-testid="scanner-page-title"
-              className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
-            >
-              Analizador de mercado
-            </h1>
-            <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
-              Indicadores en vivo + alertas del bot. Tocá
-              <span className="text-primary"> Cargar en Diario</span> para
-              registrar la operación en tu journal.
-            </p>
-          </div>
-        </header>
+        <PageHeader
+          subLabel="Market Analyzer Bot"
+          title="Scanner"
+          subtitle="Indicadores en vivo + alertas del bot. Tocá 'Cargar en Diario' para registrar la operación en tu journal."
+          titleTestId="scanner-page-title"
+        />
 
         <div
           data-testid="scanner-page-grid"

@@ -28,6 +28,7 @@
  */
 import { useMemo, useState } from 'react';
 
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useAuth } from '../../features/auth/useAuth';
 import { useUpdateSessionCap } from '../../features/workspace-discipline/useUpdateSessionCap';
 import { ceilingFor } from '../../features/sessions/plan';
@@ -98,12 +99,11 @@ export function DisciplinaTab() {
       className="flex flex-col gap-4 border border-[rgba(0,255,157,0.15)] rounded-xl bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px] p-5 md:p-6"
     >
       <div>
-        <h2 className="font-display uppercase tracking-wide text-base md:text-lg text-text-primary">
-          Disciplina
-        </h2>
-        <p className="text-text-secondary font-body text-sm mt-2 max-w-2xl">
-          Ajusta el tope de operaciones por sesión dentro del máximo de tu plan.
-        </p>
+        <PageHeader
+          subLabel="Configuración · Plan"
+          title="Disciplina"
+          subtitle="Ajusta el tope de operaciones por sesión dentro del máximo de tu plan."
+        />
       </div>
 
       <div

@@ -37,6 +37,7 @@ import { ErrorBanner } from '../../components/ErrorBanner';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
 import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { useAccount } from '../../features/accounts/hooks';
 import {
   ACCOUNT_TYPE_BADGE,
@@ -137,21 +138,17 @@ export function CuentasDetailPage() {
       <>
         <SeoHead title="Cuenta no encontrada" noindex />
         <div className="w-full px-2 md:px-4 py-3 md:py-4">
-          <h1
-            className="font-display uppercase tracking-wide text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }}
-          >
-            Cuenta no encontrada
-          </h1>
-          <p className="text-text-secondary font-body text-sm md:text-base mt-3">
-            La cuenta que buscás no existe o ya fue eliminada.
-          </p>
           <Link
             to="/portal/cuentas"
-            className="inline-block mt-4 text-primary font-display uppercase tracking-wide text-sm hover:underline"
+            className="text-primary font-display uppercase tracking-wide text-xs hover:underline inline-block mb-4"
           >
             ← Volver a Cuentas
           </Link>
+          <PageHeader
+            subLabel="Cuenta no encontrada"
+            title="Sin resultados"
+            subtitle="La cuenta que buscás no existe o ya fue eliminada."
+          />
         </div>
       </>
     );
@@ -174,22 +171,11 @@ export function CuentasDetailPage() {
           ← Volver a Cuentas
         </Link>
 
-        <div className="mt-3 flex items-center gap-3 flex-wrap">
-          <h1
-            className="font-display uppercase tracking-wide text-primary text-2xl md:text-3xl"
-            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,212,216,*).
-          >
-            {account.name}
-          </h1>
-          <span
-            className={`inline-block border rounded-full px-2 py-0.5 text-xs font-display uppercase tracking-wide ${badge.className}`}
-          >
-            {badge.label}
-          </span>
-          <span className="inline-block border border-primary/30 rounded-full px-2 py-0.5 text-xs font-body text-text-secondary">
-            {account.broker_name}
-          </span>
-        </div>
+        <PageHeader
+          subLabel="Cuenta"
+          title={account.name}
+          subtitle={`${badge.label} · ${account.broker_name}`}
+        />
 
         <ErrorBanner error={displayedError} onDismiss={() => setError(null)} className="mt-6 mb-2" />
 

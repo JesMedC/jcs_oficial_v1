@@ -15,6 +15,7 @@
  */
 import { useMemo, useState } from 'react';
 
+import { PageHeader } from '../../components/ui/PageHeader';
 import { PnLCalendar } from '../../components/dashboard/PnLCalendar';
 import { AccountSelector } from '../../components/dashboard/AccountSelector';
 import { useAccounts } from '../../features/accounts/hooks';
@@ -51,43 +52,28 @@ export function DiarioPage() {
   if (workspaceId === '') {
     return (
       <div className="w-full px-2 md:px-4 py-3 md:py-4">
-        <h1
-          className="font-display uppercase tracking-wide text-2xl md:text-3xl"
-          style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }}
-        >
-          Calendario P&L
-        </h1>
-        <p className="mt-3 text-text-secondary font-body text-sm md:text-base">
-          Necesitás un workspace activo para ver el calendario.
-        </p>
+        <PageHeader
+          subLabel="Diario · Calendario"
+          title="Calendario P&L"
+          subtitle="Necesitás un workspace activo para ver el calendario."
+        />
       </div>
     );
   }
 
   return (
     <div className="w-full px-2 md:px-4 py-3 md:py-4">
-      <div className="flex items-end justify-between gap-4 flex-wrap">
-        <div>
-          <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
-            Diario · Calendario
-          </span>
-          <h1
-            className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
-            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }}
-          >
-            Calendario P&L
-          </h1>
-          <p className="mt-1 text-text-muted font-body text-sm">
-            Mes a mes: cantidad de operaciones, P&L diario y cumplimiento.
-          </p>
-        </div>
-        <div className="flex items-center gap-3 flex-wrap">
+      <PageHeader
+        subLabel="Diario · Calendario"
+        title="Calendario P&L"
+        subtitle="Mes a mes: cantidad de operaciones, P&L diario y cumplimiento."
+        actions={
           <AccountSelector
             value={selectedAccountId}
             onChange={setSelectedAccountId}
           />
-        </div>
-      </div>
+        }
+      />
 
       <div className="mt-5">
         <PnLCalendar

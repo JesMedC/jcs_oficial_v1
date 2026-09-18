@@ -34,6 +34,8 @@ import { seedSeries } from '../../components/trading/series';
 import { StatCard } from '../../components/trading/StatCard';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { HudButton } from '../../components/ui/HudButton';
 import { useAccounts } from '../../features/accounts/hooks';
 import { useTradesAll } from '../../features/trades/useTradesAll';
 import {
@@ -159,23 +161,12 @@ export function CuentasPage() {
     <>
       <SeoHead title="Mis cuentas" noindex />
       <div className="w-full px-2 md:px-4">
-        <div className="py-4">
-          <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
-            Resumen · Trading
-          </span>
-          <h1
-            className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1"
-            style={{ textShadow: '0 0 20px rgba(0,212,216,0.4)' }}
-          >
-            Mis cuentas
-          </h1>
-          <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
-            Tus cuentas de trading. El balance arranca en USD 0 — lo sincronizamos cuando se conecte
-            el modulo de balances.
-          </p>
-
-          <ErrorBanner error={displayedError} onDismiss={() => setError(null)} className="mt-4 mb-2" />
-        </div>
+        <PageHeader
+          subLabel="Resumen · Trading"
+          title="Mis cuentas"
+          subtitle="Tus cuentas de trading. El balance arranca en USD 0 — lo sincronizamos cuando se conecte el modulo de balances."
+        />
+        <ErrorBanner error={displayedError} onDismiss={() => setError(null)} className="mb-2" />
 
         {/* Stat strip — resumen de trading. Real data from
             ``useTradesAll``, filtered to the active accounts so trades

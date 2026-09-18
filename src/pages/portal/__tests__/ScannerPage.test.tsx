@@ -84,10 +84,8 @@ describe('ScannerPage', () => {
     expect(select.value).toBe('EUR/USD');
   });
 
-  it('renders the page title "Analizador de mercado"', () => {
+  it('renders the page title "Scanner"', () => {
     render(<ScannerPage />, { wrapper: makeWrapper() });
-    expect(screen.getByTestId('scanner-page-title').textContent).toBe(
-      'Analizador de mercado',
-    );
+    expect(screen.getByTestId('scanner-page-title').textContent).toBe('Scanner');
   });
 });

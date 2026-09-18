@@ -18,6 +18,7 @@
  */
 import { SeoHead } from '../../components/SeoHead';
 import { Tabs } from '../../components/ui/Tabs';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { SubscriptionCard } from '../../features/subscription/SubscriptionCard';
 import { cancelSubscription } from '../../features/subscription/api';
 import { useAuth } from '../../features/auth/useAuth';
@@ -242,17 +243,11 @@ export function ConfiguracionPage() {
         noindex
       />
       <div className="w-full px-2 md:px-4">
-        <div className="py-4">
-          <span className="font-display uppercase tracking-widest text-[10px] md:text-xs text-text-muted">
-            Cuenta
-          </span>
-          <h1 className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1">
-            Configuracion
-          </h1>
-          <p className="text-text-secondary font-body text-sm md:text-base mt-2 max-w-2xl">
-            Gestioná tu plan, activos y preferencias.
-          </p>
-        </div>
+        <PageHeader
+          subLabel="Cuenta"
+          title="Configuracion"
+          subtitle="Gestioná tu plan, activos y preferencias."
+        />
 
         <div className="py-4">
           <Tabs
