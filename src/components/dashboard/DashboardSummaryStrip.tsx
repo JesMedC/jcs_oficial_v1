@@ -142,7 +142,7 @@ export function DashboardSummaryStrip({
         value={
           stats.netPnl === 0
             ? '—'
-            : `${stats.netPnl >= 0 ? '+' : ''}${formatMoney(Math.abs(stats.netPnl))}`
+            : formatMoney(stats.netPnl)
         }
         tone={
           stats.netPnl > 0

@@ -79,9 +79,17 @@ export function DashboardPage() {
 
   // Defense-in-depth: only keep trades whose account is in the
   // user's active accounts list. Same pattern as the calendar.
+  // Fallback to the unfiltered list while accountsQuery is loading
+  // so the dashboard doesn't render an empty feed during the
+  // accounts bootstrap (REQQ-DASH-INIT-2 — observed locally when
+  // TanStack Query revalidates accounts and the Set is momentarily
+  // empty).
   const tradesScoped = useMemo(() => {
+    if (!accountsQuery.data) {
+      return tradesAll.trades ?? [];
+    }
     const ids = new Set<string>();
-    for (const a of accountsQuery.data?.items ?? []) ids.add(a.id);
+    for (const a of accountsQuery.data.items) ids.add(a.id);
     return (tradesAll.trades ?? []).filter((t) => ids.has(t.account_id));
   }, [tradesAll.trades, accountsQuery.data]);
 

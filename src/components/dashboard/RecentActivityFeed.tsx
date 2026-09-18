@@ -30,6 +30,7 @@ import { useState } from 'react';
 import { CloseTradeModal } from '../../features/trades/CloseTradeModal';
 import { formatMoney, pnlColor } from '../../features/trades/format';
 import type { TradeOut } from '../../features/trades/types';
+import { CurrencyIcon } from '../ui/CurrencyIcon';
 
 interface Props {
   readonly trades: ReadonlyArray<TradeOut>;
@@ -37,7 +38,11 @@ interface Props {
   readonly limit?: number;
 }
 
-function pairFlag(instrument: string): string {
+// (jarvis-ui-redesign T-15 — pairFlag emoji replaced by the
+// <CurrencyIcon> primitive that renders two overlapping coin
+// circles in the JARVIS HUD palette.)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacyPairFlag(instrument: string): string {
   // Light heuristic — uppercase substring before any slash. If the
   // instrument starts with a 6-letter FX pair the first 2 chars map
   // to a country flag emoji via regional indicator pairs.
@@ -118,7 +123,9 @@ export function RecentActivityFeed({ trades, limit = 5 }: Props) {
                 data-testid={`dash-recent-activity-row-${t.id}`}
                 className="flex items-center gap-3 py-2 border-b border-primary/10 last:border-b-0"
               >
-                <div className="text-xl leading-none">{pairFlag(t.instrument)}</div>
+                <div className="shrink-0">
+                  <CurrencyIcon instrument={t.instrument} size={28} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="font-display text-sm text-text-primary truncate">
                     {t.instrument}

@@ -79,11 +79,14 @@ function genRecentTrades() {
       pair: pairs[i % pairs.length],
       side: sides[i % 2],
       lots: 0.5,
-      pnl: Number(pnl.toFixed(2)),
-      open_at: d.toISOString(),
-      close_at: d.toISOString(),
+      pnl_usd: Number(pnl.toFixed(2)),
+      instrument: pairs[i % pairs.length],
+      type: 'FOREX',
+      opened_at: d.toISOString(),
+      closed_at: d.toISOString(),
       duration_minutes: 30 + i * 5,
       status: 'CLOSED',
+      investment_usd: '500.00',
     });
   }
   // Winrate by session data lives at its own endpoint; don't pollute trades here.
@@ -113,7 +116,7 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', `http://${req.headers.host}`);
   const path = url.pathname;
 
-  console.log(`[mock] ${req.method} ${path}`);
+  console.log(`[mock] ${req.method} ${path} from=${req.headers['x-forwarded-for'] ?? req.socket.remoteAddress}`);
 
   if (req.method === 'OPTIONS') {
     cors(res, req);
@@ -197,10 +200,32 @@ const server = http.createServer(async (req, res) => {
   }
   if (path.startsWith('/api/v1/calendar/pnl')) {
     const month = url.searchParams.get('month') ?? '2026-09';
+    // 30 days of calendar data so the equity curve walks.
+    const monthNum = Number(month.split('-')[1] ?? '9');
+    const yearNum = Number(month.split('-')[0] ?? '2026');
+    const days = [];
+    const today = new Date(yearNum, monthNum, 0).getDate();
+    let cum = 0;
+    let balance = 4200.5;
+    for (let d = 1; d <= today; d += 1) {
+      const date = `${month}-${String(d).padStart(2, '0')}`;
+      const daily = (Math.sin(d * 0.5) + Math.cos(d * 0.3)) * 12 + 5;
+      cum += daily;
+      balance += daily;
+      days.push({
+        date,
+        ops_count: Math.max(0, Math.round(4 + Math.sin(d) * 2)),
+        day_start_balance: String((balance - daily).toFixed(2)),
+        pnl_pct: balance > 0 ? Number((daily / balance * 100).toFixed(2)) : 0,
+      });
+    }
     return jsonResponse(res, req, {
       workspace_id: 'ws-1',
       month,
-      days: [],
+      month_start_balance: '4200.50',
+      month_end_balance: balance.toFixed(2),
+      cumple: cum > 0,
+      days,
     });
   }
 
