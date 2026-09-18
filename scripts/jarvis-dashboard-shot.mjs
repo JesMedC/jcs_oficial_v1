@@ -129,7 +129,7 @@ try {
     const el = document.querySelector('[data-testid="session-tile-ASIA"] .text-xl');
     const elText = el?.textContent ?? 'no el';
     // Hit the API via the current origin (vite proxy or direct).
-    const r = await fetch('http://localhost:8001/api/v1/trades/session-stats?workspace_id=ws-1&date_from=2026-08-18&date_to=2026-09-17&_=' + Date.now(), {
+    const r = await fetch('/api/v1/trades/session-stats?workspace_id=ws-1&date_from=2026-08-18&date_to=2026-09-17', {
       cache: 'no-store',
       headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' },
     });
@@ -137,6 +137,9 @@ try {
     console.log('STATUS:', r.status);
     const apiData = await r.json();
     const url = r.url;
+    // Capture the actual rendered tiles' content.
+    const asiaText = document.querySelector('[data-testid="session-tile-ASIA"]')?.textContent;
+    const generalText = document.querySelector('[data-testid="session-tile-general"]')?.textContent;
     return {
       tileText: elText,
       apiAsia: apiData.sessions?.ASIA,
@@ -146,23 +149,9 @@ try {
       hasWinrateCard: !!document.querySelector('[data-testid="winrate-by-session-card"]'),
       hasDashWinrateSection: !!document.querySelector('[data-testid="dash-winrate-section"]'),
       h1: document.querySelector('h1')?.textContent,
+      asiaText,
+      generalText,
       bodyText: document.body.textContent?.slice(0, 300),
-      // Raw fetch to see what /api/v1/accounts returns.
-      rawAccounts: await (await fetch('/api/v1/accounts?limit=100')).text(),
-      swRegistrations: await navigator.serviceWorker?.getRegistrations().then(r => r.map(x => x.scope)).catch(() => 'none'),
-      // Direct fetch via the page's axios instance — uses baseURL=http://localhost:8001/api/v1.
-      axResponse: await (async () => {
-        try {
-          const token = sessionStorage.getItem('jcs.auth.access_token');
-          const r = await fetch('http://localhost:8001/api/v1/trades/session-stats?workspace_id=ws-1', {
-            cache: 'no-store',
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          return await r.json();
-        } catch (e) {
-          return String(e);
-        }
-      })(),
     };
   });
   console.log(`winrateNowHasData: ${JSON.stringify(winrateNowHasData)}`);

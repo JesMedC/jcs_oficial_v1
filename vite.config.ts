@@ -38,23 +38,30 @@ export default defineConfig({
       'www.jadecapitalsuite.com',
       '.jadecapitalsuite.com', // wildcard por si se suman subdominios
     ],
-    // Dev proxy: forward `/api/v1` to the FastAPI backend on :8000.
+    // Dev proxy: forward `/api/v1` to the FastAPI backend.
     // Mirrors the nginx prod reverse-proxy at `infra/nginx/nginx.conf`
     // so the SPA uses the same relative `/api/v1` base URL in both
     // environments. Without this, the dev bundle (which points at
     // `/api/v1` after the p0infra.4 fix) would 404 against Vite
     // itself.
+    //
+    // Override with `JARVIS_DEV_PROXY=http://localhost:8001` to point
+    // the proxy at the local mock server (jarvis-mock-server.mjs)
+    // when the nginx/dev backend is unreachable. Used by
+    // `scripts/jarvis-launch.sh` for the screenshot pipeline.
     proxy: {
       '/api/v1': {
-        // In this Docker setup the FastAPI backend is ONLY reachable via
-        // nginx (container `jcs_oficial-backend-1`, port :8000 not published
-        // to the host). Proxying to host:8000 returns ECONNREFUSED.
-        // Routing through nginx (https://localhost:443) mirrors production
-        // exactly — browser → nginx → backend — so dev is 1:1 with prod.
-        // `secure: false` because nginx terminates TLS with a self-signed
-        // cert in dev. No path rewrite: the relative `/api/v1/...` URLs
-        // baked into the SPA pass through unchanged.
-        target: 'https://localhost',
+        target:
+          process.env.JARVIS_DEV_PROXY ??
+          // In this Docker setup the FastAPI backend is ONLY reachable via
+          // nginx (container `jcs_oficial-backend-1`, port :8000 not
+          // published to the host). Proxying to host:8000 returns
+          // ECONNREFUSED. Routing through nginx (https://localhost) mirrors
+          // production exactly — browser → nginx → backend — so dev is
+          // 1:1 with prod. `secure: false` because nginx terminates TLS
+          // with a self-signed cert in dev. No path rewrite: the relative
+          // `/api/v1/...` URLs baked into the SPA pass through unchanged.
+          'https://localhost',
         changeOrigin: true,
         secure: false,
       },

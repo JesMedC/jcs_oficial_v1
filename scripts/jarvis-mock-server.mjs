@@ -102,7 +102,10 @@ function cors(res, req) {
 function jsonResponse(res, req, body, status = 200) {
   const payload = JSON.stringify(body);
   cors(res, req);
-  res.writeHead(status, { 'Content-Type': 'application/json' });
+  res.writeHead(status, {
+    'Content-Type': 'application/json',
+    'Cache-Control': 'no-store, no-cache, must-revalidate',
+  });
   res.end(payload);
 }
 

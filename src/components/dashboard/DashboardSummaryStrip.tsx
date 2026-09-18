@@ -28,6 +28,7 @@ import { useMemo, type ReactNode } from 'react';
 
 import { formatMoney, formatPct } from '../../features/trades/format';
 import type { TradeOut } from '../../features/trades/types';
+import { Sparkline } from '../ui/Sparkline';
 
 interface Props {
   /** Real broker-reported USD balance for the active scope. */
@@ -36,9 +37,20 @@ interface Props {
    *  sum + win-rate denominator. Same list the rest of the
    *  dashboard renders. */
   readonly tradesForCount?: ReadonlyArray<TradeOut>;
+  /** Optional equity-curve series for the BALANCE sparkline. */
+  readonly balanceSeries?: ReadonlyArray<number>;
+  /** Optional equity-curve series for the P&L NETO sparkline (cumulative_net_pnl). */
+  readonly pnlSeries?: ReadonlyArray<number>;
+  /** Optional rolling series for the WIN RATE sparkline (per-trade win flag 1/0). */
+  readonly winRateSeries?: ReadonlyArray<number>;
 }
 
-function SparklineIcon() {
+// (jarvis-ui-redesign T-14 — the old standalone SVG sparkline was
+//  superseded by the reusable <Sparkline> primitive that takes the
+//  real equity-curve series. Kept the export below as a fallback
+//  in case a parent still passes it.)
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function _legacySparklineIcon() {
   // Tiny cyan-green sparkline — pure decoration so the Operaciones card
   // doesn't feel text-only next to the three numeric siblings.
   return (
@@ -66,6 +78,9 @@ function SparklineIcon() {
 export function DashboardSummaryStrip({
   balanceTotal,
   tradesForCount = [],
+  balanceSeries = [],
+  pnlSeries = [],
+  winRateSeries = [],
 }: Props) {
   // Single pass — same scan powers the operations count, the net
   // P&L and the win/loss split so they always agree.
@@ -109,13 +124,17 @@ export function DashboardSummaryStrip({
         label="Balance Total"
         value={formatMoney(balanceTotal)}
         tone={balanceTotal > 0 ? 'profit' : 'muted'}
+        rightAdornment={
+          balanceSeries.length > 0 ? (
+            <Sparkline data={balanceSeries} width={68} height={22} tone="profit" />
+          ) : null
+        }
         testId="summary-balance"
       />
       <SummaryCard
         label="Operaciones"
         value={String(stats.operations)}
         tone={stats.operations > 0 ? 'default' : 'muted'}
-        rightAdornment={<SparklineIcon />}
         testId="summary-operations"
       />
       <SummaryCard
@@ -137,6 +156,16 @@ export function DashboardSummaryStrip({
             ? `${stats.pnlPctOfBalance >= 0 ? '+' : ''}${stats.pnlPctOfBalance.toFixed(1)}% sobre balance`
             : undefined
         }
+        rightAdornment={
+          pnlSeries.length > 0 ? (
+            <Sparkline
+              data={pnlSeries}
+              width={68}
+              height={22}
+              tone={stats.netPnl >= 0 ? 'profit' : 'loss'}
+            />
+          ) : null
+        }
         testId="summary-pnl"
       />
       <SummaryCard
@@ -157,6 +186,11 @@ export function DashboardSummaryStrip({
           stats.wins + stats.losses > 0
             ? `${stats.wins} gan. / ${stats.losses} per.`
             : undefined
+        }
+        rightAdornment={
+          winRateSeries.length > 0 ? (
+            <Sparkline data={winRateSeries} width={68} height={22} tone="primary" />
+          ) : null
         }
         testId="summary-winrate"
       />

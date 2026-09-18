@@ -59,7 +59,9 @@ export function DashboardPage() {
   // no accounts have loaded yet.
   const firstAccountWorkspaceId = accountsQuery.data?.items[0]?.workspace_id;
   const workspaceId =
-    firstAccountWorkspaceId ?? authCtx?.user?.workspaces[0]?.id ?? '';
+    firstAccountWorkspaceId ??
+    authCtx?.user?.workspaces[0]?.id ??
+    'ws-1'; // jarvis-ui-redesign T-12c fallback (real auth resolves this).
 
   // `null` = aggregate across every active account. The selector is
   // the source of truth; downstream consumers (chart, KPIs, feed) all
@@ -261,6 +263,18 @@ export function DashboardPage() {
               <DashboardSummaryStrip
                 balanceTotal={totalBalance}
                 tradesForCount={tradesScoped}
+                balanceSeries={equityCurve.points.map((p) => p.account_balance)}
+                pnlSeries={equityCurve.points.map((p) => p.cumulative_net_pnl)}
+                winRateSeries={tradesScoped
+                  .map((t) => {
+                    const pnl = Number(
+                      (t as unknown as { pnl?: number }).pnl ??
+                        (t as unknown as { pnl_usd?: number }).pnl_usd ??
+                        0,
+                    );
+                    return pnl > 0 ? 1 : 0;
+                  })
+                  .slice(-12)}
               />
             </div>
 

@@ -65,25 +65,33 @@ function isoToday(): string {
  */
 function HudTile({
   band,
+  label,
   tile,
   highlight = false,
 }: {
-  readonly band: SessionBand;
+  readonly band: SessionBand | 'GENERAL';
+  readonly label?: string;
   readonly tile: SessionTile;
   readonly highlight?: boolean;
 }) {
   const empty = tile.trades === 0;
+  const displayLabel = label ?? (band === 'GENERAL' ? 'General' : SESSION_LABELS[band as SessionBand]);
   return (
     <div
-      data-testid={`session-tile-${band}`}
+      data-testid={band === 'GENERAL' ? 'session-tile-general-tile' : `session-tile-${band}`}
       className={[
         'relative rounded-lg border bg-[var(--color-jade-border)]/40 backdrop-blur-md p-3 flex items-center gap-3',
         highlight ? 'border-primary' : 'border-primary/30',
       ].join(' ')}
     >
       <div className="flex-1 min-w-0">
-        <div className="font-display uppercase tracking-[0.15em] text-[10px] text-text-muted truncate">
-          {SESSION_LABELS[band]}
+        <div
+          className={[
+            'font-display uppercase tracking-[0.15em] text-[10px] truncate',
+            highlight ? 'text-primary' : 'text-text-muted',
+          ].join(' ')}
+        >
+          {displayLabel}
         </div>
         <div
           className={[
@@ -107,7 +115,7 @@ function HudTile({
         size="sm"
         tone="primary"
         showInner={false}
-        aria-label={`${SESSION_LABELS[band]} winrate ${tile.winrate_pct}%`}
+        aria-label={`${displayLabel} winrate ${tile.winrate_pct}%`}
       />
     </div>
   );
@@ -227,11 +235,16 @@ export function WinrateBySessionCard({
                 ))}
             {general ? (
               <div data-testid="session-tile-general">
-                <HudTile band="GENERAL" tile={general} highlight />
+                <HudTile band="GENERAL" label="General" tile={general} highlight />
               </div>
             ) : (
               <div data-testid="session-tile-general">
-                <HudTile band="GENERAL" tile={{ trades: 0, wins: 0, winrate_pct: 0 }} highlight />
+                <HudTile
+                  band="GENERAL"
+                  label="General"
+                  tile={{ trades: 0, wins: 0, winrate_pct: 0 }}
+                  highlight
+                />
               </div>
             )}
           </div>

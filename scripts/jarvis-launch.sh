@@ -13,8 +13,11 @@ nohup node scripts/jarvis-mock-server.mjs > /tmp/mock-server.log 2>&1 &
 MOCK_PID=$!
 echo "mock PID: $MOCK_PID"
 
-# Vite dev with env.
-nohup env VITE_API_BASE_URL=http://localhost:8001/api/v1 pnpm dev --host 0.0.0.0 --port 5174 > /tmp/vite-jarvis.log 2>&1 &
+# Vite dev with env. Both the axios baseURL (VITE_API_BASE_URL) AND
+# the browser-fetch proxy (JARVIS_DEV_PROXY) point at the local mock
+# so the SPA can talk to /api/v1/* whether it's an axios call OR a
+# fetch('/api/v1/...') relative-URL call.
+nohup env VITE_API_BASE_URL=http://localhost:8001/api/v1 JARVIS_DEV_PROXY=http://localhost:8001 pnpm dev --host 0.0.0.0 --port 5174 > /tmp/vite-jarvis.log 2>&1 &
 VITE_PID=$!
 echo "vite PID: $VITE_PID"
 
