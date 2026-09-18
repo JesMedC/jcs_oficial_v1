@@ -56,8 +56,8 @@ export function StatCard({
     <div
       className={[
         'relative bg-[rgba(13,21,30,0.7)] backdrop-blur-[12px]',
-        'border border-[rgba(0,255,157,0.15)] rounded-lg px-4 py-3',
-        'flex flex-col gap-1.5 min-w-0 opacity-70',
+        'border border-primary/40 rounded-lg px-4 py-3',
+        'flex flex-col gap-1.5 min-w-0',
       ].join(' ')}
     >
       <div className="flex items-center justify-between gap-2">

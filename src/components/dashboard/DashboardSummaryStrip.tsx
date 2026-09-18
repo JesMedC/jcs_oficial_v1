@@ -226,7 +226,7 @@ function SummaryCard({
   return (
     <div
       data-testid={testId}
-      className="rounded-xl border border-primary/20 bg-[rgba(13,21,30,0.7)] backdrop-blur-md px-3 py-3 flex flex-col gap-1 min-w-0"
+      className="rounded-xl border border-primary/40 bg-[rgba(13,21,30,0.7)] backdrop-blur-md px-3 py-3 flex flex-col gap-1 min-w-0"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="font-display uppercase tracking-widest text-[10px] text-text-muted truncate">

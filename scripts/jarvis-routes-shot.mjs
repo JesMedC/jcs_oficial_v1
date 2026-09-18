@@ -100,7 +100,7 @@ const page = await context.newPage();
 
 for (const [name, route] of ROUTES) {
   try {
-    await page.goto(`${BASE_URL}${route}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
+    await page.goto(`${BASE_URL}${route}?_=${Date.now()}`, { waitUntil: 'domcontentloaded', timeout: 30_000 });
     await page.waitForTimeout(2000);
 
     // Dismiss cookie banner if present.
