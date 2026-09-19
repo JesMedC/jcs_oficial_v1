@@ -1,0 +1,107 @@
+# GitHub Actions CI for jcs_oficial_v1.
+#
+# Runs on every push to any branch and on every pull_request targeting
+# main. Three jobs mirror the local gates the team runs:
+#
+#   1. typecheck — tsc -b on the portal/frontend
+#   2. lint      — eslint with --max-warnings 0 on the touched files
+#                  (the full lint suite is large; the PR-time gate runs
+#                  over the changed set via `git diff --name-only`)
+#   3. test      — vitest run on the portal/frontend test suites
+#
+# Backend tests are intentionally NOT included here. The backend repo
+# (`backend/`) has its own CI / pytest harness in a separate workflow
+# because the backend needs Postgres fixtures that this workflow cannot
+# spin up. Backend test status is reported out-of-band by the api/v1
+# jobs. Wire the backend job here once the backend has a service-
+# container Postgres step.
+#
+# Permissions are read-only by default; no `contents: write` is
+# requested so a malicious workflow file cannot push to protected
+# branches.
+
+name: ci
+
+on:
+  push:
+    branches:
+      - "**"
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  frontend:
+    name: frontend (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.12.0
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: pnpm
+          cache-dependency-path: "**/pnpm-lock.yaml"
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (changed files)
+        run: |
+          set -e
+          # On push the working tree IS the diff; on PR we diff against
+          # the merge base so the touched-file set is correct.
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          # Skip the lint gate on the very first commit (no base to
+          # diff against). The PR-time gate uses the merge base.
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ]; then
+            echo "No base SHA — running full lint."
+            pnpm exec eslint . --max-warnings 0
+          else
+            FILES=$(git diff --name-only --diff-filter=ACMRT "$BASE"...HEAD || true)
+            # Only lint files that still exist and are tracked by the
+            # frontend (skip backend paths and generated assets).
+            TS_FILES=$(echo "$FILES" | grep -E '\.(ts|tsx)$' || true)
+            if [ -z "$TS_FILES" ]; then
+              echo "No frontend TS files changed in this range; skipping touched-file lint."
+            else
+              echo "Linting touched files:"
+              echo "$TS_FILES"
+              pnpm exec eslint $TS_FILES --max-warnings 0
+            fi
+          fi
+
+      - name: Test
+        # `--passWithNoTests` is set in package.json's `pnpm test`
+        # script; we keep that flag at the wrapper level so a no-test
+        # change still passes the gate.
+        run: pnpm test
+
+      - name: Upload coverage
+        if: matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request'
+        with:
+          name: coverage
+          path: coverage
+        uses: actions/upload-artifact@v4
