@@ -147,13 +147,42 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
         ? 'bg-loss/10 hover:bg-loss/15'
         : 'hover:bg-primary/5';
 
+  /**
+   * Row-level TEXT tint ladder (work unit C). The previous commit
+   * (B) painted only the <tr> background — the screenshot showed
+   * PERDIDA rows still rendering with mostly white/cyan text
+   * because every <td> carries its own ``text-text-primary`` /
+   * ``text-text-secondary`` / ``text-primary`` which overrode the
+   * row background tint. The user wants the WHOLE row tinted, not
+   * just the background — every text cell must carry
+   * ``text-loss`` (CLOSED_LOSS) or ``text-profit`` (CLOSED_WIN),
+   * while TradeStatusBadge / TradeTypeBadge / SessionPill /
+   * close-button cells keep their own palette.
+   *
+   * Same precedence rules as ``tintClass``:
+   *   - CLOSED_WIN   → text-profit
+   *   - CLOSED_LOSS  → text-loss
+   *   - OPEN / BREAK / FUND / WITHDRAW → empty (neutral)
+   *
+   * Empty string (rather than undefined) keeps the template
+   * literal interpolation branch-free and matches the existing
+   * ``tintClass`` shape.
+   */
+  const textTintClass = isFundLike
+    ? ''
+    : trade.status === 'CLOSED_WIN'
+      ? 'text-profit'
+      : trade.status === 'CLOSED_LOSS'
+        ? 'text-loss'
+        : '';
+
   return (
     <>
       <tr
         data-testid={`trade-row-${trade.id}`}
         className={`border-b border-borderJade transition-colors ${tintClass}`}
       >
-        <td className="px-3 py-2 text-text-secondary whitespace-nowrap">{date}</td>
+        <td className={`px-3 py-2 ${textTintClass} text-text-secondary whitespace-nowrap`}>{date}</td>
         <td className="px-3 py-2">
           <TradeStatusBadge status={trade.status} />
         </td>
@@ -167,7 +196,7 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
           {session === null ? (
             <span
               data-testid={`trade-session-none-${trade.id}`}
-              className="text-text-muted font-mono"
+              className={`${textTintClass} text-text-muted font-mono`}
               aria-label="Sin sesión"
             >
               —
@@ -176,19 +205,19 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
             <SessionPill session={session} />
           )}
         </td>
-        <td className="px-3 py-2 text-text-primary font-display">
+        <td className={`px-3 py-2 ${textTintClass} text-text-primary font-display`}>
           {isForex ? trade.pair ?? trade.instrument : trade.instrument}
         </td>
-        <td className="px-3 py-2 text-text-secondary">{trade.direction ?? '—'}</td>
-        <td className="px-3 py-2 text-right">
+        <td className={`px-3 py-2 ${textTintClass} text-text-secondary`}>{trade.direction ?? '—'}</td>
+        <td className={`px-3 py-2 text-right ${textTintClass}`}>
           {isFundLike ? '—' : formatNumber(trade.entry_price)}
         </td>
-        <td className="px-3 py-2 text-right">
+        <td className={`px-3 py-2 text-right ${textTintClass}`}>
           {isFundLike ? '—' : isOpen ? '—' : formatNumber(trade.exit_price)}
         </td>
         <td
           className={`px-3 py-2 text-right font-semibold ${
-            isFundLike ? pnlColor(capitalAmount) : ''
+            isFundLike ? pnlColor(capitalAmount) : textTintClass
           }`}
         >
           {isFundLike
@@ -197,22 +226,22 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
               ? formatNumber(trade.lot_size)
               : formatMoney(trade.investment_usd)}
         </td>
-        <td className={`px-3 py-2 text-right font-semibold ${pnlColor(trade.pnl_usd)}`}>
+        <td className={`px-3 py-2 text-right font-semibold ${pnlColor(trade.pnl_usd) || textTintClass || ''}`}>
           {isFundLike ? '—' : isOpen ? '—' : formatMoney(trade.pnl_usd)}
         </td>
         <td
-          className="px-3 py-2 text-text-secondary font-body text-sm whitespace-nowrap"
+          className={`px-3 py-2 ${textTintClass} text-text-secondary font-body text-sm whitespace-nowrap`}
           data-testid={`trade-account-${trade.id}`}
         >
           {accountsById.get(trade.account_id)?.name ?? '—'}
         </td>
-        <td className="px-3 py-2 text-right font-mono text-text-secondary">
+        <td className={`px-3 py-2 text-right font-mono ${textTintClass} text-text-secondary`}>
           {balance ? formatUsd(balance.prev) : '—'}
         </td>
-        <td className="px-3 py-2 text-right font-mono text-text-primary">
+        <td className={`px-3 py-2 text-right font-mono ${textTintClass} text-text-primary`}>
           {balance ? formatUsd(balance.post) : '—'}
         </td>
-        <td className="px-3 py-2 text-right">{formatNumber(trade.r_multiple)}</td>
+        <td className={`px-3 py-2 text-right ${textTintClass}`}>{formatNumber(trade.r_multiple)}</td>
         <td className="px-3 py-2 text-right">
           {isOpen ? (
             <button
