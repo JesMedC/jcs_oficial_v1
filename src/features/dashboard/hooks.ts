@@ -11,9 +11,13 @@
  * is with the analytics views, not the trade CRUD surface.
  *
  * Defaults (staleTime: 30s, retry: 1, refetchOnWindowFocus: false)
- * are inherited from the global QueryClient — no per-hook overrides
- * needed. Co-located query-key objects keep invalidations greppable
- * from one place when a future mutation needs to refresh them.
+ * are inherited from the global QueryClient. ``useSessionStats``
+ * is the documented exception: it overrides ``staleTime`` and
+ * ``refetchOnMount`` to force a network refetch on every mount so
+ * a cached payload from a previous backend version cannot survive
+ * across deploys (see the doc-block above the hook for the why).
+ * Co-located query-key objects keep invalidations greppable from
+ * one place when a future mutation needs to refresh them.
  */
 import { useQuery } from '@tanstack/react-query';
 
@@ -181,12 +185,27 @@ async function fetchPnlCalendar(filters: PnLCalendarFilters): Promise<PnlCalenda
  * Disabled when ``workspaceId`` is empty — callers usually derive
  * ``workspaceId`` from auth context and want to defer the fetch
  * until that's resolved.
+ *
+ * The two cache options below are deliberately aggressive: this query
+ * is the dashboard headline and the cost of one extra HTTP round-trip
+ * on mount is negligible compared to the cost of surfacing a stale
+ * payload from a previous backend version (the partition-mismatch note
+ * the user was seeing — bands=0, general=3). ``staleTime: 0`` makes
+ * the entry immediately stale on every cache write; ``refetchOnMount:
+ * 'always'`` forces the network fetch even when the cached entry is
+ * still inside the global 30s fresh window. Combined, they guarantee
+ * the cache cannot survive across a backend deploy without a fresh
+ * response. No other hook option is touched — the query key, queryFn
+ * and ``enabled`` predicate are unchanged so existing invalidations
+ * keep working.
  */
 export function useSessionStats(filters: SessionStatsFilters) {
   return useQuery<SessionStats>({
     queryKey: dashboardKeys.sessionStats(filters),
     queryFn: () => fetchSessionStats(filters),
     enabled: filters.workspaceId.length > 0,
+    staleTime: 0,
+    refetchOnMount: 'always',
   });
 }
 
