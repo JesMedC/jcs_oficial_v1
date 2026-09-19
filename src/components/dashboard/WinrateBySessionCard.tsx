@@ -331,21 +331,24 @@ export function WinrateBySessionCard({
   const general = data?.general;
 
   // Partition invariant (DVC-03) — Σ(band.trades) === general.trades
-  // for the same filter. On mismatch, surface a "Datos en revisión"
-  // badge rather than silently rendering the inconsistent split.
-  // The mapper's diagnosis is that the screenshot's 24 vs 64 split
-  // is an incoherent current-response shape; we MUST not invent data
-  // and we MUST not paper over it with a freshly derived ratio.
+  // for the same filter. The backend contract guarantees this for
+  // the active filter (every non-BREAK row goes to exactly one band
+  // AND to general, so `sum(band.trades) === general.trades` is
+  // invariant under the same filter). On any divergence we surface a
+  // "Datos en revisión" note rather than silently rendering a stale
+  // or wrong split — the mapper confirmed this is the only layer that
+  // can produce a misleading state, and the user's screenshot
+  // (GENERAL=3, every band=0) is impossible under the contract.
   //
-  // Empty-period exception: when every visible band reports zero
-  // trades (`sum === 0`) we deliberately suppress the mismatch note.
-  // A sum of zero with a non-zero general is the legitimate "no ops
-  // in any session slot" case (e.g. an account that only trades in a
-  // retired bucket, or a period the backend summarises but no band
-  // bucket maps). Rendering the badge there would lie about a real
-  // data discrepancy that the user cannot act on — the period is
-  // genuinely empty, not mis-partitioned. Each empty tile still
-  // renders "100% · Sin ops" (see the HudTile `empty` branch).
+  // The only state where the note does NOT fire is
+  // `generalTrades === 0` (truly empty period for the active filter).
+  // When the active filter has no operations at all, every empty band
+  // legitimately renders "100% · Sin ops" (see the HudTile `empty`
+  // branch) — there is nothing to partition and no inconsistency to
+  // surface. Any case where `generalTrades > 0` but the band sum
+  // diverges MUST fire the note: the backend invariant guarantees
+  // `sum === general.trades` under the same filter, so any other
+  // shape is a contract violation the user must be told about.
   const partition = useMemo(() => {
     if (!data || !sessions || !general) {
       return { ok: true as const, sum: 0, generalTrades: 0 };
@@ -355,13 +358,11 @@ export function WinrateBySessionCard({
       0,
     );
     const generalTrades = general.trades;
-    const isEmptyPeriod = sum === 0;
-    const isInconsistent = sum > 0 && sum !== generalTrades;
+    const isInconsistent = generalTrades > 0 && sum !== generalTrades;
     return {
       ok: !isInconsistent,
       sum,
       generalTrades,
-      isEmptyPeriod,
     };
   }, [data, sessions, general]);
 
@@ -421,7 +422,7 @@ export function WinrateBySessionCard({
         ) : null}
       </div>
 
-      {!partition.ok && !partition.isEmptyPeriod && !isLoading && !isError ? (
+      {!partition.ok && !isLoading && !isError ? (
         <div
           data-testid="winrate-mismatch-note"
           className="mt-3 rounded-md border border-loss/40 bg-surface-el/40 px-3 py-2 font-body text-xs text-loss"
