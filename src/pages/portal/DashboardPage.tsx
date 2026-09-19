@@ -33,6 +33,7 @@ import { useAuth } from '../../features/auth/useAuth';
 import { SeoHead } from '../../components/SeoHead';
 import { AccountSelector } from '../../components/dashboard/AccountSelector';
 import { CapitalCurveChart } from '../../components/dashboard/CapitalCurveChart';
+import { DashboardOrbitalOverview } from '../../components/dashboard/DashboardOrbitalOverview';
 import { DashboardSummaryStrip } from '../../components/dashboard/DashboardSummaryStrip';
 import { PerformanceCurveChart } from '../../components/dashboard/PerformanceCurveChart';
 import { RecentActivityFeed } from '../../components/dashboard/RecentActivityFeed';
@@ -194,7 +195,7 @@ export function DashboardPage() {
          * glow halo (--jarvis-h1-glow) + sub-line subtitle. The CTA
          * is now a HudButton (T-08) for the outlined JARVIS look.
          */}
-        <div className="flex items-start justify-between gap-4 flex-wrap py-6">
+        <div className="flex items-start justify-between gap-4 flex-wrap py-4">
           <div>
             <span
               data-testid="dash-hero-label"
@@ -203,8 +204,7 @@ export function DashboardPage() {
               MAIN PANEL
             </span>
             <h1
-              className="font-display uppercase tracking-wide text-3xl md:text-5xl lg:text-6xl mt-1 text-text-primary"
-              style={{ textShadow: '0 0 18px var(--jarvis-h1-glow)' }}
+              className="font-display uppercase tracking-wide text-2xl md:text-3xl mt-1 text-text-primary"
             >
               Hola, {user?.first_name ?? 'trader'}
             </h1>
@@ -229,6 +229,18 @@ export function DashboardPage() {
           </div>
         </div>
 
+        <DashboardOrbitalOverview
+          tradesScoped={tradesScoped}
+          isLoading={tradesAll.isLoading || accountsQuery.isLoading}
+          isError={tradesAll.isError || accountsQuery.isError}
+          scopeLabel={
+            selectedAccountId
+              ? accountsQuery.data?.items.find((account) => account.id === selectedAccountId)
+                  ?.name ?? 'Cuenta seleccionada'
+              : 'Todas las cuentas'
+          }
+        />
+
         {/* ---- 6-metric winrate (general + 4 sessions) — REQ-WRS-007 ----
          *
          * Full-width band sitting BEFORE the chart + activity-feed split
@@ -237,9 +249,17 @@ export function DashboardPage() {
          */}
         {workspaceId !== '' && (
           <div className="py-2" data-testid="dash-winrate-section">
+            {/* DVC-03 — the card is now CONTROLLED by the header
+               ``AccountSelector`` above so the band tiles always
+               read the same scope as the parent summary strip.
+               ``initialAccountId`` is set once at mount for the
+               CuentasDetailPage path (which has no parent
+               selector); passing `accountId` + `onAccountIdChange`
+               here lifts the card into the parent-owned filter. */}
             <WinrateBySessionCard
               workspaceId={workspaceId}
-              initialAccountId={selectedAccountId}
+              accountId={selectedAccountId}
+              onAccountIdChange={setSelectedAccountId}
               availableAccounts={(accountsQuery.data?.items ?? []).map((a) => ({
                 id: a.id,
                 name: a.name,

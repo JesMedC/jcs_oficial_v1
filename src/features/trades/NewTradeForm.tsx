@@ -23,12 +23,21 @@ import { TradeFormSchema, type TradeFormValues } from './schemas';
 import { useCreateTrade } from './useCreateTrade';
 import { EmotionalTagsChips } from './EmotionalTagsChips';
 import { getAvailableInstruments } from './availableInstruments';
+import { InstrumentPicker } from './InstrumentPicker';
 import {
   DISCIPLINE_ERROR_MESSAGE,
+  evaluateBinarySession,
   isHardBlockedByDiscipline,
   montoCalculadoParaBalance,
   type DisciplineErrorCode,
 } from './discipline';
+import { useAuth } from '../auth/useAuth';
+import {
+  localBucketForTimestamp,
+  sessionForTimestamp,
+} from '../sessions';
+import { ceilingFor } from '../sessions/plan';
+import { useTrades } from './hooks';
 import { presignUpload, uploadFile } from './presign';
 import type { EmotionalTag } from './types';
 import type { NewTradePrefill } from '../../stores/useNewTradeDrawer';
@@ -102,6 +111,7 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
     handleSubmit,
     watch,
     setValue,
+    setError,
     reset,
     formState: { errors, isSubmitting },
   } = useForm<TradeFormValues>({
@@ -121,8 +131,8 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
       // never used on the wire — handleSubmitClick overrides it with
       // the calculated amount before the payload is assembled.
       investment_usd: prefill?.investment_usd ?? '1',
-      payout_pct: '85',
-      expiration_seconds: 60,
+      payout_pct: '78',
+      expiration_seconds: 300,
       pre_trade_notes: '',
       emotional_tags: [],
     } as unknown as TradeFormValues,
@@ -169,6 +179,60 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
     [activeAccount, capitalInicial],
   );
 
+  // TWR-06 / USC — BINARY session pre-flight (client-side mirror of
+  // the backend gate). Fetches the active account's recent BINARY
+  // trades, filters them down to the same ``(local_day, band)``
+  // bucket the backend uses (``localBucketForTimestamp`` honours
+  // the user's IANA timezone — the previous mirror filtered by
+  // UTC band only and wrongly locked the form when a CLOSED_LOSS
+  // from a prior day happened to share the UTC band with now),
+  // then runs ``evaluateBinarySession`` with the workspace's
+  // effective cap. The cap is ``workspace.session_ops_cap`` when
+  // set (admin tightening) or the universal ceiling (4 post-USC,
+  // same value for every plan tier). Backend is still
+  // authoritative; this is a UX shortcut so the user sees the
+  // localized reason before clicking.
+  const { user } = useAuth();
+  const activeWorkspace = user?.workspaces[0];
+  const tz = user?.timezone ?? 'UTC';
+  const sessionCap = useMemo(() => {
+    const override = activeWorkspace?.session_ops_cap;
+    if (override !== null && override !== undefined) {
+      // Backend clamps any override above the universal ceiling
+      // via ``_workspace_session_cap`` — clamp here too so the
+      // verdict matches the wire verdict.
+      return Math.min(override, ceilingFor(activeWorkspace?.plan_tier ?? 'NONE'));
+    }
+    return ceilingFor(activeWorkspace?.plan_tier ?? 'NONE');
+  }, [activeWorkspace?.session_ops_cap, activeWorkspace?.plan_tier]);
+  const nowIso = useMemo(() => new Date().toISOString(), []);
+  const currentBand = useMemo(
+    () => (selectedType === 'BINARY' ? sessionForTimestamp(nowIso) : null),
+    [selectedType, nowIso],
+  );
+  const bucketTradesQuery = useTrades(
+    selectedType === 'BINARY' && activeAccount !== null
+      ? { account_id: activeAccount.id, type: 'BINARY', limit: 500 }
+      : { type: 'BINARY', limit: 500 },
+  );
+  const binarySessionVerdict = useMemo(() => {
+    if (selectedType !== 'BINARY' || currentBand === null) return null;
+    const items = bucketTradesQuery.data?.items ?? [];
+    // ``localBucketForTimestamp`` returns the same ``(day, band)``
+    // tuple the backend ``_bucket_binary_trades_for_day`` builds
+    // with ``user.timezone`` — keeping the two aligned is what
+    // prevents the historical false-positive (a LOSS in the same
+    // UTC band but a different local day wrongly locked the form).
+    const nowBucket = localBucketForTimestamp(nowIso, tz);
+    if (nowBucket === null) return null;
+    const sameBucket = items.filter((t) => {
+      if (t.type !== 'BINARY') return false;
+      const tb = localBucketForTimestamp(t.opened_at, tz);
+      return tb !== null && tb.day === nowBucket.day && tb.band === nowBucket.band;
+    });
+    return evaluateBinarySession(sameBucket, sessionCap);
+  }, [selectedType, currentBand, bucketTradesQuery.data, nowIso, tz, sessionCap]);
+
   // Discriminated-union sync.
   //
   // Two responsibilities:
@@ -183,6 +247,12 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
   //      BINARY, `type` was already 'BINARY' from `defaultValues`, so
   //      the effect skipped the reset and direction kept its stale
   //      'LONG' value — Zod then rejected submission.
+  //
+  // TWR-06 / USC: when a scanner prefill is active (PUT for BINARY),
+  // we skip the ``direction`` reset so the scanner's chosen direction
+  // survives the async account load. The prefill effect below re-
+  // asserts the direction on every prefill / type change so the
+  // sync doesn't need to fight it.
   useEffect(() => {
     if (accounts.length === 0) return;
     const account =
@@ -194,9 +264,18 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
     if (selectedType !== account.type) {
       setValue('type', account.type);
     }
+    // Skip direction reset when a scanner prefill is active and the
+    // active account matches the prefill's market (BINARY). The
+    // prefill effect re-asserts the chosen direction below.
+    const prefillIsActive =
+      prefill !== null &&
+      prefill !== undefined &&
+      prefill.pair.length > 0 &&
+      account.type === 'BINARY';
+    if (prefillIsActive) return;
     const typeCorrectDirection = account.type === 'BINARY' ? 'CALL' : 'LONG';
     setValue('direction', typeCorrectDirection);
-  }, [accounts, watchedAccountId, selectedType, setValue]);
+  }, [accounts, watchedAccountId, selectedType, prefill, setValue]);
 
   // Scanner prefill — when the drawer opens with a non-null
   // ``prefill`` payload we seed `pair` + (where compatible)
@@ -217,7 +296,7 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
     if (prefill.investment_usd !== undefined && prefill.investment_usd.length > 0) {
       setValue('investment_usd', prefill.investment_usd);
     }
-  }, [prefill, selectedType, setValue]);
+  }, [prefill, selectedType, watchedAccountId, setValue]);
 
   if (accounts.length === 0) {
     return (
@@ -226,9 +305,12 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
       </div>
     );
   }
-
   const handleSubmitClick: SubmitHandler<TradeFormValues> = (values) => {
     setDisciplineError(null);
+    if (!getAvailableInstruments(values.type).some((instrument) => instrument.symbol === values.pair)) {
+      setError('pair', { type: 'validate', message: 'Selecciona un instrumento disponible para esta cuenta.' });
+      return;
+    }
 
     // PR-4: investment_usd is a derived, read-only field computed
     // from the account balance. The RHF default is a placeholder
@@ -252,7 +334,7 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
     // can't even click submit when the value is guaranteed to fail.
     const deduct = computeDeduct(adjustedValues);
     const capitalInicial = computeCapitalInicial(accountBalance);
-    if (deduct !== null && isHardBlockedByDiscipline(deduct, capitalInicial)) {
+    if (deduct !== null && isHardBlockedByDiscipline(deduct, capitalInicial, selectedType)) {
       setDisciplineError('CAPITAL_INICIAL_CAP_EXCEEDED');
       return;
     }
@@ -350,18 +432,15 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
           control={control}
           name="pair"
           render={({ field }) => (
-            <select
-              {...field}
-              data-testid="new-trade-pair"
-              className="w-full px-3 py-2 bg-surface-el/50 border border-primary/30 rounded-lg text-text-primary font-body text-sm focus:outline-none focus:ring-1 focus:ring-primary uppercase"
-            >
-              <option value="">— Selecciona par —</option>
-              {getAvailableInstruments(selectedType).map((instrument) => (
-                <option key={instrument.symbol} value={instrument.symbol}>
-                  {instrument.symbol} · {instrument.name}
-                </option>
-              ))}
-            </select>
+            <InstrumentPicker
+              key={selectedType}
+              value={field.value}
+              onChange={field.onChange}
+              onBlur={field.onBlur}
+              instruments={getAvailableInstruments(selectedType)}
+              label={selectedType === 'FOREX' ? 'Par (FOREX)' : 'Instrumento (BINARY)'}
+              invalid={Boolean(errors.pair)}
+            />
           )}
         />
       </Field>
@@ -466,27 +545,47 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
                 {montoCalculado !== null ? `$${montoCalculado}` : '—'}
               </output>
             </Field>
-            {/* FASE 6 — Regla 1: alerta visual (NO hard-block) cuando el
-                importe calculado supera el 1% del capital inicial.
-                Espejo de la 1x1000 methodology: el usuario debe ver el
-                aviso pero puede continuar si quiere. */}
-            {montoCalculado !== null && capitalInicial > 0 &&
-            montoCalculado / capitalInicial > 0.01 ? (
-              <div
-                data-testid="new-trade-over-1pct-warning"
-                role="alert"
-                className="mt-1 flex items-start gap-2 rounded border border-warning/40 bg-warning/10 px-3 py-2 text-[11px] font-mono text-warning"
-              >
-                <span aria-hidden="true">⚠</span>
-                <span>
-                  Importe {((montoCalculado / capitalInicial) * 100).toFixed(2)}%
-                  del capital inicial ({(montoCalculado / capitalInicial).toFixed(2)}×
-                  sobre 1%). Regla 1×1000 recomienda mantener cada trade
-                  por debajo del 1% del capital de operaciones.
-                </span>
-              </div>
-            ) : null}
           </div>
+          {/* TWR-06 / USC / USC-2 — Session gate verdict (BINARY only).
+              DVC-02: moved OUT of the ``grid grid-cols-2 gap-3``
+              wrapper above so the pill spans the full form width
+              (it used to render at half-width next to INVERSIÓN USD).
+              Re-skinned with the incumbent dark/cyan platform
+              tokens: solid ``bg-bg`` (var(--color-bg)) surface,
+              ``border-jade`` (var(--color-jade)) cyan stroke,
+              ``font-body`` body typography, ``text-text-primary``
+              readable text size. Heading carries the semantic error
+              cue (``text-loss``); body keeps the canonical W/L/P&L
+              summary so the pill text agrees byte-for-byte with the
+              backend ``_validate_binary_session`` rejection. The
+              ``break-words`` + ``min-w-0`` combo keeps long wins /
+              pnl numbers from pushing the layout past the viewport.
+              ``role=alert`` is preserved for AT; the new
+              ``aria-live=polite`` announces the verdict when it
+              transitions from ok to locked. Backend is still
+              authoritative — this is a UX shortcut. */}
+          {selectedType === 'BINARY' && binarySessionVerdict?.ok === false ? (
+            <div
+              data-testid="new-trade-binary-session-locked"
+              role="alert"
+              aria-live="polite"
+              className="mt-2 flex items-start gap-3 rounded-lg border border-jade bg-bg px-4 py-3 font-body text-text-primary"
+            >
+              <span aria-hidden="true" className="text-base leading-5">
+                ⛔
+              </span>
+              <div className="flex min-w-0 flex-1 flex-col gap-1">
+                <div className="text-sm font-semibold leading-5 text-loss">
+                  Limite de operaciones alcanzado
+                </div>
+                <div className="break-words text-sm leading-5 text-text-secondary">
+                  {binarySessionVerdict.reason === 'LOSS_IN_SESSION'
+                    ? `Ganaste ${binarySessionVerdict.stats.wins} operaciones y Perdiste ${binarySessionVerdict.stats.losses} operaciones P&L: ${binarySessionVerdict.stats.pnlUsd.toFixed(2)} USD`
+                    : `La próxima operación se habilita cuando las ${binarySessionVerdict.cap} anteriores cierren como WIN.`}
+                </div>
+              </div>
+            </div>
+          ) : null}
           <div className="grid grid-cols-2 gap-3">
             <Field label="Payout %" error={(errors as Record<string, { message?: string } | undefined>)['payout_pct']?.message}>
               <input
@@ -640,7 +739,8 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
           disabled={
             isSubmitting ||
             createTrade.isPending ||
-            (selectedType === 'BINARY' && montoCalculado === null)
+            (selectedType === 'BINARY' && montoCalculado === null) ||
+            (selectedType === 'BINARY' && binarySessionVerdict?.ok === false)
           }
           data-testid="new-trade-submit"
           className="px-4 py-2 bg-primary text-primary-fg font-display uppercase tracking-wide text-sm rounded-lg hover:shadow-glow-jade transition-shadow disabled:opacity-60"

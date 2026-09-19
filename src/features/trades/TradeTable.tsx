@@ -27,7 +27,7 @@
  * rendered by ``TradeTableRow`` for OPEN trades. FUND/WITHDRAW
  * rows render no action (they're already "settled" by definition).
  */
-import { useMemo } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 import { useTrades } from './hooks';
 import { TradeTableRow } from './TradeTableRow';
@@ -48,8 +48,13 @@ interface Props {
   readonly tradesForBalance: ReadonlyArray<TradeOut>;
 }
 
+/** Fixed page size for the operations log (TWR-05). */
+const PAGE_SIZE = 10;
+
 export function TradeTable({ filters = {}, tradesForBalance }: Props) {
-  const { data, isLoading, isError } = useTrades(filters);
+  const [page, setPage] = useState(0);
+
+  const { data, isLoading, isError } = useTrades({ ...filters, skip: page * PAGE_SIZE, limit: PAGE_SIZE });
   const accountsQuery = useAccounts();
   const activeAccountIds = useMemo(() => {
     const ids = new Set<string>();
@@ -100,6 +105,16 @@ export function TradeTable({ filters = {}, tradesForBalance }: Props) {
     return map;
   }, [accountsQuery.data]);
 
+  const items = (data?.items ?? []).filter((t) => activeAccountIds.has(t.account_id));
+  const total = data?.total ?? 0;
+  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+
+  // Reset/clamp the page whenever the server tells us there are
+  // fewer pages than the current index.
+  useEffect(() => {
+    setPage((p) => Math.min(p, Math.max(0, totalPages - 1)));
+  }, [totalPages]);
+
   if (isLoading) {
     return (
       <div
@@ -122,8 +137,6 @@ export function TradeTable({ filters = {}, tradesForBalance }: Props) {
     );
   }
 
-  const items = (data?.items ?? []).filter((t) => activeAccountIds.has(t.account_id));
-
   if (items.length === 0) {
     return (
       <div
@@ -136,38 +149,68 @@ export function TradeTable({ filters = {}, tradesForBalance }: Props) {
   }
 
   return (
-    <div className="overflow-x-auto rounded-lg border border-primary/20">
-      <table className="w-full font-mono text-sm" data-testid="trade-table">
-        <thead className="bg-surface/60 border-b border-primary/20">
-          <tr className="text-xs uppercase tracking-wide text-text-secondary">
-            <th className="px-3 py-2 text-left">Fecha</th>
-            <th className="px-3 py-2 text-left">Status</th>
-            <th className="px-3 py-2 text-left">Tipo</th>
-            <th className="px-3 py-2 text-left">Sesión</th>
-            <th className="px-3 py-2 text-left">Instrumento</th>
-            <th className="px-3 py-2 text-left">Dirección</th>
-            <th className="px-3 py-2 text-right">Entrada</th>
-            <th className="px-3 py-2 text-right">Salida</th>
-            <th className="px-3 py-2 text-right">Tamaño</th>
-            <th className="px-3 py-2 text-right">P&amp;L</th>
-            <th className="px-3 py-2 text-left">Cuenta</th>
-            <th className="px-3 py-2 text-right">Bal. previo</th>
-            <th className="px-3 py-2 text-right">Bal. post</th>
-            <th className="px-3 py-2 text-right">R</th>
-            <th className="px-3 py-2 text-right">Acción</th>
-          </tr>
-        </thead>
-        <tbody>
-          {items.map((t) => (
-            <TradeTableRow
-              key={t.id}
-              trade={t}
-              balance={balanceTimeline.get(t.id) ?? null}
-              accountsById={accountsById}
-            />
-          ))}
-        </tbody>
-      </table>
+    <div className="rounded-lg border border-primary bg-[var(--color-jade-border)]/40 backdrop-blur-md shadow-[0_0_24px_rgba(0,212,216,0.55)]">
+      <div className="overflow-x-auto">
+        <table className="w-full font-mono text-sm" data-testid="trade-table">
+          <thead className="bg-surface/60 border-b border-primary/40">
+            <tr className="text-xs uppercase tracking-wide text-text-secondary">
+              <th className="px-3 py-2 text-left">Fecha</th>
+              <th className="px-3 py-2 text-left">Status</th>
+              <th className="px-3 py-2 text-left">Tipo</th>
+              <th className="px-3 py-2 text-left">Sesión</th>
+              <th className="px-3 py-2 text-left">Instrumento</th>
+              <th className="px-3 py-2 text-left">Dirección</th>
+              <th className="px-3 py-2 text-right">Entrada</th>
+              <th className="px-3 py-2 text-right">Salida</th>
+              <th className="px-3 py-2 text-right">Tamaño</th>
+              <th className="px-3 py-2 text-right">P&amp;L</th>
+              <th className="px-3 py-2 text-left">Cuenta</th>
+              <th className="px-3 py-2 text-right">Bal. previo</th>
+              <th className="px-3 py-2 text-right">Bal. post</th>
+              <th className="px-3 py-2 text-right">R</th>
+              <th className="px-3 py-2 text-right">Acción</th>
+            </tr>
+          </thead>
+          <tbody>
+            {items.map((t) => (
+              <TradeTableRow
+                key={t.id}
+                trade={t}
+                balance={balanceTimeline.get(t.id) ?? null}
+                accountsById={accountsById}
+              />
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <div
+        data-testid="trade-table-pagination"
+        className="flex items-center justify-between gap-3 px-3 py-2 border-t border-borderJade text-xs text-text-secondary font-mono"
+      >
+        <span data-testid="trade-table-page-info">
+          Página {page + 1} de {totalPages} · {total} ops
+        </span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            data-testid="trade-table-prev"
+            onClick={() => setPage((p) => Math.max(0, p - 1))}
+            disabled={page === 0}
+            className="px-3 py-1 rounded border border-borderJade text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            ← Anterior
+          </button>
+          <button
+            type="button"
+            data-testid="trade-table-next"
+            onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+            disabled={page >= totalPages - 1}
+            className="px-3 py-1 rounded border border-borderJade text-primary hover:bg-primary/10 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Siguiente →
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

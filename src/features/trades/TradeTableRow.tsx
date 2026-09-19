@@ -41,10 +41,10 @@ import type { TradeOut } from './types';
  * session names — colors map 1:1 per design.md §4.2.
  */
 const SESSION_PILL_CLASS: Record<SessionBand, string> = {
-  ASIA: 'bg-primary/15 text-primary border-primary/40',
-  LONDON: 'bg-info/15 text-info border-info/40',
-  NEW_YORK: 'bg-profit/15 text-profit border-profit/40',
-  SYDNEY: 'bg-warning/15 text-warning border-warning/40',
+  ASIA: 'bg-primary/15 text-primary',
+  LONDON: 'bg-info/15 text-info',
+  NEW_YORK: 'bg-profit/15 text-profit',
+  SYDNEY: 'bg-warning/15 text-warning',
 };
 
 /**
@@ -52,12 +52,33 @@ const SESSION_PILL_CLASS: Record<SessionBand, string> = {
  * the canonical badge frame. Returns null for trades whose
  * ``opened_at`` falls outside every defined window so the row can
  * swap in a muted em-dash placeholder.
+ *
+ * Work unit (D) — ``tintClass`` prop. ``TradeTableRow`` passes a row
+ * tint (``!text-loss`` / ``!text-profit``) so a CLOSED_LOSS row
+ * paints every pill red and a CLOSED_WIN row paints every pill
+ * green. The bang prefix is mandatory here for the same reason it
+ * is on TradeStatusBadge / TradeTypeBadge: Tailwind's text
+ * utilities compile in a deterministic order where the badge's own
+ * text class (ASIA → text-primary, LONDON → text-info, NEW_YORK →
+ * text-profit, SYDNEY → text-warning) sits BEFORE ``text-loss`` for
+ * three of the four bands and AFTER it for one (NEW_YORK). Without
+ * the bang the row tint would lose for ASIA / LONDON / SYDNEY and
+ * win by accident for NEW_YORK, which is exactly the
+ * half-painted-row bug the screenshot surfaced. Default ``''`` so
+ * the pill keeps its own colour when the row is OPEN / BREAK /
+ * FUND / WITHDRAW.
  */
-function SessionPill({ session }: { readonly session: SessionBand }) {
+function SessionPill({
+  session,
+  tintClass = '',
+}: {
+  readonly session: SessionBand;
+  readonly tintClass?: string;
+}) {
   return (
     <span
       data-testid={`trade-session-${session}`}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]} ${tintClass}`}
     >
       {SESSION_LABELS[session]}
     </span>
@@ -116,18 +137,96 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
   // SIDNEY) into the four real session names per Slice B.
   const session = sessionForTimestamp(trade.opened_at);
 
+  /**
+   * Row-level tint ladder (work unit B — operations log color
+   * signal). The badge already carries the Spanish label so
+   * color-blind users keep the text cue; the row background adds
+   * a redundant visual channel so a user scanning 25 rows can
+   * spot the WIN/LOSS split without reading.
+   *
+   * Rules:
+   *   - CLOSED_WIN   → bg-profit/10, hover bg-profit/15
+   *   - CLOSED_LOSS  → bg-loss/10,   hover bg-loss/15
+   *   - OPEN         → no tint (legacy hover:bg-primary/5)
+   *   - CLOSED_BREAK → no tint (legacy hover:bg-primary/5)
+   *   - FUND/WITHDRAW→ always neutral. Capital movements are NOT
+   *     wins or losses even when the status literal says so.
+   *     ``type`` wins over ``status`` here.
+   *
+   * Tokens come straight from ``tailwind.config.ts`` (profit/loss
+   * both map to ``--color-jade-profit`` / ``--color-jade-loss``
+   * defined in ``themes.css``) — no new palette is introduced.
+   * The lower 10% alpha keeps the row typography readable; the
+   * hover deepens to 15% to match the badge ladder
+   * (``TRADE_STATUS_BADGE`` uses /15).
+   */
+  const tintClass = isFundLike
+    ? 'hover:bg-primary/5'
+    : trade.status === 'CLOSED_WIN'
+      ? 'bg-profit/10 hover:bg-profit/15'
+      : trade.status === 'CLOSED_LOSS'
+        ? 'bg-loss/10 hover:bg-loss/15'
+        : 'hover:bg-primary/5';
+
+  /**
+   * Row-level TEXT tint ladder (work units C + D). The previous
+   * commit (B) painted only the <tr> background; commit (C) added
+   * plain ``text-loss`` / ``text-profit`` to every text <td> — but
+   * the screenshot still showed PERDIDA rows with mostly white/cyan
+   * text because every <td> and every badge carries its own
+   * ``text-text-primary`` / ``text-text-secondary`` / ``text-info``
+   * / ``text-primary`` / ``text-profit`` which override a plain
+   * ``text-loss`` / ``text-profit`` appended at the end (Tailwind
+   * compiles text-utilities in alphabetical order: text-info <
+   * text-loss < text-primary < text-profit < text-text-muted <
+   * text-text-primary < text-text-secondary < text-warning, so the
+   * LATER class wins when specificity is equal).
+   *
+   * Work unit (D) escalates the row tint to the bang variant
+   * (``!text-loss`` / ``!text-profit``) so it ALWAYS wins. The same
+   * class is appended to the badge spans (TradeStatusBadge /
+   * TradeTypeBadge / SessionPill) via a new ``tintClass`` prop, so
+   * the user gets the WHOLE row red / green — including the status
+   * badge text, the type badge text, and every session pill text —
+   * while the badges keep their bg pattern (bg-loss/15, bg-info/15,
+   * bg-profit/15, etc.) and the Spanish label intact (color-blind
+   * users still get the text cue). The badge files document the
+   * same reasoning.
+   *
+   * Same precedence rules as ``tintClass``:
+   *   - CLOSED_WIN   → !text-profit (red wins visually for loss;
+   *     green wins visually for profit because !important beats
+   *     everything, including text-profit declared after text-loss)
+   *   - CLOSED_LOSS  → !text-loss
+   *   - OPEN / BREAK / FUND / WITHDRAW → empty (neutral — type
+   *     wins over status for FUND / WITHDRAW per the existing rule)
+   *
+   * Empty string (rather than undefined) keeps the template
+   * literal interpolation branch-free and matches the existing
+   * ``tintClass`` shape. The bang prefix is acceptable here
+   * because the tint is contextual (row-scoped) — it is never used
+   * to style chrome / outside the table row ladder.
+   */
+  const textTintClass = isFundLike
+    ? ''
+    : trade.status === 'CLOSED_WIN'
+      ? '!text-profit'
+      : trade.status === 'CLOSED_LOSS'
+        ? '!text-loss'
+        : '';
+
   return (
     <>
       <tr
         data-testid={`trade-row-${trade.id}`}
-        className="border-b border-primary/10 hover:bg-primary/5 transition-colors"
+        className={`border-b border-borderJade transition-colors ${tintClass}`}
       >
-        <td className="px-3 py-2 text-text-secondary whitespace-nowrap">{date}</td>
+        <td className={`px-3 py-2 ${textTintClass} text-text-secondary whitespace-nowrap`}>{date}</td>
         <td className="px-3 py-2">
-          <TradeStatusBadge status={trade.status} />
+          <TradeStatusBadge status={trade.status} tintClass={textTintClass} />
         </td>
         <td className="px-3 py-2">
-          <TradeTypeBadge type={trade.type} />
+          <TradeTypeBadge type={trade.type} tintClass={textTintClass} />
         </td>
         <td
           className="px-3 py-2"
@@ -136,28 +235,28 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
           {session === null ? (
             <span
               data-testid={`trade-session-none-${trade.id}`}
-              className="text-text-muted font-mono"
+              className={`${textTintClass} text-text-muted font-mono`}
               aria-label="Sin sesión"
             >
               —
             </span>
           ) : (
-            <SessionPill session={session} />
+            <SessionPill session={session} tintClass={textTintClass} />
           )}
         </td>
-        <td className="px-3 py-2 text-text-primary font-display">
+        <td className={`px-3 py-2 ${textTintClass} text-text-primary font-display`}>
           {isForex ? trade.pair ?? trade.instrument : trade.instrument}
         </td>
-        <td className="px-3 py-2 text-text-secondary">{trade.direction ?? '—'}</td>
-        <td className="px-3 py-2 text-right">
+        <td className={`px-3 py-2 ${textTintClass} text-text-secondary`}>{trade.direction ?? '—'}</td>
+        <td className={`px-3 py-2 text-right ${textTintClass}`}>
           {isFundLike ? '—' : formatNumber(trade.entry_price)}
         </td>
-        <td className="px-3 py-2 text-right">
+        <td className={`px-3 py-2 text-right ${textTintClass}`}>
           {isFundLike ? '—' : isOpen ? '—' : formatNumber(trade.exit_price)}
         </td>
         <td
           className={`px-3 py-2 text-right font-semibold ${
-            isFundLike ? pnlColor(capitalAmount) : ''
+            isFundLike ? pnlColor(capitalAmount) : textTintClass
           }`}
         >
           {isFundLike
@@ -166,22 +265,22 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
               ? formatNumber(trade.lot_size)
               : formatMoney(trade.investment_usd)}
         </td>
-        <td className={`px-3 py-2 text-right font-semibold ${pnlColor(trade.pnl_usd)}`}>
+        <td className={`px-3 py-2 text-right font-semibold ${pnlColor(trade.pnl_usd) || textTintClass || ''}`}>
           {isFundLike ? '—' : isOpen ? '—' : formatMoney(trade.pnl_usd)}
         </td>
         <td
-          className="px-3 py-2 text-text-secondary font-body text-sm whitespace-nowrap"
+          className={`px-3 py-2 ${textTintClass} text-text-secondary font-body text-sm whitespace-nowrap`}
           data-testid={`trade-account-${trade.id}`}
         >
           {accountsById.get(trade.account_id)?.name ?? '—'}
         </td>
-        <td className="px-3 py-2 text-right font-mono text-text-secondary">
+        <td className={`px-3 py-2 text-right font-mono ${textTintClass} text-text-secondary`}>
           {balance ? formatUsd(balance.prev) : '—'}
         </td>
-        <td className="px-3 py-2 text-right font-mono text-text-primary">
+        <td className={`px-3 py-2 text-right font-mono ${textTintClass} text-text-primary`}>
           {balance ? formatUsd(balance.post) : '—'}
         </td>
-        <td className="px-3 py-2 text-right">{formatNumber(trade.r_multiple)}</td>
+        <td className={`px-3 py-2 text-right ${textTintClass}`}>{formatNumber(trade.r_multiple)}</td>
         <td className="px-3 py-2 text-right">
           {isOpen ? (
             <button

@@ -8,6 +8,14 @@
  *     the OPEN filter and appear under its CLOSED_* sibling.
  *   - ``['accounts']`` — closing a trade changes the account balance
  *     and the open-position count surfaced on the dashboard.
+ *   - ``['dashboard']`` (DVC-03) — the WinrateBySessionCard /
+ *     DashboardSummaryStrip read `get_session_stats` and the P&L
+ *     calendar under the `dashboardKeys.all` prefix; closing a trade
+ *     must refresh that tree so the band tiles and the cumulative
+ *     P&L reflect the new closed trade without a manual reload.
+ *     The key is imported from ``features/dashboard/hooks`` so the
+ *     single source of truth for query-key shapes stays in one
+ *     place (test in ``useCloseTrade.test.tsx``).
  *
  * Lives in its own file (vs. ``useCreateTrade.ts``) because the
  * payload here is a discriminated union that depends on the trade
@@ -17,6 +25,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query';
 
 import { closeTradeApi } from './api';
 import { tradesKeys } from './hooks';
+import { dashboardKeys } from '../dashboard/hooks';
 import type { CloseTradePayload, TradeOut } from './types';
 
 interface CloseTradeArgs {
@@ -32,6 +41,7 @@ export function useCloseTrade() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: tradesKeys.all });
       queryClient.invalidateQueries({ queryKey: ['accounts'] });
+      queryClient.invalidateQueries({ queryKey: dashboardKeys.all });
     },
   });
 }

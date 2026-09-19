@@ -33,17 +33,33 @@
  * of the form values before passing to ``closeMutation.mutate`` so
  * the wire payload matches ``CloseTradePayload``.
  *
+ * dvc-01 — portal / footer / opaque panel.
+ *   - The dialog renders via ``createPortal`` (Modal primitive), so
+ *     it escapes the backdrop-blur ancestor in RecentActivityFeed.
+ *   - ``GlassModal variant="solid"`` drops the translucent white
+ *     inner panel; the Modal's opaque dark surface + cyan stroke
+ *     carry the panel identity.
+ *   - Footer actions (Cancelar / Cerrar trade) are passed via the
+ *     Modal's ``footer`` slot so they sit OUTSIDE the long form
+ *     body. The submit button targets the form via HTML form
+ *     association (``form="<id>"``) so the click still dispatches
+ *     the React Hook Form submit handler. This keeps the footer
+ *     CTAs reachable on mobile viewports even when the form is long
+ *     enough to scroll inside the modal body.
+ *
  * data-testid hooks:
  *   - close-trade-modal: the form root.
- *   - close-exit-price / close-outcome-{WIN,LOSS}: type-specific.
+ *   - close-exit-price / close-outcome-{WIN,LOSS,BREAK}: type-specific.
  *   - close-post-notes / close-followed-plan / close-mistakes:
  *     journal triple.
+ *   - close-image-file / close-image-uploading / close-image-uploaded /
+ *     close-image-error: image upload progress.
  *   - close-cancel / close-submit: footer actions.
  *   - close-error: rendered only when the mutation rejects.
  */
 import { zodResolver } from '@hookform/resolvers/zod';
 import { useForm } from 'react-hook-form';
-import { useRef, useState, type ReactNode } from 'react';
+import { useId, useRef, useState, type ReactNode } from 'react';
 
 import { GlassModal } from '../../components/common/GlassModal';
 
@@ -78,6 +94,7 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formId = useId();
   const {
     register,
     handleSubmit,
@@ -114,8 +131,18 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
       open
       onClose={onClose}
       title={`Cerrar trade — ${trade.pair ?? trade.instrument}`}
+      variant="solid"
+      footer={
+        <FormFooter
+          formId={formId}
+          onClose={onClose}
+          isSubmitting={isSubmitting}
+          isPending={closeMutation.isPending}
+        />
+      }
     >
       <form
+        id={formId}
         onSubmit={handleSubmit(onSubmit)}
         data-testid="close-trade-modal"
         className="flex flex-col gap-4"
@@ -197,12 +224,6 @@ function CloseForexForm({ trade, onClose }: { readonly trade: TradeOut; readonly
             Error al cerrar: {closeMutation.error?.message ?? 'desconocido'}
           </div>
         ) : null}
-
-        <FormFooter
-          onClose={onClose}
-          isSubmitting={isSubmitting}
-          isPending={closeMutation.isPending}
-        />
       </form>
     </GlassModal>
   );
@@ -214,6 +235,7 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const formId = useId();
   const {
     register,
     handleSubmit,
@@ -250,8 +272,18 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
       open
       onClose={onClose}
       title={`Cerrar trade — ${trade.instrument}`}
+      variant="solid"
+      footer={
+        <FormFooter
+          formId={formId}
+          onClose={onClose}
+          isSubmitting={isSubmitting}
+          isPending={closeMutation.isPending}
+        />
+      }
     >
       <form
+        id={formId}
         onSubmit={handleSubmit(onSubmit)}
         data-testid="close-trade-modal"
         className="flex flex-col gap-4"
@@ -350,12 +382,6 @@ function CloseBinaryForm({ trade, onClose }: { readonly trade: TradeOut; readonl
             Error al cerrar: {closeMutation.error?.message ?? 'desconocido'}
           </div>
         ) : null}
-
-        <FormFooter
-          onClose={onClose}
-          isSubmitting={isSubmitting}
-          isPending={closeMutation.isPending}
-        />
       </form>
     </GlassModal>
   );
@@ -392,16 +418,21 @@ async function handleCloseImageFile(
 }
 
 function FormFooter({
+  formId,
   onClose,
   isSubmitting,
   isPending,
 }: {
+  readonly formId: string;
   readonly onClose: () => void;
   readonly isSubmitting: boolean;
   readonly isPending: boolean;
 }) {
+  // The submit button lives OUTSIDE the form (in the Modal footer).
+  // HTML form association (``form="<id>"``) keeps the click flowing
+  // into the form's submit handler so React Hook Form picks it up.
   return (
-    <div className="flex justify-end gap-2 mt-2">
+    <>
       <button
         type="button"
         data-testid="close-cancel"
@@ -412,13 +443,14 @@ function FormFooter({
       </button>
       <button
         type="submit"
+        form={formId}
         data-testid="close-submit"
         disabled={isSubmitting || isPending}
         className="px-4 py-2 rounded bg-primary text-bg font-display uppercase tracking-wide hover:bg-primary/90 disabled:opacity-50"
       >
         {isPending ? 'Cerrando…' : 'Cerrar trade'}
       </button>
-    </div>
+    </>
   );
 }
 
