@@ -117,13 +117,51 @@ function endBalance(start: number, pnlPct: number): number {
 /* -------------------- per-day ops-only + capital walk -------------------- */
 
 /**
+ * DVC-04 — bucket date for the trading P&L aggregation.
+ *
+ * The rule per the DVC-04 spec:
+ *   - If ``closed_at`` is present, use its YYYY-MM-DD prefix. A trade
+ *     that opened at 23:50 and closed at 00:10 lands on the day the
+ *     user actually booked the result — not the day the ticket went
+ *     live.
+ *   - Otherwise fall back to ``opened_at``'s date IFF the trade's
+ *     status indicates a closed result (``CLOSED_WIN``,
+ *     ``CLOSED_LOSS`` or ``CLOSED_BREAK``). This handles legacy /
+ *     backfill rows the backend hasn't stamped yet.
+ *   - Anything else (``OPEN`` with no ``closed_at``) returns null —
+ *     OPEN rows must NEVER contribute to the cumulative realized
+ *     P&L. They are not realized yet.
+ *
+ * The fund / withdraw accounting totals continue to bucket on
+ * ``opened_at`` because the capital chart (buildContableWalk)
+ * anchors on the same convention; changing it would touch the
+ * accounting totals that DVC-04 explicitly leaves alone.
+ */
+function closedDayBucket(t: TradeOut): string | null {
+  if (t.closed_at !== null && t.closed_at.length >= 10) {
+    return t.closed_at.slice(0, 10);
+  }
+  if (
+    t.status === 'CLOSED_WIN' ||
+    t.status === 'CLOSED_LOSS' ||
+    t.status === 'CLOSED_BREAK'
+  ) {
+    return t.opened_at.slice(0, 10);
+  }
+  return null;
+}
+
+/**
  * Build a ``Map<date, { dailyPnl, cumulativeNetPnl, capitalVolume }>``
  * from the parent-supplied ``tradesForDayPanel``.
  *
  * Two-pass walk:
  *   1. Aggregate per-day ``dailyPnl`` (Σ pnl_usd of FOREX/BINARY
- *      trades opened on that day) and ``capitalVolume`` (Σ FUND −
- *      Σ WITHDRAW on that day).
+ *      trades whose ``closed_at`` lands on that day — or, as a
+ *      legacy fallback, whose ``opened_at`` lands on that day for
+ *      backfilled closed trades) and ``capitalVolume`` (Σ FUND −
+ *      Σ WITHDRAW on that day, still keyed on ``opened_at`` because
+ *      the capital chart anchors on that convention).
  *   2. Walk the window dates forward and accumulate ``dailyPnl`` into
  *      ``cumulativeNetPnl``.
  *
@@ -158,42 +196,65 @@ function buildOpsSeries(
     byDate.set(d, { cumulativeNetPnl: 0, dailyPnl: 0, capitalVolume: 0 });
   }
 
-  const sorted = [...trades].sort((a, b) =>
-    a.opened_at < b.opened_at ? -1 : a.opened_at > b.opened_at ? 1 : 0,
-  );
+  // Sort by closed_at (with opened_at fallback for backfilled closed
+  // trades) so the cumulative walk visits trades in the order the
+  // user actually booked them — not the order the tickets went
+  // live. OPEN rows trailing at the end never contribute.
+  const sorted = [...trades].sort((a, b) => {
+    const ka = closedDayBucket(a) ?? a.opened_at;
+    const kb = closedDayBucket(b) ?? b.opened_at;
+    return ka < kb ? -1 : ka > kb ? 1 : 0;
+  });
 
   let firstFundAmount = 0;
   let firstFundFound = false;
 
-  // Pass 1 — aggregate per-day dailyPnl + capitalVolume (and capture
-  // firstFundAmount as a side effect for the percentage KPIs).
+  // Pass 1 — aggregate per-day dailyPnl (by closed_at bucket) and
+  // capitalVolume (by opened_at bucket, capital-chart convention).
+  // Capture firstFundAmount as a side effect for the percentage KPIs.
   for (const t of sorted) {
-    const date = t.opened_at.slice(0, 10);
+    const openDate = t.opened_at.slice(0, 10);
     if (!firstFundFound && t.type === 'FUND') {
       firstFundAmount = Number(t.investment_usd ?? 0);
       firstFundFound = true;
     }
-    if (!byDate.has(date)) continue; // outside the requested window
-    const slot = byDate.get(date)!;
+
+    // Trading P&L lands on the closed_at bucket — fall back to
+    // opened_at only for backfilled closed outcomes, skip OPEN rows
+    // outright so they never leak into the cumulative.
     if (t.type === 'FOREX' || t.type === 'BINARY') {
-      slot.dailyPnl += Number(t.pnl_usd ?? 0);
-    } else if (t.type === 'FUND') {
-      slot.capitalVolume += Number(t.investment_usd ?? 0);
-    } else if (t.type === 'WITHDRAW') {
-      slot.capitalVolume -= Number(t.investment_usd ?? 0);
+      const bucket = closedDayBucket(t);
+      if (bucket === null) continue;
+      if (!byDate.has(bucket)) continue; // outside the requested window
+      byDate.get(bucket)!.dailyPnl += Number(t.pnl_usd ?? 0);
+      continue;
+    }
+
+    // Capital volume stays on opened_at (capital-chart anchoring).
+    if (t.type === 'FUND' || t.type === 'WITHDRAW') {
+      if (!byDate.has(openDate)) continue;
+      const slot = byDate.get(openDate)!;
+      if (t.type === 'FUND') {
+        slot.capitalVolume += Number(t.investment_usd ?? 0);
+      } else {
+        slot.capitalVolume -= Number(t.investment_usd ?? 0);
+      }
     }
   }
 
   // Pass 2 — walk window dates forward, accumulate dailyPnl into
   // cumulativeNetPnl (no firstFund — that's the fix). Days BEFORE
   // the window contribute their P&L via the bootstrap cumulative
-  // computed below; days AFTER the window are ignored.
+  // computed below — keyed on closed_at so a trade that closed the
+  // day before window-start still anchors the curve correctly.
   const sortedDates = [...windowDates].sort();
   const firstDate = sortedDates[0];
   let preWindowCumulative = 0;
   if (firstDate !== undefined) {
     for (const t of sorted) {
-      if (t.opened_at.slice(0, 10) < firstDate) {
+      const bucket = closedDayBucket(t);
+      if (bucket === null) continue;
+      if (bucket < firstDate) {
         if (t.type === 'FOREX' || t.type === 'BINARY') {
           preWindowCumulative += Number(t.pnl_usd ?? 0);
         }
@@ -445,7 +506,15 @@ function round2(n: number): number {
 
 /* Re-export so tests / consumers can stub the API client without
  * touching the internals of TanStack Query. */
-export const __test = { dayOffsetIso, monthOfDayOffset, endBalance };
+export const __test = {
+  dayOffsetIso,
+  monthOfDayOffset,
+  endBalance,
+  // DVC-04 — exposed so the PerformanceCurveChart test pins the
+  // closed_at bucketing + cashflow-exclusion contract without
+  // standing up a full TanStack Query harness.
+  buildOpsSeries,
+};
 
 // Type-only re-export to keep callers from importing the same
 // `PnlCalendarMonth` from two different paths when they wire up
