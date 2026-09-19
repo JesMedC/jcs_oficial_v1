@@ -20,7 +20,8 @@
  * ``hooks.test.tsx``) so the test stays network-free.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
@@ -227,5 +228,174 @@ describe('TradeTable', () => {
     expect(screen.getByText('Londres')).toBeInTheDocument();
     expect(screen.getByText('Asia')).toBeInTheDocument();
     expect(screen.getByText('Sídney')).toBeInTheDocument();
+  });
+
+  it('muestra controles de paginacion y permite navegar Anterior/Siguiente', async () => {
+    mockAccounts([fakeAccount]);
+    const listSpy = vi.spyOn(api, 'listTradesApi').mockResolvedValue({
+      items: [fakeTrade],
+      total: 25,
+      skip: 0,
+      limit: 10,
+    });
+    render(<TradeTable tradesForBalance={[fakeTrade]} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-table-pagination')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 1 de 3');
+    expect(screen.getByTestId('trade-table-prev')).toBeDisabled();
+    expect(screen.getByTestId('trade-table-next')).not.toBeDisabled();
+
+    fireEvent.click(screen.getByTestId('trade-table-next'));
+    await waitFor(() => {
+      expect(listSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ skip: 10, limit: 10 }),
+      );
+    });
+    expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 2 de 3');
+    expect(screen.getByTestId('trade-table-prev')).not.toBeDisabled();
+  });
+
+  /**
+   * RED for work unit (A) — pagination navigation must actually swap
+   * the rendered rows. The existing test only pins the API params
+   * and the page-info text, which both update from the local page
+   * state. The page-info moves without the rows moving is the bug
+   * being closed: clicking Siguiente fires skip=10 against a fresh
+   * response, the table must render the new items (not keep the
+   * previous page forever).
+   *
+   * Fixture shape mirrors the user's spec: skip=0 → one trade,
+   * skip=10 → two different trades. After clicking next, the prior
+   * row must leave the DOM and the new rows must be present.
+   */
+  it('Siguiente avanza la pagina y renderiza las nuevas filas (no mantiene la anterior)', async () => {
+    mockAccounts([fakeAccount]);
+    const tradeA: TradeOut = { ...fakeTrade, id: 'tradeA', status: 'CLOSED_WIN' };
+    const tradeB: TradeOut = { ...fakeTrade, id: 'tradeB', status: 'CLOSED_LOSS', pnl_usd: '-30.00' };
+    const tradeC: TradeOut = { ...fakeTrade, id: 'tradeC', status: 'CLOSED_WIN', pnl_usd: '80.00' };
+    vi.spyOn(api, 'listTradesApi').mockImplementation((params) => {
+      const skip = params?.skip ?? 0;
+      if (skip === 0) {
+        return Promise.resolve({ items: [tradeA], total: 25, skip: 0, limit: 10 });
+      }
+      if (skip === 10) {
+        return Promise.resolve({ items: [tradeB, tradeC], total: 25, skip: 10, limit: 10 });
+      }
+      return Promise.resolve({ items: [], total: 25, skip, limit: 10 });
+    });
+
+    render(<TradeTable tradesForBalance={[tradeA, tradeB, tradeC]} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-row-tradeA')).toBeInTheDocument();
+    });
+    expect(screen.queryByTestId('trade-row-tradeB')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByTestId('trade-table-next'));
+
+    await waitFor(() => {
+      expect(screen.queryByTestId('trade-row-tradeA')).not.toBeInTheDocument();
+      expect(screen.getByTestId('trade-row-tradeB')).toBeInTheDocument();
+      expect(screen.getByTestId('trade-row-tradeC')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 2 de 3');
+  });
+
+  /**
+   * a11y — pressing Enter (or Space) on the focused Siguiente button
+   * must advance the page. Buttons native behaviour handles Enter
+   * + Space activation; this test pins that the focused control is
+   * the table's pagination button (not a stray element with the
+   * same test id) and that the page actually advances.
+   */
+  it('Enter sobre el boton Siguiente focused avanza la pagina', async () => {
+    mockAccounts([fakeAccount]);
+    const tradeA: TradeOut = { ...fakeTrade, id: 'tradeA', status: 'CLOSED_WIN' };
+    const tradeB: TradeOut = { ...fakeTrade, id: 'tradeB', status: 'CLOSED_WIN' };
+    vi.spyOn(api, 'listTradesApi').mockImplementation((params) => {
+      const skip = params?.skip ?? 0;
+      if (skip === 0) {
+        return Promise.resolve({ items: [tradeA], total: 25, skip: 0, limit: 10 });
+      }
+      return Promise.resolve({ items: [tradeB], total: 25, skip, limit: 10 });
+    });
+
+    const user = userEvent.setup();
+    render(<TradeTable tradesForBalance={[tradeA, tradeB]} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-row-tradeA')).toBeInTheDocument();
+    });
+
+    const nextBtn = screen.getByTestId('trade-table-next');
+    nextBtn.focus();
+    await user.keyboard('{Enter}');
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 2 de 3');
+      expect(screen.getByTestId('trade-row-tradeB')).toBeInTheDocument();
+    });
+  });
+
+  /**
+   * Defence in depth — when an applied filter narrows the result set
+   * while the user is parked on a non-zero page, the page index must
+   * reset to 0 so the next/prev controls don't reference an empty
+   * window. The TradeTable useEffect (TradeTable.tsx:114-116) clamps
+   * the page whenever ``totalPages`` shrinks; this test pins that the
+   * page-info text recovers to "Página 1 de 1" after the filter
+   * change, instead of being stuck on "Página N de 1".
+   */
+  it('resetea el indice de pagina cuando un filtro reduce totalPages', async () => {
+    mockAccounts([fakeAccount]);
+    const tradeA: TradeOut = { ...fakeTrade, id: 'tradeA' };
+    const tradeB: TradeOut = { ...fakeTrade, id: 'tradeB' };
+    vi.spyOn(api, 'listTradesApi').mockImplementation((params) => {
+      // Filter narrows the result: status=CLOSED_WIN shrinks total to 5
+      // regardless of pagination, so totalPages becomes 1.
+      if (params?.status === 'CLOSED_WIN') {
+        return Promise.resolve({
+          items: [tradeA],
+          total: 5,
+          skip: params?.skip ?? 0,
+          limit: 10,
+        });
+      }
+      const skip = params?.skip ?? 0;
+      if (skip === 0) {
+        return Promise.resolve({ items: [tradeA], total: 25, skip: 0, limit: 10 });
+      }
+      return Promise.resolve({ items: [tradeB], total: 25, skip, limit: 10 });
+    });
+
+    const { rerender } = render(<TradeTable tradesForBalance={[tradeA, tradeB]} />, {
+      wrapper: makeWrapper(),
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 1 de 3');
+    });
+
+    fireEvent.click(screen.getByTestId('trade-table-next'));
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 2 de 3');
+    });
+
+    // Narrow the filter — totalPages must collapse back to 1 and the
+    // page index must reset to 0 even though the user was on page 2.
+    rerender(
+      <TradeTable
+        tradesForBalance={[tradeA, tradeB]}
+        filters={{ status: 'CLOSED_WIN' }}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('trade-table-page-info')).toHaveTextContent('Página 1 de 1');
+    });
+    expect(screen.getByTestId('trade-table-prev')).toBeDisabled();
+    expect(screen.getByTestId('trade-table-next')).toBeDisabled();
   });
 });
