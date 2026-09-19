@@ -291,4 +291,202 @@ describe('TradeTableRow — tinte por status (B)', () => {
     const badge = screen.getByTestId('trade-status-CLOSED_WIN');
     expect(badge).toHaveTextContent('Ganada');
   });
+
+  /*
+   * Work unit (D) — badges pick up the row tint via the new
+   * ``tintClass`` prop. Work unit (C) painted only the plain text
+   * <td> cells; the user's verbatim feedback ("son todos los campos
+   * en rojo, estatus, fecha, sesion, tipo, cuenta, balance") plus
+   * the screenshot (PERDIDA rows showing BINARIAS in cyan and
+   * NUEVA YORK in green) shows that the status / type / session
+   * badges ALSO need to be red / green when the row is CLOSED_LOSS
+   * / CLOSED_WIN. The className must carry ``text-loss`` /
+   * ``text-profit`` (the substring the spec demands) — the actual
+   * visual win is achieved with the bang variant (``!text-loss`` /
+   * ``!text-profit``) because Tailwind's text-utilities compile in
+   * a deterministic order where the badge's own text class would
+   * otherwise beat a plain suffix. See the file-level comment in
+   * TradeTableRow.tsx and in each badge component for the full
+   * reasoning. The new badge tint tests assert:
+   *   - CLOSED_LOSS row → trade-status, trade-type, trade-session
+   *     all carry ``text-loss`` on their rendered text.
+   *   - CLOSED_WIN  row → all three carry ``text-profit``.
+   *   - OPEN row → none of the three carry either tint (the row
+   *     stays neutral, badges keep their default colour).
+   *   - CLOSED_BREAK row → same neutral as OPEN.
+   *   - FUND / WITHDRAW row → type wins over status, so even when
+   *     status is CLOSED_WIN or CLOSED_LOSS the badges stay
+   *     neutral (existing precedence rule from work unit B).
+   *
+   * Substring regex (``/text-loss/``, ``/text-profit/``) instead of
+   * word-boundary because the appended class is ``!text-loss`` —
+   * the bang is a non-word char so ``\b`` still matches, but the
+   * spec only asks that the rendered text "carry ``text-loss`` on
+   * its rendered text" and ``!text-loss`` obviously satisfies that
+   * literal check.
+   */
+  it('CLOSED_LOSS tiñe el texto del TradeStatusBadge con text-loss (fila completa)', () => {
+    renderRow({ ...baseTrade, id: 'loss-badge-text', status: 'CLOSED_LOSS', pnl_usd: '-30.00' });
+    const badge = screen.getByTestId('trade-status-CLOSED_LOSS');
+    expect(badge.className).toContain('text-loss');
+  });
+
+  it('CLOSED_LOSS tiñe el texto del TradeTypeBadge BINARY con text-loss (fila completa)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'loss-type-text',
+      status: 'CLOSED_LOSS',
+      pnl_usd: '-30.00',
+      type: 'BINARY',
+    });
+    const badge = screen.getByTestId('trade-type-BINARY');
+    expect(badge.className).toContain('text-loss');
+  });
+
+  it('CLOSED_LOSS tiñe el texto del SessionPill NEW_YORK con text-loss (fila completa)', () => {
+    // 13:00 UTC → NEW_YORK session (window [12:00-17:00) UTC).
+    renderRow({
+      ...baseTrade,
+      id: 'loss-session-text',
+      status: 'CLOSED_LOSS',
+      pnl_usd: '-30.00',
+      opened_at: '2026-01-01T13:00:00.000Z',
+    });
+    const pill = screen.getByTestId('trade-session-NEW_YORK');
+    expect(pill.className).toContain('text-loss');
+  });
+
+  it('CLOSED_WIN tiñe el texto del TradeStatusBadge con text-profit (fila completa)', () => {
+    renderRow({ ...baseTrade, id: 'win-badge-text', status: 'CLOSED_WIN' });
+    const badge = screen.getByTestId('trade-status-CLOSED_WIN');
+    expect(badge.className).toContain('text-profit');
+  });
+
+  it('CLOSED_WIN tiñe el texto del TradeTypeBadge BINARY con text-profit (fila completa)', () => {
+    renderRow({ ...baseTrade, id: 'win-type-text', status: 'CLOSED_WIN', type: 'BINARY' });
+    const badge = screen.getByTestId('trade-type-BINARY');
+    expect(badge.className).toContain('text-profit');
+  });
+
+  it('CLOSED_WIN tiñe el texto del SessionPill NEW_YORK con text-profit (fila completa)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'win-session-text',
+      status: 'CLOSED_WIN',
+      opened_at: '2026-01-01T13:00:00.000Z',
+    });
+    const pill = screen.getByTestId('trade-session-NEW_YORK');
+    expect(pill.className).toContain('text-profit');
+  });
+
+  it('OPEN no aplica text-loss ni text-profit al texto del TradeStatusBadge', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'open-badge-text',
+      status: 'OPEN',
+      closed_at: null,
+      pnl_usd: null,
+    });
+    const badge = screen.getByTestId('trade-status-OPEN');
+    // OPEN rows must not carry the bang variant — the bang is the
+    // row-tint marker. The badge's own ``text-warning`` (its
+    // default palette) is fine and expected to stay.
+    expect(badge.className).not.toContain('!text-loss');
+    expect(badge.className).not.toContain('!text-profit');
+  });
+
+  it('OPEN no aplica text-loss ni text-profit al texto del TradeTypeBadge', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'open-type-text',
+      status: 'OPEN',
+      closed_at: null,
+      pnl_usd: null,
+      type: 'BINARY',
+    });
+    const badge = screen.getByTestId('trade-type-BINARY');
+    expect(badge.className).not.toContain('!text-loss');
+    expect(badge.className).not.toContain('!text-profit');
+  });
+
+  it('CLOSED_BREAK no aplica text-loss ni text-profit al texto del TradeStatusBadge', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'break-badge-text',
+      status: 'CLOSED_BREAK',
+      pnl_usd: '0.00',
+    });
+    const badge = screen.getByTestId('trade-status-CLOSED_BREAK');
+    expect(badge.className).not.toContain('!text-loss');
+    expect(badge.className).not.toContain('!text-profit');
+  });
+
+  it('FUND con CLOSED_WIN no tiñe el texto del TradeStatusBadge (type gana)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'fund-badge-text',
+      type: 'FUND',
+      status: 'CLOSED_WIN',
+    });
+    // FUND rows carry no row tint (type wins over status per the
+    // existing precedence rule). Assert against the bang variant —
+    // the CLOSED_WIN badge naturally has ``text-profit`` in its
+    // default palette, which is allowed to stay.
+    const badge = screen.getByTestId('trade-status-CLOSED_WIN');
+    expect(badge.className).not.toContain('!text-loss');
+    expect(badge.className).not.toContain('!text-profit');
+  });
+
+  it('WITHDRAW con CLOSED_LOSS no tiñe el texto del TradeStatusBadge (type gana)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'withdraw-badge-text',
+      type: 'WITHDRAW',
+      status: 'CLOSED_LOSS',
+    });
+    // Same reasoning as the FUND case — the CLOSED_LOSS badge
+    // naturally has ``text-loss`` in its default palette, but the
+    // row tint (bang variant) must NOT be applied.
+    const badge = screen.getByTestId('trade-status-CLOSED_LOSS');
+    expect(badge.className).not.toContain('!text-loss');
+    expect(badge.className).not.toContain('!text-profit');
+  });
+
+  it('CLOSED_LOSS preserva el bg-loss/15 en el TradeStatusBadge (no se borra el bg)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'loss-badge-bg',
+      status: 'CLOSED_LOSS',
+      pnl_usd: '-30.00',
+    });
+    const badge = screen.getByTestId('trade-status-CLOSED_LOSS');
+    // The bg pattern from TRADE_STATUS_BADGE must survive the tint
+    // append — the user wants TEXT red, not the badge BG pattern
+    // overridden. (bg-loss/15 is the existing CLOSED_LOSS palette.)
+    expect(badge.className).toMatch(/\bbg-loss\/15\b/);
+  });
+
+  it('CLOSED_LOSS preserva el bg-info/15 en el TradeTypeBadge BINARY (no se borra el bg)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'loss-type-bg',
+      status: 'CLOSED_LOSS',
+      pnl_usd: '-30.00',
+      type: 'BINARY',
+    });
+    const badge = screen.getByTestId('trade-type-BINARY');
+    expect(badge.className).toMatch(/\bbg-info\/15\b/);
+  });
+
+  it('CLOSED_LOSS preserva el bg-profit/15 en el SessionPill NEW_YORK (no se borra el bg)', () => {
+    renderRow({
+      ...baseTrade,
+      id: 'loss-session-bg',
+      status: 'CLOSED_LOSS',
+      pnl_usd: '-30.00',
+      opened_at: '2026-01-01T13:00:00.000Z',
+    });
+    const pill = screen.getByTestId('trade-session-NEW_YORK');
+    expect(pill.className).toMatch(/\bbg-profit\/15\b/);
+  });
 });

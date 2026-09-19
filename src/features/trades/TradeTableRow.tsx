@@ -52,12 +52,33 @@ const SESSION_PILL_CLASS: Record<SessionBand, string> = {
  * the canonical badge frame. Returns null for trades whose
  * ``opened_at`` falls outside every defined window so the row can
  * swap in a muted em-dash placeholder.
+ *
+ * Work unit (D) — ``tintClass`` prop. ``TradeTableRow`` passes a row
+ * tint (``!text-loss`` / ``!text-profit``) so a CLOSED_LOSS row
+ * paints every pill red and a CLOSED_WIN row paints every pill
+ * green. The bang prefix is mandatory here for the same reason it
+ * is on TradeStatusBadge / TradeTypeBadge: Tailwind's text
+ * utilities compile in a deterministic order where the badge's own
+ * text class (ASIA → text-primary, LONDON → text-info, NEW_YORK →
+ * text-profit, SYDNEY → text-warning) sits BEFORE ``text-loss`` for
+ * three of the four bands and AFTER it for one (NEW_YORK). Without
+ * the bang the row tint would lose for ASIA / LONDON / SYDNEY and
+ * win by accident for NEW_YORK, which is exactly the
+ * half-painted-row bug the screenshot surfaced. Default ``''`` so
+ * the pill keeps its own colour when the row is OPEN / BREAK /
+ * FUND / WITHDRAW.
  */
-function SessionPill({ session }: { readonly session: SessionBand }) {
+function SessionPill({
+  session,
+  tintClass = '',
+}: {
+  readonly session: SessionBand;
+  readonly tintClass?: string;
+}) {
   return (
     <span
       data-testid={`trade-session-${session}`}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]} ${tintClass}`}
     >
       {SESSION_LABELS[session]}
     </span>
@@ -148,32 +169,50 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
         : 'hover:bg-primary/5';
 
   /**
-   * Row-level TEXT tint ladder (work unit C). The previous commit
-   * (B) painted only the <tr> background — the screenshot showed
-   * PERDIDA rows still rendering with mostly white/cyan text
-   * because every <td> carries its own ``text-text-primary`` /
-   * ``text-text-secondary`` / ``text-primary`` which overrode the
-   * row background tint. The user wants the WHOLE row tinted, not
-   * just the background — every text cell must carry
-   * ``text-loss`` (CLOSED_LOSS) or ``text-profit`` (CLOSED_WIN),
-   * while TradeStatusBadge / TradeTypeBadge / SessionPill /
-   * close-button cells keep their own palette.
+   * Row-level TEXT tint ladder (work units C + D). The previous
+   * commit (B) painted only the <tr> background; commit (C) added
+   * plain ``text-loss`` / ``text-profit`` to every text <td> — but
+   * the screenshot still showed PERDIDA rows with mostly white/cyan
+   * text because every <td> and every badge carries its own
+   * ``text-text-primary`` / ``text-text-secondary`` / ``text-info``
+   * / ``text-primary`` / ``text-profit`` which override a plain
+   * ``text-loss`` / ``text-profit`` appended at the end (Tailwind
+   * compiles text-utilities in alphabetical order: text-info <
+   * text-loss < text-primary < text-profit < text-text-muted <
+   * text-text-primary < text-text-secondary < text-warning, so the
+   * LATER class wins when specificity is equal).
+   *
+   * Work unit (D) escalates the row tint to the bang variant
+   * (``!text-loss`` / ``!text-profit``) so it ALWAYS wins. The same
+   * class is appended to the badge spans (TradeStatusBadge /
+   * TradeTypeBadge / SessionPill) via a new ``tintClass`` prop, so
+   * the user gets the WHOLE row red / green — including the status
+   * badge text, the type badge text, and every session pill text —
+   * while the badges keep their bg pattern (bg-loss/15, bg-info/15,
+   * bg-profit/15, etc.) and the Spanish label intact (color-blind
+   * users still get the text cue). The badge files document the
+   * same reasoning.
    *
    * Same precedence rules as ``tintClass``:
-   *   - CLOSED_WIN   → text-profit
-   *   - CLOSED_LOSS  → text-loss
-   *   - OPEN / BREAK / FUND / WITHDRAW → empty (neutral)
+   *   - CLOSED_WIN   → !text-profit (red wins visually for loss;
+   *     green wins visually for profit because !important beats
+   *     everything, including text-profit declared after text-loss)
+   *   - CLOSED_LOSS  → !text-loss
+   *   - OPEN / BREAK / FUND / WITHDRAW → empty (neutral — type
+   *     wins over status for FUND / WITHDRAW per the existing rule)
    *
    * Empty string (rather than undefined) keeps the template
    * literal interpolation branch-free and matches the existing
-   * ``tintClass`` shape.
+   * ``tintClass`` shape. The bang prefix is acceptable here
+   * because the tint is contextual (row-scoped) — it is never used
+   * to style chrome / outside the table row ladder.
    */
   const textTintClass = isFundLike
     ? ''
     : trade.status === 'CLOSED_WIN'
-      ? 'text-profit'
+      ? '!text-profit'
       : trade.status === 'CLOSED_LOSS'
-        ? 'text-loss'
+        ? '!text-loss'
         : '';
 
   return (
@@ -184,10 +223,10 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
       >
         <td className={`px-3 py-2 ${textTintClass} text-text-secondary whitespace-nowrap`}>{date}</td>
         <td className="px-3 py-2">
-          <TradeStatusBadge status={trade.status} />
+          <TradeStatusBadge status={trade.status} tintClass={textTintClass} />
         </td>
         <td className="px-3 py-2">
-          <TradeTypeBadge type={trade.type} />
+          <TradeTypeBadge type={trade.type} tintClass={textTintClass} />
         </td>
         <td
           className="px-3 py-2"
@@ -202,7 +241,7 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
               —
             </span>
           ) : (
-            <SessionPill session={session} />
+            <SessionPill session={session} tintClass={textTintClass} />
           )}
         </td>
         <td className={`px-3 py-2 ${textTintClass} text-text-primary font-display`}>
