@@ -41,10 +41,10 @@ import type { TradeOut } from './types';
  * session names — colors map 1:1 per design.md §4.2.
  */
 const SESSION_PILL_CLASS: Record<SessionBand, string> = {
-  ASIA: 'bg-primary/15 text-primary border-primary/40',
-  LONDON: 'bg-info/15 text-info border-info/40',
-  NEW_YORK: 'bg-profit/15 text-profit border-profit/40',
-  SYDNEY: 'bg-warning/15 text-warning border-warning/40',
+  ASIA: 'bg-primary/15 text-primary',
+  LONDON: 'bg-info/15 text-info',
+  NEW_YORK: 'bg-profit/15 text-profit',
+  SYDNEY: 'bg-warning/15 text-warning',
 };
 
 /**
@@ -57,7 +57,7 @@ function SessionPill({ session }: { readonly session: SessionBand }) {
   return (
     <span
       data-testid={`trade-session-${session}`}
-      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full border text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]}`}
+      className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs uppercase tracking-wide font-display ${SESSION_PILL_CLASS[session]}`}
     >
       {SESSION_LABELS[session]}
     </span>
@@ -116,11 +116,42 @@ export function TradeTableRow({ trade, balance, accountsById }: Props) {
   // SIDNEY) into the four real session names per Slice B.
   const session = sessionForTimestamp(trade.opened_at);
 
+  /**
+   * Row-level tint ladder (work unit B — operations log color
+   * signal). The badge already carries the Spanish label so
+   * color-blind users keep the text cue; the row background adds
+   * a redundant visual channel so a user scanning 25 rows can
+   * spot the WIN/LOSS split without reading.
+   *
+   * Rules:
+   *   - CLOSED_WIN   → bg-profit/10, hover bg-profit/15
+   *   - CLOSED_LOSS  → bg-loss/10,   hover bg-loss/15
+   *   - OPEN         → no tint (legacy hover:bg-primary/5)
+   *   - CLOSED_BREAK → no tint (legacy hover:bg-primary/5)
+   *   - FUND/WITHDRAW→ always neutral. Capital movements are NOT
+   *     wins or losses even when the status literal says so.
+   *     ``type`` wins over ``status`` here.
+   *
+   * Tokens come straight from ``tailwind.config.ts`` (profit/loss
+   * both map to ``--color-jade-profit`` / ``--color-jade-loss``
+   * defined in ``themes.css``) — no new palette is introduced.
+   * The lower 10% alpha keeps the row typography readable; the
+   * hover deepens to 15% to match the badge ladder
+   * (``TRADE_STATUS_BADGE`` uses /15).
+   */
+  const tintClass = isFundLike
+    ? 'hover:bg-primary/5'
+    : trade.status === 'CLOSED_WIN'
+      ? 'bg-profit/10 hover:bg-profit/15'
+      : trade.status === 'CLOSED_LOSS'
+        ? 'bg-loss/10 hover:bg-loss/15'
+        : 'hover:bg-primary/5';
+
   return (
     <>
       <tr
         data-testid={`trade-row-${trade.id}`}
-        className="border-b border-primary/10 hover:bg-primary/5 transition-colors"
+        className={`border-b border-borderJade transition-colors ${tintClass}`}
       >
         <td className="px-3 py-2 text-text-secondary whitespace-nowrap">{date}</td>
         <td className="px-3 py-2">

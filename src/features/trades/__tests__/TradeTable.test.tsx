@@ -398,4 +398,27 @@ describe('TradeTable', () => {
     expect(screen.getByTestId('trade-table-prev')).toBeDisabled();
     expect(screen.getByTestId('trade-table-next')).toBeDisabled();
   });
+
+  /**
+   * Companion to the row-tint work unit (B). Confirms the rendered
+   * CLOSED_WIN row exposes the bg-profit tint on its <tr> so a real
+   * user (not just an isolated unit test) can see the green ladder
+   * in the dense operations log.
+   */
+  it('fila CLOSED_WIN se renderiza con tinte bg-profit en el <tr>', async () => {
+    mockAccounts([fakeAccount]);
+    vi.spyOn(api, 'listTradesApi').mockResolvedValue({
+      items: [fakeTrade],
+      total: 1,
+      skip: 0,
+      limit: 10,
+    });
+    render(<TradeTable tradesForBalance={[fakeTrade]} />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId(`trade-row-${fakeTrade.id}`)).toBeInTheDocument();
+    });
+    const row = screen.getByTestId(`trade-row-${fakeTrade.id}`);
+    expect(row.className).toMatch(/bg-profit/);
+  });
 });
