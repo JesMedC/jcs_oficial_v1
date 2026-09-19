@@ -20,7 +20,11 @@ import { describe, expect, it, vi } from 'vitest';
 import type { ReactNode } from 'react';
 
 import * as api from '../../../features/dashboard/hooks';
-import { WinrateBySessionCard } from '../WinrateBySessionCard';
+import {
+  formatScopeSubtitle,
+  resolveScopePeriod,
+  WinrateBySessionCard,
+} from '../WinrateBySessionCard';
 
 function makeWrapper() {
   const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
@@ -29,6 +33,11 @@ function makeWrapper() {
   );
 }
 
+// Mock shape — bands are already integer-floor(winrate) values. The
+// general tile must use the SAME floor formula now (DVC-03):
+// 10/18 = 0.555… -> 55% (NOT 56 from a rounded backend summary).
+// ``winrate_pct`` on the mock is intentionally set to the expected
+// floor value so the partition invariant also holds.
 const SAMPLE_RESPONSE = {
   workspace_id: 'w1',
   date_from: '2026-08-01',
@@ -40,7 +49,7 @@ const SAMPLE_RESPONSE = {
     NEW_YORK: { trades: 5, wins: 2, winrate_pct: 40 },
     SYDNEY: { trades: 3, wins: 1, winrate_pct: 33 },
   },
-  general: { trades: 18, wins: 10, winrate_pct: 56 },
+  general: { trades: 18, wins: 10, winrate_pct: 55 },
 };
 
 describe('WinrateBySessionCard', () => {
@@ -66,8 +75,205 @@ describe('WinrateBySessionCard', () => {
       expect(screen.getByTestId('session-tile-LONDON')).toHaveTextContent('67%');
       expect(screen.getByTestId('session-tile-NEW_YORK')).toHaveTextContent('40%');
       expect(screen.getByTestId('session-tile-SYDNEY')).toHaveTextContent('33%');
-      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('56%');
+      // GENERAL uses floor(wins/trades*100) — 10/18 = 0.555… -> 55%.
+      // The KPI summary strip may use a different fractional formula
+      // and produces 55.6% there; the band strip is band-consistent.
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('55%');
     });
+  });
+
+  it('renderiza 81% en General con 52/64 (floor(wins/n*100)), no 80.3%', async () => {
+    const resp = {
+      ...SAMPLE_RESPONSE,
+      general: { trades: 64, wins: 52, winrate_pct: 80 },
+    };
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: resp,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent(
+        '81%',
+      );
+    });
+  });
+
+  it('muestra "Datos en revisión" cuando sum(bandas) != general.trades', async () => {
+    // ASIA 24 + 0 + 0 + 0 = 24 — but GENERAL shows 64, the bug from
+    // the screenshot. The component MUST surface this rather than
+    // silently render a stale-looking tile.
+    const resp = {
+      ...SAMPLE_RESPONSE,
+      sessions: {
+        ASIA: { trades: 24, wins: 20, winrate_pct: 83 },
+        LONDON: { trades: 0, wins: 0, winrate_pct: 0 },
+        NEW_YORK: { trades: 0, wins: 0, winrate_pct: 0 },
+        SYDNEY: { trades: 0, wins: 0, winrate_pct: 0 },
+      },
+      general: { trades: 64, wins: 52, winrate_pct: 81 },
+    };
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: resp,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('winrate-mismatch-note')).toHaveTextContent(
+        /Datos en revisi/i,
+      );
+    });
+  });
+
+  it('NO muestra "Datos en revisión" cuando la partición es invariante', async () => {
+    // SAMPLE_RESPONSE: 4 + 6 + 5 + 3 = 18 = general.trades. Invariant.
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: SAMPLE_RESPONSE,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('55%');
+    });
+    expect(screen.queryByTestId('winrate-mismatch-note')).toBeNull();
+  });
+
+  it('selector de cuenta controlado: cambia el filtro al cambiar accountId', async () => {
+    const useStatsSpy = vi
+      .spyOn(api, 'useSessionStats')
+      .mockImplementation((filters) => {
+        if (filters.accountId === 'a1') {
+          return {
+            data: {
+              ...SAMPLE_RESPONSE,
+              account_id: 'a1',
+              general: { trades: 6, wins: 5, winrate_pct: 83 },
+            },
+            isLoading: false,
+            isError: false,
+            error: null,
+          } as unknown as ReturnType<typeof api.useSessionStats>;
+        }
+        return {
+          data: {
+            ...SAMPLE_RESPONSE,
+            account_id: 'a2',
+            general: { trades: 12, wins: 5, winrate_pct: 41 },
+          },
+          isLoading: false,
+          isError: false,
+          error: null,
+        } as unknown as ReturnType<typeof api.useSessionStats>;
+      });
+
+    const { rerender } = render(
+      <WinrateBySessionCard
+        workspaceId="w1"
+        accountId="a1"
+        onAccountIdChange={() => undefined}
+      />,
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(useStatsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'a1' }),
+      );
+    });
+    expect(screen.getByTestId('session-tile-general')).toHaveTextContent('83%');
+
+    rerender(
+      <WinrateBySessionCard
+        workspaceId="w1"
+        accountId="a2"
+        onAccountIdChange={() => undefined}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(useStatsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'a2' }),
+      );
+    });
+    await waitFor(() => {
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('41%');
+    });
+  });
+
+  it('modo no controlado: initialAccountId llega al filtro y sobrevive re-renders', async () => {
+    const useStatsSpy = vi
+      .spyOn(api, 'useSessionStats')
+      .mockReturnValue({
+        data: { ...SAMPLE_RESPONSE, account_id: 'a-seed' },
+        isLoading: false,
+        isError: false,
+        error: null,
+      } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    const { rerender } = render(
+      <WinrateBySessionCard workspaceId="w1" initialAccountId="a-seed" />,
+      { wrapper: makeWrapper() },
+    );
+
+    await waitFor(() => {
+      expect(useStatsSpy).toHaveBeenCalledWith(
+        expect.objectContaining({ accountId: 'a-seed' }),
+      );
+    });
+
+    // Re-render with unrelated prop change — the seeded selection
+    // must NOT silently flip to null just because parent state
+    // changed an unrelated thing.
+    rerender(
+      <WinrateBySessionCard
+        workspaceId="w1"
+        initialAccountId="a-seed"
+        dateFrom="2026-08-01"
+        dateTo="2026-09-01"
+      />,
+    );
+
+    await waitFor(() => {
+      expect(useStatsSpy).toHaveBeenLastCalledWith(
+        expect.objectContaining({ accountId: 'a-seed' }),
+      );
+    });
+  });
+
+  it('renderiza subtítulo con periodo + zona horaria (default y prop)', async () => {
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: SAMPLE_RESPONSE,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(
+      <WinrateBySessionCard
+        workspaceId="w1"
+        dateFrom="2026-08-20"
+        dateTo="2026-09-19"
+        timezone="UTC"
+      />,
+      { wrapper: makeWrapper() },
+    );
+
+    const subtitle = screen.getByTestId('winrate-subtitle');
+    expect(subtitle).toHaveTextContent(/Asia \/ Londres \/ Nueva York \/ Sídney/);
+    expect(subtitle).toHaveTextContent(/Últimos 30 días/);
+    expect(subtitle).toHaveTextContent(/UTC/);
   });
 
   it('muestra "—" cuando una banda no tiene operaciones', async () => {
@@ -170,5 +376,34 @@ describe('WinrateBySessionCard', () => {
     );
 
     expect(screen.getByTestId('winrate-account-scope')).toBeInTheDocument();
+  });
+});
+
+describe('WinrateBySessionCard subtitle helpers', () => {
+  // These exercise the pure data path so the period/timezone wiring
+  // is covered even when jsdom cannot resolve the browser TZ the way
+  // a real client would. The component reads the same helpers.
+  it('resolveScopePeriod detecta el rango rolling-30 cuando termina en today', () => {
+    expect(resolveScopePeriod('2026-08-20', '2026-09-19', '2026-09-19')).toBe(
+      'LAST_30D',
+    );
+  });
+
+  it('resolveScopePeriod detecta el mes en curso', () => {
+    expect(resolveScopePeriod('2026-09-01', '2026-09-19', '2026-09-19')).toBe(
+      'CURRENT_MONTH',
+    );
+  });
+
+  it('resolveScopePeriod detecta el día de hoy', () => {
+    expect(resolveScopePeriod('2026-09-19', '2026-09-19', '2026-09-19')).toBe(
+      'HOY',
+    );
+  });
+
+  it('formatScopeSubtitle produce la línea completa en español', () => {
+    expect(
+      formatScopeSubtitle('2026-08-20', '2026-09-19', 'UTC', '2026-09-19'),
+    ).toBe('Asia / Londres / Nueva York / Sídney · Últimos 30 días · UTC');
   });
 });

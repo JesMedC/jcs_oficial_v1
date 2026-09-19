@@ -2,10 +2,15 @@
  * FASE 4A — useCloseTrade test.
  *
  * Asserts the invalidation contract: closing a trade must refresh
- * the trades list (so the row moves out of the OPEN filter) and the
- * accounts tree (so balance / open-position count update). The
- * pattern mirrors ``useCreateTrade.test.tsx`` — spy on the query
- * client, not the mutation itself.
+ * the trades list (so the row moves out of the OPEN filter), the
+ * accounts tree (so balance / open-position count update) AND the
+ * dashboard tree (so WinrateBySessionCard refreshes the band tiles
+ * for the same scope). The pattern mirrors ``useCreateTrade.test.tsx``
+ * — spy on the query client, not the mutation itself.
+ *
+ * DVC-03 added the dashboard invalidation: the WinrateBySessionCard
+ * reads `get_session_stats` and the close needs to invalidate that
+ * key tree so the band tiles don't render stale 24-vs-64 splits.
  */
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { renderHook, waitFor } from '@testing-library/react';
@@ -39,5 +44,10 @@ describe('useCloseTrade', () => {
     );
     expect(keys).toContainEqual(['trades']);
     expect(keys).toContainEqual(['accounts']);
+    // DVC-03 — closing a trade must also refresh the dashboard
+    // tree (session-stats + pnl-calendar). Asserted against the
+    // public `dashboardKeys.all` value so a future rename of the
+    // key factory surface remains a single source of truth.
+    expect(keys).toContainEqual(['dashboard']);
   });
 });
