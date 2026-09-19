@@ -276,7 +276,12 @@ describe('WinrateBySessionCard', () => {
     expect(subtitle).toHaveTextContent(/UTC/);
   });
 
-  it('muestra "—" cuando una banda no tiene operaciones', async () => {
+  it('muestra 100% cuando una banda no tiene operaciones', async () => {
+    // Empty band (trades === 0) must render the literal "100%" so the
+    // tile reads as "complete absence of operations" rather than the
+    // em-dash placeholder. The "Sin ops" subtitle below the number
+    // stays Spanish and unchanged — only the headline percentage is
+    // swapped (REQ-WRS-007 follow-up).
     const empty = {
       ...SAMPLE_RESPONSE,
       sessions: {
@@ -297,12 +302,53 @@ describe('WinrateBySessionCard', () => {
     render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
 
     await waitFor(() => {
-      expect(screen.getByTestId('session-tile-ASIA')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-LONDON')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-NEW_YORK')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-SYDNEY')).toHaveTextContent('—');
-      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('—');
+      expect(screen.getByTestId('session-tile-ASIA')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-LONDON')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-NEW_YORK')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-SYDNEY')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('100%');
     });
+    // Subtitle "Sin ops" must still render on every empty tile.
+    expect(screen.getAllByText('Sin ops').length).toBeGreaterThanOrEqual(5);
+  });
+
+  it('NO muestra "Datos en revisión" cuando general.trades > 0 pero las bandas están vacías (periodo genuinamente vacío)', async () => {
+    // Partial-empty case: general.trades === 2 with every band trades === 0.
+    // Band sum is 0 while general is non-zero — this looks like a
+    // partition mismatch, but it is the legitimate "no operations in
+    // any visible session" case (e.g. an account that only traded in a
+    // retired session slot). The note MUST NOT fire here; instead every
+    // tile renders 100% (no ops) and the strip stays band-consistent.
+    const partialEmpty = {
+      ...SAMPLE_RESPONSE,
+      sessions: {
+        ASIA: { trades: 0, wins: 0, winrate_pct: 0 },
+        LONDON: { trades: 0, wins: 0, winrate_pct: 0 },
+        NEW_YORK: { trades: 0, wins: 0, winrate_pct: 0 },
+        SYDNEY: { trades: 0, wins: 0, winrate_pct: 0 },
+      },
+      general: { trades: 2, wins: 1, winrate_pct: 50 },
+    };
+    vi.spyOn(api, 'useSessionStats').mockReturnValue({
+      data: partialEmpty,
+      isLoading: false,
+      isError: false,
+      error: null,
+    } as unknown as ReturnType<typeof api.useSessionStats>);
+
+    render(<WinrateBySessionCard workspaceId="w1" />, { wrapper: makeWrapper() });
+
+    await waitFor(() => {
+      // Every band tile renders 100% (no operations in any band).
+      expect(screen.getByTestId('session-tile-ASIA')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-LONDON')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-NEW_YORK')).toHaveTextContent('100%');
+      expect(screen.getByTestId('session-tile-SYDNEY')).toHaveTextContent('100%');
+      // GENERAL still renders its own count → 1/2 -> floor(50) = 50%.
+      expect(screen.getByTestId('session-tile-general')).toHaveTextContent('50%');
+    });
+    // The partition-mismatch note must NOT fire for a genuinely empty period.
+    expect(screen.queryByTestId('winrate-mismatch-note')).toBeNull();
   });
 
   it('muestra skeletons durante la carga', () => {
