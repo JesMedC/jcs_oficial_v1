@@ -2,23 +2,34 @@
 //
 // Renders:
 //
-// - ``Header``       — symbol, last close, connection dot
-// - ``SplitScreen``  — 70/30 flex layout
-//   - left  → ``Chart``            (lightweight-charts canvas)
-//   - right → ``AlertsPanel``      (live alerts table)
+// - ``Header``           — symbol, last close, connection dot
+// - ``SplitScreen``      — 70/30 flex layout
+//   - left  → ``TradingViewChart`` (TradingView Advanced Chart widget)
+//   - right → ``AlertsPanel``       (live alerts table)
 //
-// All data flows down from three hooks:
+// State ownership:
 //
-// - ``useBackendHealth``  — polls /healthz for the provider/symbol.
-// - ``useCandles``         — WS subscription for OHLCV + indicators.
-// - ``useAlerts``          — WS subscription for the alerts feed.
+// - ``chartSymbol`` lives here so the alert row click in ``AlertsPanel``
+//   can drive the chart's symbol without prop-drilling through an extra
+//   layer. The default is the backend's reported symbol, falling back
+//   to ``EUR/USD`` while the /healthz poll is still in flight.
+// - TV05 will add a ``selectedAlert`` state and the click handler that
+//   wires row clicks to ``setChartSymbol`` + ``setSelectedAlert``.
+//
+// Data sources (honest contract — see README):
+//
+// - Chart pixels:        TradingView widget (real-time forex feed).
+// - Candles / indicators / alerts: Dukascopy via the FastAPI backend.
+// The two streams tick independently; the scanner engine is
+// authoritative for WIN/LOSS resolution, the widget is authoritative
+// for "what the user is looking at right now".
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 
 import { AlertsPanel } from "./components/AlertsPanel";
-import { Chart } from "./components/Chart";
 import { Header } from "./components/Header";
 import { SplitScreen } from "./components/SplitScreen";
+import { TradingViewChart } from "./components/TradingViewChart";
 
 import "./App.css";
 import { useAlerts } from "./hooks/useAlerts";
@@ -26,10 +37,27 @@ import { useBackendHealth } from "./hooks/useBackendHealth";
 import { useCandles } from "./hooks/useCandles";
 import { computeChangePct } from "./utils/format";
 
+/** Fallback symbol while the backend has not yet reported one. */
+const DEFAULT_CHART_SYMBOL = "EUR/USD";
+
 export default function App() {
   const health = useBackendHealth();
-  const { candles, indicators, latest, status: candleStatus } = useCandles();
+  // Indicators are no longer threaded through App — the TradingView
+  // widget displays its own data and the Dukascopy buffer is now an
+  // internal scanner concern. ``useCandles`` still exposes them for
+  // future use; we deliberately ignore them at the App level for now.
+  const { candles, latest, status: candleStatus } = useCandles();
   const { alerts, pendingCount, status: alertStatus } = useAlerts();
+
+  // The chart's symbol starts as the backend's symbol, or the
+  // documented fallback if /healthz has not yet responded. TV05 will
+  // lift this on alert-row click via the AlertsPanel ``onSelect`` prop.
+  const initialSymbol = health.symbol ?? DEFAULT_CHART_SYMBOL;
+  const [chartSymbol, setChartSymbol] = useState<string>(initialSymbol);
+  // ``setChartSymbol`` is intentionally not consumed here yet — TV05
+  // wires it as the AlertsPanel onSelect handler. Reference it once
+  // so strict TS does not flag it.
+  void setChartSymbol;
 
   // The "live" connection status reflects whichever WS we trust most —
   // they're identical sockets today but separating them lets future
@@ -54,7 +82,7 @@ export default function App() {
         changePct={changePct}
       />
       <SplitScreen
-        left={<Chart candles={candles} indicators={indicators} />}
+        left={<TradingViewChart symbol={chartSymbol} />}
         right={<AlertsPanel alerts={alerts} pendingCount={pendingCount} status={wsStatus} />}
       />
     </div>
