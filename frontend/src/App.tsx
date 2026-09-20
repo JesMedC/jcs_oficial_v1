@@ -24,8 +24,9 @@
 // authoritative for WIN/LOSS resolution, the widget is authoritative
 // for "what the user is looking at right now".
 
-import { useMemo, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 
+import { AlertCard } from "./components/AlertCard";
 import { AlertsPanel } from "./components/AlertsPanel";
 import { Header } from "./components/Header";
 import { SplitScreen } from "./components/SplitScreen";
@@ -36,6 +37,7 @@ import { useAlerts } from "./hooks/useAlerts";
 import { useBackendHealth } from "./hooks/useBackendHealth";
 import { useCandles } from "./hooks/useCandles";
 import { computeChangePct } from "./utils/format";
+import type { Alert } from "./types";
 
 /** Fallback symbol while the backend has not yet reported one. */
 const DEFAULT_CHART_SYMBOL = "EUR/USD";
@@ -50,14 +52,25 @@ export default function App() {
   const { alerts, pendingCount, status: alertStatus } = useAlerts();
 
   // The chart's symbol starts as the backend's symbol, or the
-  // documented fallback if /healthz has not yet responded. TV05 will
-  // lift this on alert-row click via the AlertsPanel ``onSelect`` prop.
+  // documented fallback if /healthz has not yet responded. TV05
+  // wires the alert-row click to this setter.
   const initialSymbol = health.symbol ?? DEFAULT_CHART_SYMBOL;
   const [chartSymbol, setChartSymbol] = useState<string>(initialSymbol);
-  // ``setChartSymbol`` is intentionally not consumed here yet — TV05
-  // wires it as the AlertsPanel onSelect handler. Reference it once
-  // so strict TS does not flag it.
-  void setChartSymbol;
+
+  // The currently expanded alert (its detail card sits under the
+  // table). ``null`` means no card is open. We keep the ID separate
+  // from the symbol because the chart should follow the latest row
+  // click while the card can stay open / be dismissed independently.
+  const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
+
+  const handleSelectAlert = useCallback((alert: Alert) => {
+    setChartSymbol(alert.symbol);
+    setSelectedAlert(alert);
+  }, []);
+
+  const handleCloseAlert = useCallback(() => {
+    setSelectedAlert(null);
+  }, []);
 
   // The "live" connection status reflects whichever WS we trust most —
   // they're identical sockets today but separating them lets future
@@ -83,7 +96,20 @@ export default function App() {
       />
       <SplitScreen
         left={<TradingViewChart symbol={chartSymbol} />}
-        right={<AlertsPanel alerts={alerts} pendingCount={pendingCount} status={wsStatus} />}
+        right={
+          <>
+            <AlertsPanel
+              alerts={alerts}
+              pendingCount={pendingCount}
+              status={wsStatus}
+              onSelect={handleSelectAlert}
+              selectedAlertId={selectedAlert?.id ?? null}
+            />
+            {selectedAlert && (
+              <AlertCard alert={selectedAlert} onClose={handleCloseAlert} />
+            )}
+          </>
+        }
       />
     </div>
   );

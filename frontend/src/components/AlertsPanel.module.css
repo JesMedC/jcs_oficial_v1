@@ -77,6 +77,46 @@
   background: var(--color-bg-elevated);
 }
 
+/* Clickable row chrome. The button stretches the cell so the whole
+ * row acts as the click target, including the gaps between the
+ * existing badge columns. */
+.table__row {
+  cursor: pointer;
+}
+
+.table__row--selected,
+.table__row--selected:hover {
+  background: rgba(245, 158, 11, 0.12); /* subtle amber tint */
+}
+
+.table__cell_button {
+  padding: 0 !important;
+}
+
+.row__button {
+  display: grid;
+  grid-template-columns: 1fr 1fr 0.6fr 0.7fr 0.9fr 0.7fr;
+  align-items: center;
+  width: 100%;
+  padding: var(--space-3) var(--space-4);
+  background: transparent;
+  border: 0;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  gap: var(--space-3);
+}
+
+.row__button:focus-visible {
+  outline: 2px solid var(--color-pending);
+  outline-offset: -2px;
+}
+
+.row__button:hover {
+  background: var(--color-bg-elevated);
+}
+
 .cell__time {
   font-family: var(--font-mono);
   color: var(--color-text-secondary);
