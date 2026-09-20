@@ -1,0 +1,113 @@
+/* AlertsPanel — right-side alerts table. */
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+
+.panel__header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--color-border);
+  background: var(--color-bg-panel);
+}
+
+.panel__title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-3);
+}
+
+.panel__title-text {
+  font-size: 14px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-primary);
+}
+
+.panel__pending {
+  font-size: 12px;
+  font-family: var(--font-mono);
+  color: var(--color-pending);
+}
+
+.panel__body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  font-family: var(--font-sans);
+}
+
+.table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--color-bg-panel);
+  color: var(--color-text-muted);
+  font-weight: 500;
+  text-align: left;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+}
+
+.table tbody td {
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--color-border);
+  vertical-align: middle;
+}
+
+.table tbody tr {
+  animation: fade-in 0.25s ease-out;
+}
+
+.table tbody tr:hover {
+  background: var(--color-bg-elevated);
+}
+
+.cell__time {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+.cell__symbol {
+  font-weight: 600;
+  font-family: var(--font-mono);
+}
+
+.cell__confidence {
+  font-family: var(--font-mono);
+  color: var(--color-text-primary);
+  text-align: right;
+}
+
+.cell__price {
+  font-family: var(--font-mono);
+  color: var(--color-text-secondary);
+  text-align: right;
+}
+
+.empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 100%;
+  min-height: 240px;
+  color: var(--color-text-muted);
+  font-size: 13px;
+  letter-spacing: 0.04em;
+  animation: pulse 1.6s ease-in-out infinite;
+}

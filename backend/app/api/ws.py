@@ -5,8 +5,9 @@ Single producer pattern:
 - :class:`WebSocketBroadcaster` runs an asyncio task that ticks every
   ``scanner_tick_interval_ms`` milliseconds.
 - On each tick it pulls the latest forming candle + buffer snapshot from
-  the :class:`CandleBuffer` and pushes a ``{"type": "candle", ...}``
-  message to every connected client.
+  the :class:`CandleBuffer`, computes the EMA / Bollinger overlays once
+  for the whole buffer, and pushes a ``{"type": "candle", ...}`` message
+  to every connected client.
 - The :class:`AlertStore` is the source of truth for alerts; each client
   has its own bounded queue and is drained as part of every broadcast
   loop. Alert events are emitted as ``alert_new`` (PENDING) and
@@ -16,9 +17,42 @@ Connection lifecycle:
 
 1. Client opens ``ws://host/ws``.
 2. Server sends a one-shot ``{"type": "hello", ...}`` snapshot so the
-   frontend can hydrate immediately.
+   frontend can hydrate immediately. The snapshot includes the full
+   indicator series so the chart can draw EMA / Bollinger overlays
+   without any client-side recompute.
 3. Client receives continuous ``candle`` / ``alert_*`` events until it
-   disconnects.
+   disconnects. Each ``candle`` event carries the latest indicator
+   values (one float per series) so the chart's last point can be
+   updated incrementally.
+
+Indicator payload contract
+--------------------------
+
+Both ``hello`` and ``candle`` payloads include an ``indicators`` field:
+
+```
+{
+  "series": {
+    "ema_fast":  [{"time": 1737158400, "value": 1.14523}, ...],
+    "ema_mid":   [...],
+    "ema_slow":  [...],
+    "bb_upper":  [...],
+    "bb_middle": [...],
+    "bb_lower":  [...]
+  },
+  "latest": {
+    "ema_fast": 1.14523,
+    "ema_mid":  1.14480,
+    ...
+  }
+}
+```
+
+Times are unix seconds (UTC) so the frontend can drop them straight
+into lightweight-charts without any timezone juggling. ``series`` is
+emitted in full on ``hello``; on ``candle`` ticks we still emit it but
+it is identical between ticks until a new candle closes, so the
+frontend can replace the cached series wholesale.
 """
 
 from __future__ import annotations
@@ -29,15 +63,77 @@ from contextlib import suppress
 from datetime import datetime, timezone
 from typing import Any
 
+import pandas as pd
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
 from app.engine.alerts import AlertStore
 from app.engine.models import Alert
+from app.indicators.bollinger import compute_bollinger
+from app.indicators.ema import compute_emas
 
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["ws"])
+
+# Indicator series names — kept in a single tuple so both the snapshot
+# and the tick payload build the dict in the same order.
+_INDICATOR_COLUMNS: tuple[tuple[str, str], ...] = (
+    ("ema_fast", "ema_fast"),
+    ("ema_mid", "ema_mid"),
+    ("ema_slow", "ema_slow"),
+    ("bb_upper", "bb_upper"),
+    ("bb_middle", "bb_middle"),
+    ("bb_lower", "bb_lower"),
+)
+
+
+def _build_indicator_payload(
+    df: pd.DataFrame, *, ema_fast: int, ema_mid: int, ema_slow: int,
+    bb_length: int, bb_std: float,
+) -> dict[str, Any]:
+    """Compute EMA + Bollinger overlays for ``df`` and serialise them.
+
+    Returns a dict with two keys:
+
+    - ``series``: a per-indicator list of ``{time, value}`` points
+      aligned to the candle buffer index. ``time`` is unix seconds
+      (UTC) and ``value`` is a float. NaN rows (indicator warm-up) are
+      dropped.
+    - ``latest``: a per-indicator dict of the most recent non-NaN value.
+
+    On an empty / too-short frame both fields are empty dicts so the
+    frontend can render the empty state without crashing.
+    """
+    if df.empty or len(df) < 2:
+        return {"series": {}, "latest": {}}
+
+    emas = compute_emas(df, fast=ema_fast, mid=ema_mid, slow=ema_slow)
+    bb = compute_bollinger(df, length=bb_length, std=bb_std)
+    enriched = pd.concat([df[["close"]], emas, bb], axis=1)
+
+    series: dict[str, list[dict[str, float | int]]] = {}
+    latest: dict[str, float] = {}
+
+    for key, col_name in _INDICATOR_COLUMNS:
+        col = enriched[col_name]
+        points: list[dict[str, float | int]] = []
+        last_val: float | None = None
+        for ts, val in col.items():
+            if val != val:  # NaN guard — pandas-ta emits NaN during warm-up
+                continue
+            ts_dt = ts.to_pydatetime() if hasattr(ts, "to_pydatetime") else ts
+            if ts_dt.tzinfo is None:
+                ts_dt = ts_dt.replace(tzinfo=timezone.utc)
+            else:
+                ts_dt = ts_dt.astimezone(timezone.utc)
+            points.append({"time": int(ts_dt.timestamp()), "value": float(val)})
+            last_val = float(val)
+        series[key] = points
+        if last_val is not None:
+            latest[key] = last_val
+
+    return {"series": series, "latest": latest}
 
 
 class WebSocketBroadcaster:
@@ -158,11 +254,23 @@ class WebSocketBroadcaster:
             symbol=settings.scanner_symbol,
             offer_side="bid",
         )
+        df = self._buffer.snapshot(
+            symbol=settings.scanner_symbol, offer_side="bid"
+        )
+        indicators = _build_indicator_payload(
+            df,
+            ema_fast=settings.ema_fast,
+            ema_mid=settings.ema_mid,
+            ema_slow=settings.ema_slow,
+            bb_length=settings.bollinger_length,
+            bb_std=settings.bollinger_std,
+        )
         return {
             "type": "hello",
             "symbol": settings.scanner_symbol,
             "interval_minutes": settings.candle_interval_minutes,
             "candles": [c.to_dict() for c in candles],
+            "indicators": indicators,
             "alerts": [
                 a.model_dump(mode="json") for a in self._store.all()[:50]
             ],
@@ -176,6 +284,17 @@ class WebSocketBroadcaster:
             symbol=settings.scanner_symbol,
             offer_side="bid",
         )
+        df = self._buffer.snapshot(
+            symbol=settings.scanner_symbol, offer_side="bid"
+        )
+        indicators = _build_indicator_payload(
+            df,
+            ema_fast=settings.ema_fast,
+            ema_mid=settings.ema_mid,
+            ema_slow=settings.ema_slow,
+            bb_length=settings.bollinger_length,
+            bb_std=settings.bollinger_std,
+        )
         last = candles[-1] if candles else None
         return {
             "type": "candle",
@@ -184,6 +303,7 @@ class WebSocketBroadcaster:
             "ts": last.timestamp.isoformat() if last else None,
             "candle": last.to_dict() if last else None,
             "buffer": [c.to_dict() for c in candles],
+            "indicators": indicators,
         }
 
     def _client_queue(self, ws: WebSocket) -> "asyncio.Queue[Alert]":
