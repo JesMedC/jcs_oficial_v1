@@ -83,6 +83,18 @@ class Settings(BaseSettings):
     # Support / resistance
     sr_min_touches: int = 2
     sr_pivot_window: int = 10
+    sr_tolerance_pct: float = 0.05
+
+    # EMA interaction tolerance (price within X% of an EMA counts as
+    # "interacting").
+    ema_tolerance_pct: float = 0.1
+
+    # Fibonacci retracement tolerance.
+    fib_tolerance_pct: float = 0.05
+
+    # Trend detection
+    trend_lookback: int = 20
+    trend_pivot_window: int = 3
 
 
 @lru_cache
