@@ -59,15 +59,15 @@ The UI is split because two screens of info at once beat eye-jumping between cha
 
 | ID  | Task | Status |
 | --- | ---- | ------ |
-| T01 | Bootstrap Python venv + FastAPI scaffold + dependencies            | pending |
-| T02 | `MarketDataProvider` interface + `DukascopyProvider` implementation | pending |
-| T03 | `OandaProvider` stub activated by `OANDA_API_TOKEN` env var         | pending |
-| T04 | Indicator engine: EMA 50/100/200, Bollinger (20, 2σ), Stochastic 5-5-3 | pending |
-| T05 | Support / Resistance detector (≥2 touches, pivot clustering)       | pending |
-| T06 | Fibonacci detector: swings + retracements at 50/61.8/78.6 + confluence count | pending |
-| T07 | Confirmation engine: score each of 5 points, require ≥4, decide CALL/PUT | pending |
-| T08 | Alert lifecycle: PENDING → WIN/LOSS after 5-min expiry              | pending |
-| T09 | WebSocket broadcaster: candles + alert events                      | pending |
+| T01 | Bootstrap Python venv + FastAPI scaffold + dependencies            | done    |
+| T02 | `MarketDataProvider` interface + `DukascopyProvider` implementation | done    |
+| T03 | `OandaProvider` stub activated by `OANDA_API_TOKEN` env var         | done    |
+| T04 | Indicator engine: EMA 50/100/200, Bollinger (20, 2σ), Stochastic 5-5-3 | done    |
+| T05 | Support / Resistance detector (≥2 touches, pivot clustering)       | done    |
+| T06 | Fibonacci detector: swings + retracements at 50/61.8/78.6 + confluence count | done    |
+| T07 | Confirmation engine: score each of 5 points, require ≥4, decide CALL/PUT | done    |
+| T08 | Alert lifecycle: PENDING → WIN/LOSS after 5-min expiry              | done    |
+| T09 | WebSocket broadcaster: candles + alert events                      | done    |
 | T10 | Frontend scaffold: Vite + React + TS + lightweight-charts           | pending |
 | T11 | Split-screen layout: chart left, alerts panel right                | pending |
 | T12 | Chart: candlesticks + EMA(50,100,200) line series + Bollinger bands | pending |
@@ -95,6 +95,28 @@ The UI is split because two screens of info at once beat eye-jumping between cha
 ### 2026-09-19 — bootstrap
 
 - Created `trading-scanner/{backend,frontend,odd}` directory structure
-- Picked stack: Python 3.12 + FastAPI + pandas-ta + yfinance / React + TS + Vite + lightweight-charts
-- Picked default data source: `yfinance` (free, no token); OANDA pluggable later
+- Picked stack: Python 3.12 + FastAPI + pandas-ta + dukascopy-python / React + TS + Vite + lightweight-charts
+- Picked default data source: Dukascopy public bi5 endpoint (free, no token, institutional quality)
 - Started this doc
+- Committed T01 (scaffold) — commit `e94e098`
+
+### 2026-09-19 — backend engine layer (T02–T09)
+
+- `MarketDataProvider` ABC + `DukascopyProvider` (default, no token) + `OandaProvider` stub (token-gated)
+- Indicators: EMA 50/100/200, Bollinger 20/2σ, Stochastic 5-5-3, all via `pandas-ta-classic`
+- S/R detector with pivot clustering and tolerance
+- Fibonacci detector with retracement levels + confluence bonus
+- Trend detector from swing highs/lows
+- 5-point confirmation engine (≥4 to fire, trend must be unambiguous)
+- Alert lifecycle: PENDING → WIN/LOSS resolved at 5-min expiry
+- WebSocket broadcaster on `/ws` with candle + alert events
+- 20 pytest tests, all green
+- uvicorn smoke verified: `/healthz`, `/api/candles`, `/api/alerts`, `/ws`
+- Committed as `1b91cb7`
+
+### Known gotchas
+
+- `today is Saturday 2026-09-19`: forex market closed, no new live alerts until Monday open. Historical buffer still loads.
+- `pandas-ta-classic` stochastic kwarg is `smooth_k` (not `smooth`).
+- EMA 200 needs 200+ warmup bars; engine silently no-ops until buffer reaches `ema_slow + 5`.
+- Alerts are in-memory only; restarts lose pending alerts.
