@@ -68,11 +68,11 @@ The UI is split because two screens of info at once beat eye-jumping between cha
 | T07 | Confirmation engine: score each of 5 points, require ≥4, decide CALL/PUT | done    |
 | T08 | Alert lifecycle: PENDING → WIN/LOSS after 5-min expiry              | done    |
 | T09 | WebSocket broadcaster: candles + alert events                      | done    |
-| T10 | Frontend scaffold: Vite + React + TS + lightweight-charts           | pending |
-| T11 | Split-screen layout: chart left, alerts panel right                | pending |
-| T12 | Chart: candlesticks + EMA(50,100,200) line series + Bollinger bands | pending |
-| T13 | Alerts table: time, asset, side, confidence, status columns + live updates | pending |
-| T14 | End-to-end smoke test: boot stack, watch EURUSD=X, see alert flow into panel | pending |
+| T10 | Frontend scaffold: Vite + React + TS + lightweight-charts           | done    |
+| T11 | Split-screen layout: chart left, alerts panel right                | done    |
+| T12 | Chart: candlesticks + EMA(50,100,200) line series + Bollinger bands | done    |
+| T13 | Alerts table: time, asset, side, confidence, status columns + live updates | done    |
+| T14 | End-to-end smoke test: boot stack, watch EURUSD=X, see alert flow into panel | done    |
 
 ## Acceptance criteria
 
@@ -113,6 +113,57 @@ The UI is split because two screens of info at once beat eye-jumping between cha
 - 20 pytest tests, all green
 - uvicorn smoke verified: `/healthz`, `/api/candles`, `/api/alerts`, `/ws`
 - Committed as `1b91cb7`
+
+### 2026-09-19 — frontend split-screen (T10–T14)
+
+- Vite 5 + React 18 + TypeScript (strict) scaffold at `frontend/`
+- `lightweight-charts` v4 for the candlestick + indicator overlay
+- Custom hooks: `useCandles`, `useAlerts`, `useBackendHealth` with reconnect/backoff
+- Split-screen layout (≈70/30), dark theme, no UI framework dependency
+- WS payload extended on backend (`backend/app/api/ws.py`) to include `indicators`
+  block per candle so frontend doesn't recompute TA
+- Alerts table with Hora / Activo / Tipo / Confianza / Entrada / Resultado
+  columns + colored CALL/PUT + PENDING/WIN/LOSS badges
+- 27/27 backend tests + 9/9 frontend Vitest tests + clean production build
+- Playwright screenshot verified: EUR/USD 5m chart with all 6 indicators
+  visible, "Esperando señales…" empty state, LIVE connection dot green
+- Committed as `a56261c`
+
+### Final state
+
+```
+4 commits on feat/scanner-engine:
+  a56261c feat(scanner): add React + lightweight-charts split-screen UI
+  92d2a01 docs(scanner): mark backend tasks T02-T09 done
+  1b91cb7 feat(scanner): add data layer, indicators, 5-point confirmation engine, WebSocket
+  e94e098 chore(scanner): bootstrap backend scaffold with FastAPI + Dukascopy
+
+27 backend tests pass, 9 frontend tests pass.
+Total project size: ~5 300 lines across 36 files.
+```
+
+## How to run
+
+```bash
+# Backend (terminal 1)
+cd trading-scanner/backend
+.venv/bin/uvicorn app.main:app --port 8000
+
+# Frontend (terminal 2)
+cd trading-scanner/frontend
+npm run dev
+# → open http://localhost:5173
+```
+
+No API token needed. Default symbol EUR/USD via Dukascopy public CDN.
+
+## Next steps (future work)
+
+- Persistence: alerts + candle snapshots to SQLite so a restart doesn't lose history
+- Multi-symbol grid scanner: backend already supports the keying, frontend needs a tabs/grid UI
+- OandaProvider real implementation (currently a stub that raises NotImplementedError)
+- Strategy backtest mode: replay a date range against the same engine
+- Live alerts are currently 0 because today is Saturday; expect signals on Monday during London/NY sessions
 
 ### Known gotchas
 
