@@ -1,0 +1,32 @@
+import { SeoHead } from '../components/SeoHead';
+import { FeaturesGrid } from '../components/features/FeaturesGrid';
+
+/*
+ * p1c — Features page.
+ *
+ * Hero (Orbitron jade) + 4-card features grid. Mirrors the Angular
+ * app content verbatim per user prompt.
+ */
+export function FeaturesPage() {
+  return (
+    <>
+      <SeoHead
+        title="Caracteristicas"
+        description="Controla tus cuentas, registra cada operacion, analiza tu rendimiento y mejora tu disciplina. Forex, binarias y metricas avanzadas."
+        canonicalPath="/features"
+      />
+      <section className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-4 text-center">
+        <h1
+          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
+          style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
+        >
+          Todo lo que necesitás, en un solo lugar
+        </h1>
+        <p className="text-text-secondary font-body text-base md:text-lg mt-4 max-w-2xl mx-auto">
+          Registra tus operaciones, sigue tu rendimiento y construye consistencia.
+        </p>
+      </section>
+      <FeaturesGrid />
+    </>
+  );
+}

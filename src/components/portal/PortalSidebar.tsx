@@ -1,0 +1,65 @@
+/*
+ * p0d.2 — PortalSidebar.
+ * p0e.1 — Extend nav: rename Movimientos → Operaciones, add Diario
+ *         (Diario de Trading) + Playbook. Final 6-item order:
+ *         Dashboard, Cuentas, Operaciones, Diario, Playbook,
+ *         Configuracion.
+ * portal-fase0a-base — restore vertical sidebar on desktop.
+ *         Drops the previous `hidden lg:hidden` desktop-hide (the
+ *         horizontal PortalNav was archived by this same wave, see
+ *         PortalNav.tsx) and composes three extracted pieces:
+ *         SidebarHeader / SidebarNav / SidebarFooter. Collapsed
+ *         state now reads from the useSidebarCollapsed Zustand
+ *         store (sessionStorage-backed). The footer also mounts
+ *         WorkspaceSelector.
+ *
+ * Left rail for the authenticated user portal (/portal/*). Collapsible
+ * with the same width transition AdminSidebar uses (240px expanded,
+ * 64px collapsed). Active item gets a jade left-border + jade glow,
+ * matching the spec.
+ *
+ * Reuses the AdminSidebar layout pattern (sticky rail, h-dvh, brand
+ * row at the top, nav in the middle, collapse toggle at the bottom).
+ *
+ * Visual language per mem #70 (jade + Orbitron, glassmorphism). UI
+ * labels per mem #68 are Spanish (Dashboard, Cuentas, Operaciones,
+ * Diario, Playbook, Configuracion). Code identifiers stay English.
+ */
+import { SidebarHeader } from './SidebarHeader';
+import { SidebarNav } from './SidebarNav';
+import { SidebarFooter } from './SidebarFooter';
+import { useSidebarCollapsed } from '../../stores/useSidebarCollapsed';
+import { Scanline } from '../decor/Scanline';
+
+export function PortalSidebar() {
+  const isCollapsed = useSidebarCollapsed((state) => state.isCollapsed);
+
+  return (
+    <aside
+      className={[
+        // Vertical sidebar restored on desktop per portal-fase0a-base —
+        // previously hidden lg:hidden while PortalNav drew the horizontal
+        // nav; PortalNav is archived now, so this rail is visible on
+        // lg+ screens (240px expanded / 64px collapsed).
+        // dashboard-jarvis-fidelity (Slice A, T-030, REQ-CWM-001) —
+        // swap the opaque #060B10 fill for the glass surface so the
+        // JARVIS-style decor + neon cyan primary bleed through the
+        // chrome. `border-[var(--glass-border)]` replaces the
+        // jade-border token: the glass surface implies a glass border.
+        'shrink-0 sticky top-0 self-start h-dvh',
+        'bg-surface/40 backdrop-blur-md',
+        'border-r border-[var(--glass-border)]',
+        'flex flex-col transition-[width] duration-200',
+        isCollapsed ? 'w-16' : 'w-72',
+      ].join(' ')}
+      aria-label="Menu lateral del portal de usuario"
+    >
+      <SidebarHeader isCollapsed={isCollapsed} />
+      <SidebarNav isCollapsed={isCollapsed} />
+      <SidebarFooter isCollapsed={isCollapsed} />
+      {/* Jarvis-style scanline overlay — sweeps top-to-bottom every
+          6s, decorative only (aria-hidden, pointer-events-none). */}
+      <Scanline duration={6} />
+    </aside>
+  );
+}
