@@ -23,6 +23,7 @@ import { describe, expect, it } from 'vitest';
 import {
   SESSION_LABELS,
   SESSION_ORDER,
+  localBucketForTimestamp,
   sessionForTimestamp,
   type SessionBand,
 } from '../index';
@@ -119,5 +120,78 @@ describe('sessionForTimestamp (UTC resolver)', () => {
 
   it('also accepts a Date object (not just a string)', () => {
     expect(sessionForTimestamp(new Date(utc(14)))).toBe('NEW_YORK');
+  });
+});
+
+/**
+ * localBucketForTimestamp — TZ-aware (local_day, band) bucketer.
+ *
+ * Mirrors the backend ``local_date_for_timestamp`` +
+ * ``session_for_timestamp`` pair (REQ-SES-003) so the frontend
+ * pre-flight gate in ``NewTradeForm`` buckets BINARY trades by
+ * the user's calendar day + 4-band hour window instead of by UTC
+ * date + UTC hour. The USC-2 false-positive fix depends on this:
+ * a CLOSED_LOSS in a different LOCAL day must NOT lock the form
+ * even if it happens to share the UTC band with "now".
+ */
+describe('localBucketForTimestamp (TZ-aware bucketer)', () => {
+  it('UTC TZ + hour 14 → NEW_YORK band on the UTC day', () => {
+    const bucket = localBucketForTimestamp('2026-09-19T14:30:00.000Z', 'UTC');
+    expect(bucket).toEqual({ day: '2026-09-19', band: 'NEW_YORK' });
+  });
+
+  it('UTC TZ + hour 04 → ASIA band on the UTC day', () => {
+    const bucket = localBucketForTimestamp('2026-09-19T04:30:00.000Z', 'UTC');
+    expect(bucket).toEqual({ day: '2026-09-19', band: 'ASIA' });
+  });
+
+  it('UTC TZ + hour 09 → LONDON band on the UTC day', () => {
+    const bucket = localBucketForTimestamp('2026-09-19T09:30:00.000Z', 'UTC');
+    expect(bucket).toEqual({ day: '2026-09-19', band: 'LONDON' });
+  });
+
+  it('UTC TZ + hour 19 → SYDNEY band on the UTC day', () => {
+    const bucket = localBucketForTimestamp('2026-09-19T19:30:00.000Z', 'UTC');
+    expect(bucket).toEqual({ day: '2026-09-19', band: 'SYDNEY' });
+  });
+
+  it('America/Santiago TZ rolls 02:00 UTC into 23:00 the day before (previous local day)', () => {
+    // 02:00 UTC on Sep 19 = 23:00 -03 on Sep 18 → SYDNEY band (23h) on Sep 18.
+    // This is the canonical TZ-aware bucketing edge case the
+    // previous UTC-only mirror got wrong: a LOSS at this instant
+    // belongs to (Sep 18, SYDNEY), NOT (Sep 19, ASIA).
+    const bucket = localBucketForTimestamp('2026-09-19T02:00:00.000Z', 'America/Santiago');
+    expect(bucket).toEqual({ day: '2026-09-18', band: 'SYDNEY' });
+  });
+
+  it('America/Santiago TZ + 14:30 UTC = 11:30 -03 same day → LONDON band', () => {
+    const bucket = localBucketForTimestamp('2026-09-19T14:30:00.000Z', 'America/Santiago');
+    expect(bucket).toEqual({ day: '2026-09-19', band: 'LONDON' });
+  });
+
+  it('garbage ISO string → null (does not throw)', () => {
+    expect(localBucketForTimestamp('not-a-date', 'UTC')).toBeNull();
+  });
+
+  it('invalid IANA timezone → null (does not throw)', () => {
+    expect(localBucketForTimestamp('2026-09-19T14:30:00.000Z', 'Not/A/Zone')).toBeNull();
+  });
+
+  it('hour boundaries are inclusive at the low end, exclusive at the high end (UTC)', () => {
+    // 07:00 UTC → LONDON (band opens, inclusive)
+    expect(localBucketForTimestamp('2026-09-19T07:00:00.000Z', 'UTC')).toEqual({
+      day: '2026-09-19',
+      band: 'LONDON',
+    });
+    // 11:59 UTC → still LONDON (band closes at 12:00, exclusive)
+    expect(localBucketForTimestamp('2026-09-19T11:59:59.999Z', 'UTC')).toEqual({
+      day: '2026-09-19',
+      band: 'LONDON',
+    });
+    // 12:00 UTC → NEW_YORK (band opens, inclusive)
+    expect(localBucketForTimestamp('2026-09-19T12:00:00.000Z', 'UTC')).toEqual({
+      day: '2026-09-19',
+      band: 'NEW_YORK',
+    });
   });
 });

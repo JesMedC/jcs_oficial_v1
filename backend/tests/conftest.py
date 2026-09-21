@@ -1,120 +1,69 @@
-"""Pytest fixtures — DB en memoria + cliente ASGI."""
+"""Shared pytest fixtures.
+
+Provides synthetic OHLCV frames for indicator + engine tests. We avoid
+any network calls — tests must run hermetically.
+"""
+
 from __future__ import annotations
 
-import os
-import uuid
-from collections.abc import AsyncIterator
+from datetime import datetime, timedelta, timezone
 
+import numpy as np
+import pandas as pd
 import pytest
-from httpx import ASGITransport, AsyncClient
-from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
-
-# Forzamos un JWT_SECRET >= 32 chars antes de importar la app.
-os.environ.setdefault("JWT_SECRET", "test-secret-for-pytest-min-32-chars-aaaa")
-os.environ.setdefault(
-    "DATABASE_URL",
-    "postgresql+asyncpg://test:test@localhost:5432/test",
-)
-os.environ.setdefault(
-    "DATABASE_URL_SYNC",
-    "postgresql+psycopg2://test:test@localhost:5432/test",
-)
-os.environ.setdefault(
-    "CORS_ALLOW_ORIGINS",
-    "http://localhost:5173,https://jadecapitalsuite.com",
-)
-os.environ.setdefault("LOG_FORMAT", "console")
-
-from app.config import get_settings  # noqa: E402
-from app.core.security.password import hash_password  # noqa: E402
-from app.db.base import Base  # noqa: E402
-from app.models import User, UserRole  # noqa: E402
 
 
-@pytest.fixture(scope="session")
-def _sqlite_url() -> str:
-    return "sqlite+aiosqlite:///:memory:"
+def make_ohlcv(
+    n: int = 250,
+    *,
+    start: datetime | None = None,
+    freq: str = "5min",
+    base_price: float = 1.1500,
+    drift: float = 0.0,
+    volatility: float = 0.0005,
+    seed: int = 7,
+) -> pd.DataFrame:
+    """Build a deterministic synthetic OHLCV frame.
 
+    Uses geometric Brownian motion so the candle structure is realistic
+    enough to exercise the indicator stack.
+    """
+    rng = np.random.default_rng(seed)
+    start = start or datetime(2026, 1, 1, tzinfo=timezone.utc)
+    idx = pd.date_range(start=start, periods=n, freq=freq, tz="UTC")
 
-@pytest.fixture(scope="function")
-async def db_session(_sqlite_url: str) -> AsyncIterator[AsyncSession]:
-    """Sustituye el engine real por uno SQLite en memoria durante el test."""
-    from app.db import session as session_module
+    returns = rng.normal(loc=drift, scale=volatility, size=n)
+    closes = base_price * np.exp(np.cumsum(returns))
+    highs = closes * (1 + np.abs(rng.normal(0, volatility / 2, size=n)))
+    lows = closes * (1 - np.abs(rng.normal(0, volatility / 2, size=n)))
+    opens = np.concatenate([[closes[0]], closes[:-1]])
+    volumes = rng.uniform(100, 1000, size=n)
 
-    engine = create_async_engine(_sqlite_url, future=True)
-    factory = async_sessionmaker(engine, expire_on_commit=False)
-
-    # Inyectamos el engine fake en el módulo de session.
-    session_module._engine = engine
-    session_module._session_factory = factory
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    async with factory() as session:
-        yield session
-
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.drop_all)
-    await engine.dispose()
-    session_module._engine = None
-    session_module._session_factory = None
-
-
-@pytest.fixture
-async def client(db_session: AsyncSession) -> AsyncIterator[AsyncClient]:
-    """httpx.AsyncClient contra la app ASGI."""
-    from app.main import create_app
-
-    app = create_app()
-    transport = ASGITransport(app=app)
-    async with AsyncClient(transport=transport, base_url="http://testserver") as ac:
-        yield ac  # type: ignore[misc]
-
-
-@pytest.fixture
-async def registered_user(db_session: AsyncSession) -> dict[str, str]:
-    """Crea un usuario directamente vía SQLAlchemy para evitar round-trips."""
-    user = User(
-        email="fixture@jadecapital.local",
-        password_hash=hash_password("Fixture1234"),
-        first_name="Fixture",
-        last_name="User",
-        phone="+34600000000",
-        role=UserRole.USER,
+    return pd.DataFrame(
+        {
+            "open": opens,
+            "high": highs,
+            "low": lows,
+            "close": closes,
+            "volume": volumes,
+        },
+        index=idx,
     )
-    db_session.add(user)
-    await db_session.flush()
-    return {
-        "email": user.email,
-        "password": "Fixture1234",
-        "first_name": user.first_name,
-        "last_name": user.last_name,
-        "phone": user.phone,
-        "user_id": str(user.id),
-    }
 
 
 @pytest.fixture
-def correlation_id() -> str:
-    return str(uuid.uuid4())
-
-
-# --- p0b.1a: factories for the new register payload fields ---
-
-@pytest.fixture
-def unique_email() -> str:
-    """Email único por test (uuid-based) para evitar colisiones entre tests."""
-    return f"u{uuid.uuid4().hex[:10]}@jadecapital.local"
+def ohlcv() -> pd.DataFrame:
+    """Default 250-bar synthetic OHLCV."""
+    return make_ohlcv()
 
 
 @pytest.fixture
-def valid_register_payload(unique_email: str) -> dict[str, str]:
-    """Default payload válido para POST /auth/register (p0b.1a)."""
-    return {
-        "email": unique_email,
-        "password": "Test1234!",
-        "first_name": "Test",
-        "last_name": "User",
-        "phone": "+34612345678",
-    }
+def trending_up_ohlcv() -> pd.DataFrame:
+    """Strongly trending upward series for Fibonacci / S/R tests."""
+    return make_ohlcv(n=300, drift=0.0008, volatility=0.0003, seed=42)
+
+
+@pytest.fixture
+def trending_down_ohlcv() -> pd.DataFrame:
+    """Strongly trending downward series for bearish-structure tests."""
+    return make_ohlcv(n=300, drift=-0.0008, volatility=0.0003, seed=99)

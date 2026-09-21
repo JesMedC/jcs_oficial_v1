@@ -1,0 +1,53 @@
+/* AlertCard — expanded alert detail panel.
+ *
+ * The compact alerts table (AlertsPanel) shows the most recent scans
+ * at a glance. When the user clicks a row, this card slides in with
+ * the user-specified Spanish copy so the full WIN / LOSS / PENDING
+ * context is one click away. The card is purely presentational: it
+ * receives an Alert, decides which result-line emoji to render, and
+ * prints the exact text the user asked for.
+ *
+ * The text is wrapped in a ``<pre>`` so the emoji + line breaks
+ * survive the render untouched. Any change to the copy is a
+ * user-facing change — pin the wording in the snapshot test, not
+ * here in a comment, so the contract is enforced.
+ */
+
+.card {
+  margin-top: var(--space-3);
+  background: var(--color-bg-elevated);
+  border: 1px solid var(--color-border-strong);
+  border-radius: 8px;
+  padding: var(--space-4);
+  font-family: var(--font-sans);
+  font-size: 13px;
+  line-height: 1.55;
+  color: var(--color-text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
+}
+
+.card__pre {
+  margin: 0;
+  font-family: inherit;
+  font-size: inherit;
+  color: inherit;
+  white-space: pre-wrap;
+}
+
+.card__close {
+  display: inline-block;
+  margin-top: var(--space-3);
+  background: transparent;
+  color: var(--color-text-muted);
+  border: 1px solid var(--color-border);
+  border-radius: 6px;
+  padding: 4px 10px;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.card__close:hover {
+  background: var(--color-bg-panel);
+  color: var(--color-text-primary);
+}

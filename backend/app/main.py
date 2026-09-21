@@ -1,127 +1,130 @@
-"""FastAPI application factory.
+"""FastAPI application entry point.
 
-Orquesta:
-- lifespan (engine + structlog),
-- middleware (ErrorEnvelope outermost, CorrelationId, Idempotency),
-- CORS por lista blanca,
-- routers /api/v1 + health,
-- excepción handlers como red de seguridad (el middleware ya cubre
-  la mayoría; estos handlers cubren el caso ``HTTPException`` cuando se
-  lanza SIN que el middleware alcance a procesarla, p.ej. después de
-  que la response ya empezó).
+Run with:
+    uvicorn app.main:app --reload --port 8000
+
+The lifespan hook bootstraps:
+
+1. A market data provider (default: ``DukascopyProvider``).
+2. A :class:`CandleBuffer` primed with ``scanner_history_days`` of bars.
+3. The :class:`ScannerLoop` background task.
+4. The :class:`WebSocketBroadcaster` background task.
+
+All four are wired into ``app.state`` so the REST + WebSocket routes
+can read from them. The ``/healthz`` endpoint exposes provider + symbol.
 """
+
 from __future__ import annotations
 
+import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
 
 from fastapi import FastAPI
-from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from starlette.exceptions import HTTPException as StarletteHTTPException
 
-from app import __version__
-from app.api.v1 import api_router
-from app.api.v1.health import router as health_router
-from app.config import get_settings
-from app.core.middleware import (
-    CorrelationIdMiddleware,
-    ErrorEnvelopeMiddleware,
-    IdempotencyMiddleware,
+from app.api import WebSocketBroadcaster, alerts_router, candles_router
+from app.core.config import get_settings
+from app.data.factory import build_provider
+from app.data.provider import OfferSide
+from app.engine import AlertStore, CandleBuffer, Scanner, ScannerLoop
+
+
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s: %(message)s",
 )
-from app.db.session import dispose_engine, make_engine
-from app.observability.logging import configure_logging
-from app.schemas.envelope import ErrorCode, ErrorEnvelope
+logger = logging.getLogger(__name__)
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+async def lifespan(app: FastAPI):
     settings = get_settings()
-    configure_logging(settings)
-    make_engine(str(settings.database_url))
+    app.state.settings = settings
+
+    provider = build_provider(settings)
+    app.state.provider = provider
+
+    buffer = CandleBuffer(settings)
+    alert_store = AlertStore()
+    scanner = Scanner(settings)
+    app.state.candle_buffer = buffer
+    app.state.alert_store = alert_store
+    app.state.scanner = scanner
+
+    # WebSocket broadcaster publishes candle + alert events.
+    broadcaster = WebSocketBroadcaster(
+        tick_interval_ms=settings.scanner_tick_interval_ms,
+        candle_buffer=buffer,
+        alert_store=alert_store,
+        get_settings=get_settings,
+    )
+    app.state.broadcaster = broadcaster
+
+    # Scanner loop ticks the confirmation engine.
+    scanner_loop = ScannerLoop(
+        settings=settings,
+        provider=provider,
+        buffer=buffer,
+        alert_store=alert_store,
+        scanner=scanner,
+        on_alert=None,
+    )
+    app.state.scanner_loop = scanner_loop
+
+    # Prime the buffer with historical data, then start the loops.
+    try:
+        await buffer.prime(
+            provider,
+            symbol=settings.scanner_symbol,
+            offer_side="bid",
+        )
+    except Exception as exc:  # noqa: BLE001
+        # Network blips should not crash startup; the loop retries on each
+        # tick. Log and continue.
+        logger.exception("failed to prime candle buffer: %s", exc)
+
+    await broadcaster.start()
+    await scanner_loop.start()
+
     try:
         yield
     finally:
-        await dispose_engine()
+        await scanner_loop.stop()
+        await broadcaster.stop()
 
 
 def create_app() -> FastAPI:
-    settings = get_settings()
-
     app = FastAPI(
-        title="JadeCapitalSuite API",
-        version=__version__,
+        title="Trading Scanner",
+        description="5-minute forex signal engine with split-screen UI.",
+        version="0.1.0",
         lifespan=lifespan,
-        docs_url="/docs" if settings.environment != "production" else None,
-        redoc_url=None,
     )
 
-    # CORS — primero (outermost). Lista blanca configurable.
+    # Permissive CORS for local frontend dev (Vite on 5173).
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=settings.cors_origins_list,
+        allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
-        expose_headers=["X-Correlation-Id"],
     )
 
-    # R4 — middleware de resiliencia. Orden de add (LIFO):
-    # 1) Idempotency (inner) — corre justo afuera de la ruta.
-    # 2) CorrelationId (middle) — bindea contextvars antes que Idempotency.
-    # 3) ErrorEnvelope (outer) — captura cualquier excepción de los dos.
-    app.add_middleware(IdempotencyMiddleware)
-    app.add_middleware(CorrelationIdMiddleware)
-    app.add_middleware(ErrorEnvelopeMiddleware)
+    @app.get("/healthz")
+    async def healthz() -> dict[str, str]:
+        return {
+            "status": "ok",
+            "provider": app.state.settings.scanner_provider,
+            "symbol": app.state.settings.scanner_symbol,
+        }
 
-    # Routers — health al top-level, el resto bajo /api/v1.
-    app.include_router(health_router)
-    app.include_router(api_router)
+    app.include_router(candles_router)
+    app.include_router(alerts_router)
+    from app.api.ws import router as ws_router
 
-    # --- exception handlers (red de seguridad final) ---
-    @app.exception_handler(StarletteHTTPException)
-    async def _http_exc_handler(request, exc):  # type: ignore[no-untyped-def]
-        # Si ya viene con forma de envelope, lo respetamos.
-        if isinstance(exc.detail, dict) and "code" in exc.detail:
-            payload = dict(exc.detail)
-            payload["correlation_id"] = getattr(
-                request.state, "correlation_id", "0" * 36
-            )
-            from fastapi.responses import JSONResponse
-
-            return JSONResponse(status_code=exc.status_code, content=payload)
-        cid = getattr(request.state, "correlation_id", "0" * 36)
-        envelope = ErrorEnvelope(
-            code=ErrorCode.INTERNAL_ERROR
-            if exc.status_code >= 500
-            else ErrorCode.VALIDATION_ERROR,
-            message=str(exc.detail) if exc.detail else "Error",
-            correlation_id=cid,
-        )
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            status_code=exc.status_code,
-            content=envelope.model_dump(mode="json"),
-        )
-
-    @app.exception_handler(RequestValidationError)
-    async def _validation_handler(request, exc):  # type: ignore[no-untyped-def]
-        cid = getattr(request.state, "correlation_id", "0" * 36)
-        envelope = ErrorEnvelope(
-            code=ErrorCode.VALIDATION_ERROR,
-            message="Datos de entrada invalidos",
-            correlation_id=cid,
-            details={"errors": exc.errors()},
-        )
-        from fastapi.responses import JSONResponse
-
-        return JSONResponse(
-            status_code=422, content=envelope.model_dump(mode="json")
-        )
+    app.include_router(ws_router)
 
     return app
 
 
-# Para ``uvicorn app.main:app``.
 app = create_app()
