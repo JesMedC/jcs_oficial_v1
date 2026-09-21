@@ -1,0 +1,33 @@
+schema: openspec/v1
+project: jcs_oficial
+artifact_store: openspec
+strict_tdd: true
+test_command: pnpm test
+typecheck_command: pnpm typecheck
+lint_command: pnpm lint
+build_command: pnpm build
+phases:
+  explore: optional
+  research: optional
+  proposal: required
+  spec: required
+  design: required
+  tasks: required
+  apply: required
+  verify: required
+  sync: required
+  archive: required
+delivery:
+  default_strategy: auto-chain
+  review_budget: 400
+execution:
+  default_mode: auto
+precommit:
+  no_co_authored_by: true
+  conventional_commits: true
+  no_emojis_in_titles: true
+notes: |
+  JadeCapitalSuite frontend-only SPA (React 18 + Vite + TypeScript + Tailwind 3).
+  Backend (FastAPI under `backend/`) is preserved untouched. Strict TDD is
+  active for every implementation task. Inspiration-aligned UI changes are
+  binding — pixel-perfect reproduction is explicitly NOT the goal.

@@ -1,0 +1,111 @@
+/* CSS reset + design tokens.
+ *
+ * The scanner runs in a dark theme because traders stare at the screen
+ * for hours. Tokens are kept in :root so component-level CSS modules
+ * can reach them via var(--color-...) without re-importing the file.
+ */
+
+:root {
+  /* Surface colours. */
+  --color-bg-app: #0a0e1a;
+  --color-bg-panel: #111827;
+  --color-bg-elevated: #1f2937;
+  --color-border: #1f2937;
+  --color-border-strong: #374151;
+
+  /* Text. */
+  --color-text-primary: #e5e7eb;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+
+  /* Status / signal colours. */
+  --color-call: #10b981;     /* emerald-500 */
+  --color-call-bg: #064e3b;
+  --color-put: #ef4444;      /* red-500 */
+  --color-put-bg: #7f1d1d;
+  --color-pending: #f59e0b;  /* amber-500 */
+  --color-pending-bg: #78350f;
+  --color-win: #10b981;
+  --color-loss: #ef4444;
+
+  /* Indicators — must match Chart.tsx overlay palette. */
+  --color-ema-fast: #f59e0b;
+  --color-ema-mid: #3b82f6;
+  --color-ema-slow: #ef4444;
+  --color-bb: #6b7280;
+
+  /* Connection dot. */
+  --color-dot-ok: #10b981;
+  --color-dot-down: #ef4444;
+
+  /* Spacing scale (4px base). */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Typography. */
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue",
+    Arial, sans-serif;
+  --font-mono: "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+
+  /* Layout. */
+  --header-height: 56px;
+  --split-left: 70%;
+  --split-right: 30%;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.4;
+  background: var(--color-bg-app);
+  color: var(--color-text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+button {
+  font-family: inherit;
+}
+
+a {
+  color: inherit;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}

@@ -1,0 +1,109 @@
+import '@testing-library/jest-dom/vitest';
+
+// jsdom does not implement `window.matchMedia`. Components that query
+// reduced-motion preferences (e.g. AuroraBackground) need a non-throwing
+// default. Returning `matches: false` here keeps motion enabled by
+// default in tests so we cover the animated branch.
+if (typeof globalThis.matchMedia !== 'function') {
+  globalThis.matchMedia = (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  });
+}
+
+// jsdom also lacks ResizeObserver/IntersectionObserver. AuroraBackground
+// uses IntersectionObserver to pause the canvas when off-screen; cmdk
+// uses ResizeObserver to keep the highlighted item scrolled into view.
+// Both are stubbed here so module top-level effects don't throw.
+if (typeof globalThis.IntersectionObserver !== 'function') {
+  class StubIntersectionObserver implements IntersectionObserver {
+    readonly root: Element | Document | null = null;
+    readonly rootMargin = '0px';
+    readonly thresholds: ReadonlyArray<number> = [0];
+    observe(): void {}
+    unobserve(): void {}
+    disconnect(): void {}
+    takeRecords(): IntersectionObserverEntry[] {
+      return [];
+    }
+  }
+  globalThis.IntersectionObserver =
+    StubIntersectionObserver as unknown as typeof IntersectionObserver;
+}
+
+if (typeof globalThis.ResizeObserver !== 'function') {
+  class StubResizeObserver implements ResizeObserver {
+    readonly observe = (): void => {};
+    readonly unobserve = (): void => {};
+    readonly disconnect = (): void => {};
+  }
+  globalThis.ResizeObserver =
+    StubResizeObserver as unknown as typeof ResizeObserver;
+}
+
+// Canvas 2d context stub for jsdom (used by AuroraBackground +
+// lightweight-charts). jsdom does not implement
+// HTMLCanvasElement.getContext('2d'). Return a minimal in-memory
+// surface so component effects do not throw during tests. The
+// `measureText` stub returns a stable width so lightweight-charts'
+// axis layout math (which calls `ctx.measureText(text)` to compute
+// the optimal price-scale column width) completes without crashing.
+if (typeof HTMLCanvasElement !== 'undefined') {
+  const proto = HTMLCanvasElement.prototype as unknown as {
+    getContext?: (id: string) => unknown;
+  };
+  if (typeof proto.getContext !== 'function' || isJsdomCanvas(proto)) {
+    proto.getContext = function getContext(id: string): unknown {
+      if (id !== '2d') return null;
+      const noop = (): void => {};
+      return {
+        canvas: this,
+        fillStyle: '#000',
+        strokeStyle: '#000',
+        globalAlpha: 1,
+        font: '',
+        textBaseline: 'alphabetic',
+        textAlign: 'start',
+        direction: 'inherit',
+        fillRect: noop,
+        clearRect: noop,
+        beginPath: noop,
+        arc: noop,
+        fill: noop,
+        moveTo: noop,
+        lineTo: noop,
+        stroke: noop,
+        save: noop,
+        restore: noop,
+        scale: noop,
+        translate: noop,
+        rotate: noop,
+        measureText: (text: string) => ({
+          width: (text?.length ?? 0) * 6,
+          actualBoundingBoxLeft: 0,
+          actualBoundingBoxRight: (text?.length ?? 0) * 6,
+          actualBoundingBoxAscent: 8,
+          actualBoundingBoxDescent: 2,
+          fontBoundingBoxAscent: 10,
+          fontBoundingBoxDescent: 2,
+        }),
+        getImageData: () => ({ data: new Uint8ClampedArray(4), width: 1, height: 1 }),
+      };
+    };
+  }
+}
+
+function isJsdomCanvas(proto: { getContext?: (id: string) => unknown }): boolean {
+  try {
+    const probe = proto.getContext?.call({} as HTMLCanvasElement, '2d');
+    return probe === null;
+  } catch {
+    return true;
+  }
+}

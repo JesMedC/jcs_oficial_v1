@@ -1,0 +1,41 @@
+/* AlertBadge — coloured pill for CALL/PUT/PENDING/WIN/LOSS. */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 56px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  font-family: var(--font-mono);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.badge--call {
+  background: var(--color-call-bg);
+  color: var(--color-call);
+}
+
+.badge--put {
+  background: var(--color-put-bg);
+  color: var(--color-put);
+}
+
+.badge--pending {
+  background: var(--color-pending-bg);
+  color: var(--color-pending);
+}
+
+.badge--win {
+  background: var(--color-call-bg);
+  color: var(--color-win);
+}
+
+.badge--loss {
+  background: var(--color-put-bg);
+  color: var(--color-loss);
+}

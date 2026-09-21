@@ -1,0 +1,31 @@
+node_modules
+dist
+.vite
+coverage
+.DS_Store
+*.log
+.env
+.env.local
+.env.*.local
+.eslintcache
+.vitest-cache
+
+# Backend (Python) — caches + venv + local secrets
+backend/.venv/
+backend/**/__pycache__/
+backend/**/*.pyc
+backend/.pytest_cache/
+backend/.mypy_cache/
+backend/.ruff_cache/
+backend/.env
+backend/.coverage
+backend/*.egg-info/
+
+# Playwright
+test-results/
+playwright-report/
+blob-report/
+.playwright-mcp/
+
+# Internal tooling / debug artefacts (not source)
+.atl/

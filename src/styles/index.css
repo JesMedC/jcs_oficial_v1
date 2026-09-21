@@ -1,0 +1,559 @@
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&display=swap');
+
+@import './themes.css';
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/*
+ * design-system-v1 (Wave 5) — Las CSS vars de tokens viven en
+ * ``themes.css`` (importadas arriba). Este archivo sólo aporta las
+ * reglas globales (glassmorphism utility classes, tipografía,
+ * keyframes) que se mantienen idénticas en ambos modos y/o
+ * referencian las vars ya definidas.
+ */
+
+/* =============================================================
+ * Cyber-Jade — Sistema de diseno forzado (nivel universal)
+ * -------------------------------------------------------------
+ * Esta capa traduce literalmente las 4 reglas del spec Cyber-Jade:
+ *   1. Fondo global + dot pattern al 3% (en #root::before)
+ *   2. Glassmorphism translúcido + blur(12px) + border jade
+ *   3. Neon glow en titulos (jade + text-shadow 0.18) y botones
+ *   4. Orbitron (titulos/logos/botones) + JetBrains Mono (numericos)
+ *
+ * Los valores de color se leen de CSS vars (``var(--color-jade-bg)``
+ * etc.) — Wave 5 agregó los alias light/dark en ``themes.css``. Las
+ * reglas que siguen son las mismas que antes del dual-mode; sólo
+ * cambian los hex literales por ``var()`` para que el switch de tema
+ * funcione sin recompilar.
+ * ============================================================= */
+
+/* ---- 1) Fondo global + dot pattern 3% ---- */
+html,
+body,
+#root {
+  min-height: 100%;
+  margin: 0;
+  padding: 0;
+  background-color: var(--color-bg);
+  color: var(--color-jade-text-pri);
+  font-family: 'Inter', system-ui, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  position: relative;
+  isolation: isolate;
+}
+
+/* Pseudo-elemento absoluto en el root — desactivado. El fondo animado
+ * se monta via componentes decorativos (CyberGlobe en AppShell +
+ * PortalShell) con position absolute + z-index -10, no como fondo
+ * CSS global, porque requiere animacion continua (rotacion + drift +
+ * ticks) que un background-image no puede expresar.
+ * Mantenemos la regla vacia para reservar el hook visual (#root::before)
+ * por si luego queremos volver a un dot-pattern estatico. */
+#root::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  background: transparent;
+}
+
+/* El contenido del root debe quedar por encima del dot pattern. */
+#root > * {
+  position: relative;
+  z-index: 1;
+}
+
+/* ---- 4) Tipografia: Orbitron para titulos, logos y botones ---- */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6,
+.font-display,
+button,
+.font-display *,
+[data-brand-logo],
+[data-cyber-title] {
+  font-family: 'Orbitron', 'Rajdhani', 'Space Grotesk', ui-monospace, monospace;
+}
+
+/* ---- 3) Titulos en blanco con glow sutil (Cyber-Jade) ---- */
+h1,
+h2,
+h3,
+h4,
+h5,
+.title-cyber-jade,
+[data-cyber-title] {
+  color: var(--color-jade-text-pri);
+  text-shadow: 0 0 8px rgba(255, 255, 255, 0.18);
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 1.875rem;
+  letter-spacing: 0.06em;
+}
+
+/* financial / numeric — JetBrains Mono exclusivo */
+.text-financial,
+.font-mono,
+.font-mono *,
+[data-financial],
+[data-tabular] {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' 1;
+}
+
+.tabular-nums {
+  font-feature-settings: 'tnum' 1;
+}
+
+.glow-primary {
+  text-shadow: 0 0 20px rgba(0, 255, 157, 0.6);
+}
+
+/* ---- 2) Glassmorphism universal (spec literal) ---- */
+.panel-cyber-jade,
+[data-cyber-panel] {
+  background-color: var(--glass-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(0, 255, 157, 0.15);
+}
+
+/* Inputs / selects / textareas — fondo glassmorphism consistente */
+input[type='text'],
+input[type='number'],
+input[type='email'],
+input[type='password'],
+input[type='search'],
+input:not([type]),
+select,
+textarea {
+  background-color: var(--glass-surface);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid var(--color-jade-border-line);
+  color: var(--color-jade-text-pri);
+  font-family: 'Inter', system-ui, sans-serif;
+  border-radius: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  transition:
+    box-shadow 0.2s ease,
+    border-color 0.2s ease;
+}
+
+input:focus,
+select:focus,
+textarea:focus {
+  outline: none;
+  border-color: var(--color-jade);
+  box-shadow: 0 0 10px var(--color-jade-glow);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-jade-text-mut);
+  opacity: 0.7;
+}
+
+/* Select nativo — opciones oscuras */
+select option {
+  background-color: var(--color-surface);
+  color: var(--color-jade-text-pri);
+}
+
+/* ---- 3) Botones Cyber-Jade — base + hover (spec literal) ---- */
+/* Base:
+ *   background-color: transparent;
+ *   border: 1px solid #00FF9D;
+ *   box-shadow: 0 0 10px rgba(0,255,157,0.4), inset 0 0 10px rgba(0,255,157,0.2);
+ *   text-shadow: 0 0 5px rgba(0,255,157,0.5);
+ * Hover:
+ *   background-color: #00FF9D solido
+ *   color: #060B10
+ *   box-shadow exterior intensificado
+ */
+.btn-cyber-jade,
+button[data-cyber-button] {
+  font-family: 'Orbitron', monospace, sans-serif;
+  background-color: transparent;
+  border: 1px solid var(--color-jade);
+  box-shadow:
+    0 0 10px rgba(0, 255, 157, 0.4),
+    inset 0 0 10px rgba(0, 255, 157, 0.2);
+  text-shadow: 0 0 5px rgba(0, 255, 157, 0.5);
+  color: var(--color-jade);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  border-radius: 0.5rem;
+  padding: 0.5rem 1rem;
+  font-weight: 500;
+  transition: all 0.2s ease-in-out;
+  cursor: pointer;
+}
+
+.btn-cyber-jade:hover:not(:disabled),
+button[data-cyber-button]:hover:not(:disabled) {
+  background-color: var(--color-jade);
+  color: var(--color-jade-text-on-primary);
+  text-shadow: none;
+  box-shadow:
+    0 0 20px rgba(0, 255, 157, 0.8),
+    0 0 40px rgba(0, 255, 157, 0.4),
+    inset 0 0 10px rgba(0, 255, 157, 0.4);
+}
+
+.btn-cyber-jade:disabled,
+button[data-cyber-button]:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* ---- Bases ---- */
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
+}
+
+input,
+select,
+textarea {
+  font: inherit;
+}
+
+/* ---- Tablas — header plano oscuro, JetBrains Mono para datos ---- */
+table {
+  font-family: 'JetBrains Mono', ui-monospace, monospace;
+  font-feature-settings: 'tnum' 1;
+  width: 100%;
+  border-collapse: collapse;
+}
+
+thead {
+  background-color: var(--color-surface);
+  color: var(--color-jade-text-mut);
+  font-family: 'Orbitron', monospace, sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.75rem;
+}
+
+thead th {
+  padding: 0.75rem 1rem;
+  text-align: left;
+  font-weight: 500;
+}
+
+tbody tr {
+  border-top: 1px solid var(--color-jade-border);
+  transition: background-color 0.2s ease;
+}
+
+tbody tr:hover {
+  background-color: rgba(0, 168, 107, 0.06);
+}
+
+tbody td {
+  padding: 0.75rem 1rem;
+  color: var(--color-jade-text-pri);
+  font-size: 0.875rem;
+}
+
+/*
+ * WallStreetBoard — animaciones del fondo tipo Bloomberg ticker:
+ *   - tile-pulse: cada tile pulsa opacidad (jade breathing)
+ *   - tile-drift: cada tile deriva vertical/horizontal lento (ticker feel)
+ *   - ticker-scroll / ticker-scroll-rev: strips horizontales infinitos
+ */
+@keyframes tile-pulse {
+  from {
+    opacity: 0.5;
+  }
+  to {
+    opacity: 0.85;
+  }
+}
+
+@keyframes tile-drift {
+  from {
+    transform: translate3d(-12px, -8px, 0);
+  }
+  to {
+    transform: translate3d(12px, 8px, 0);
+  }
+}
+
+@keyframes ticker-scroll {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes ticker-scroll-rev {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/*
+ * BullBearMesh — animaciones de las figuras toro/oso poligonales:
+ *   - label-drift: floating data labels derivan vertical/horizontal
+ *   - label-pulse: glow sutil en los labels
+ *   - beam-shimmer: linea dashed que separa las figuras pulsa
+ */
+@keyframes label-drift {
+  from {
+    transform: translate3d(-6px, -4px, 0);
+  }
+  to {
+    transform: translate3d(6px, 4px, 0);
+  }
+}
+
+@keyframes label-pulse {
+  0%,
+  100% {
+    opacity: 0.7;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes beam-shimmer {
+  from {
+    stroke-dashoffset: 0;
+  }
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+
+/*
+ * BullBearMesh — dinámicas de las figuras:
+ *   - mesh-breath: pulse de opacidad del SVG completo (respiración)
+ *   - figure-drift-bull / figure-drift-bear: drift horizontal opuesto
+ *     (bull a la izquierda, bear a la derecha = tensión de mercado)
+ *   - grid-pulse: cada línea horizontal del grid pulsa con su propio delay
+ */
+@keyframes mesh-breath {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes figure-drift-bull {
+  from {
+    transform: translate3d(-12px, 0, 0);
+  }
+  to {
+    transform: translate3d(-2px, 0, 0);
+  }
+}
+
+@keyframes figure-drift-bear {
+  from {
+    transform: translate3d(2px, 0, 0);
+  }
+  to {
+    transform: translate3d(12px, 0, 0);
+  }
+}
+
+@keyframes grid-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/*
+ * NeuralMesh — animaciones del mesh de nodos:
+ *   - mesh-drift: el SVG completo deriva lentamente (toda la constelación)
+ *   - mesh-pulse-{glow}: cada tier pulsa en fase distinta según su glow
+ */
+@keyframes mesh-drift {
+  from {
+    transform: translate3d(0, 0, 0);
+  }
+  to {
+    transform: translate3d(-12px, 8px, 0);
+  }
+}
+
+@keyframes mesh-pulse-2 {
+  0%,
+  100% {
+    opacity: 0.85;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes mesh-pulse-5 {
+  0%,
+  100% {
+    opacity: 0.95;
+  }
+  50% {
+    opacity: 0.7;
+  }
+}
+
+@keyframes mesh-pulse-10 {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+
+/*
+ * Dashboard — pulse suave para el overlay del ProfitFactorDisplay
+ * cuando el factor entra en territorio elite (>= 2.0).
+ */
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.35;
+  }
+  50% {
+    opacity: 0.65;
+  }
+}
+
+/*
+ * Raw @keyframes — duplicated from tailwind.config.ts so the animations
+ * can be applied via raw CSS without relying on Tailwind's emitted utility
+ * classes.
+ */
+@keyframes aurora-drift {
+  0%,
+  100% {
+    transform: translate3d(-10%, -5%, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(10%, 5%, 0) scale(1.05);
+  }
+}
+
+@keyframes particle-drift {
+  0% {
+    transform: translate3d(0, 0, 0);
+  }
+  100% {
+    transform: translate3d(40px, -30px, 0);
+  }
+}
+
+@keyframes status-dot-pulse {
+  0%,
+  100% {
+    opacity: 0.5;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+
+@keyframes shimmer-glass {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.portal-selector-bg {
+  background:
+    radial-gradient(60% 50% at 50% 30%, rgba(0, 255, 157, 0.16), transparent 70%),
+    radial-gradient(50% 40% at 80% 80%, rgba(0, 184, 255, 0.1), transparent 70%),
+    var(--color-bg);
+}
+
+@keyframes auth-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(0, 255, 157, 0.5);
+  }
+  50% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 12px rgba(0, 255, 157, 0);
+  }
+}
+
+.auth-spinner {
+  width: 48px;
+  height: 48px;
+  border-radius: 9999px;
+  border: 2px solid rgba(0, 255, 157, 0.3);
+  border-top-color: rgba(0, 255, 157, 1);
+  animation: auth-pulse 1.2s ease-in-out infinite;
+}
+
+/* Reduced motion: collapse all animations */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Selection — jade rgba */
+::selection {
+  background: var(--selection-bg);
+  color: var(--color-jade-text-pri);
+}
+
+/* Focus visible ring */
+:focus-visible {
+  outline: 2px solid var(--color-jade);
+  outline-offset: 2px;
+  border-radius: 4px;
+}
+
+/* Hairline divider */
+hr {
+  border: 0;
+  border-top: 1px solid var(--color-jade-border);
+}

@@ -1,0 +1,54 @@
+/* TradingViewChart — embeds the free TradingView Advanced Chart
+ * widget (iframe format) so the user sees a feature-rich, real-time
+ * forex chart driven by TradingView's own data feed.
+ *
+ * Why the widget instead of ``lightweight-charts``:
+ *
+ * - The free widget ships its own real-time forex feed (per the
+ *   Widget Data FAQ: "Forex and crypto data is real-time").
+ * - The scanner backend keeps Dukascopy as its source so the alert
+ *   engine and WIN/LOSS resolution stay authoritative. The widget is
+ *   decorative for the chart and authoritative only for "what the
+ *   user is looking at right now".
+ * - Widgets cannot be fed custom data; this is documented and
+ *   intentional. The mismatch between the widget's real-time ticks
+ *   and the scanner's delayed Dukascopy ticks is honest — see the
+ *   frontend README data-contract section.
+ *
+ * Symbol switching:
+ *
+ * The Advanced Chart widget is an iframe embed. There is no documented
+ * API to swap the ``symbol`` option without reloading the iframe; the
+ * tutorial recommends tearing down the embed and re-running the
+ * ``<script>`` tag with the new options. That is exactly what the
+ * ``useEffect`` below does on every ``symbol`` change.
+ *
+ * ``allow_symbol_change`` is locked to ``false`` so the widget's own
+ * search dialog cannot hijack the symbol from under scanner control.
+ *
+ * Attribution: the widget renders its own "Charts by TradingView"
+ * footer; this component does not strip it (TradingView's free widget
+ * terms require it).
+ */
+
+.tradingview {
+  position: relative;
+  flex: 1;
+  min-height: 0; /* required for flex child to shrink */
+  width: 100%;
+  background: var(--color-bg-app);
+  overflow: hidden;
+}
+
+.tradingview__host {
+  position: absolute;
+  inset: 0;
+}
+
+/* The widget's own embed div is sized by inline styles coming from
+ * the TradingView loader script; we keep the host relative so the
+ * widget can stretch inside it. */
+.tradingview__host > div {
+  width: 100% !important;
+  height: 100% !important;
+}

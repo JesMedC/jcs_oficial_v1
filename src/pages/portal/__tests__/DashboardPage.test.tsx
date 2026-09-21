@@ -1,0 +1,170 @@
+/*
+ * p0b.1b / p0d.2 / FASE 5 — DashboardPage tests (1 case).
+ *
+ * FASE 5 stripped the page down to a welcome header + the
+ * ``AccountSelector`` (which is hidden when the user has a single
+ * account). The old tests that asserted the TRIAL / ACTIVE
+ * subscription badges are gone with the dashboard tabs they lived
+ * in — the subscription card itself still renders inside
+ * ``ConfiguracionPage``, just not here.
+ *
+ * This file now locks the only behaviour that survived the strip:
+ * the greeting uses ``user.first_name`` from the auth context.
+ *
+ * The QueryClientProvider wrapper is here because ``AccountSelector``
+ * mounts ``useAccounts`` (TanStack Query). We mock ``listAccountsApi``
+ * so the selector renders nothing (single-account path), which keeps
+ * the assertion focused on the heading.
+ */
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { HelmetProvider } from 'react-helmet-async';
+import type { ReactNode } from 'react';
+
+import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
+import type { AuthMeOut } from '../../../features/auth/types';
+import * as accountsApi from '../../../features/accounts/api';
+import type { AccountList, AccountOut } from '../../../features/accounts/types';
+import { useNewTradeDrawer } from '../../../stores/useNewTradeDrawer';
+import { DashboardPage } from '../DashboardPage';
+
+vi.mock('../../../features/subscription/api', async () => {
+  return {
+    cancelSubscription: vi.fn(),
+    upgradeSubscription: vi.fn(),
+    getMySubscription: vi.fn(),
+  };
+});
+
+function buildMe(): AuthMeOut {
+  return {
+    user_id: 'u1',
+    email: 'demo@jadecapital.local',
+    first_name: 'Demo',
+    last_name: 'User',
+    phone: '+54 11 1234 5678',
+    role: 'USER',
+    workspaces: [],
+    current_subscription: null,
+    timezone: 'UTC',
+  };
+}
+
+function mockAccounts(items: readonly AccountOut[]) {
+  return vi.spyOn(accountsApi, 'listAccountsApi').mockResolvedValue({
+    items,
+    total: items.length,
+    skip: 0,
+    limit: 100,
+  } satisfies AccountList);
+}
+
+const fakeAccount: AccountOut = {
+  id: 'a1',
+  user_id: 'u1',
+  workspace_id: 'ws-1',
+  broker_name: 'Test Broker',
+  name: 'Test Account',
+  type: 'FOREX',
+  balance_usd: '1000.00',
+  created_at: '2026-01-01T00:00:00Z',
+  updated_at: '2026-01-01T00:00:00Z',
+};
+
+function makeWrapper() {
+  const qc = new QueryClient({ defaultOptions: { queries: { retry: false } } });
+  return ({ children }: { children: ReactNode }) => (
+    <QueryClientProvider client={qc}>{children}</QueryClientProvider>
+  );
+}
+
+function renderDashboard(user: AuthMeOut | null = null) {
+  const value: AuthContextValue = {
+    user,
+    subscription: user?.current_subscription ?? null,
+    loading: false,
+    error: null,
+    portal: null,
+    login: vi.fn(),
+    register: vi.fn(),
+    logout: vi.fn(),
+    refresh: vi.fn(),
+    setPortal: vi.fn(),
+    clearError: vi.fn(),
+  };
+  return render(
+    <HelmetProvider>
+      <MemoryRouter>
+        <AuthContext.Provider value={value}>
+          <DashboardPage />
+        </AuthContext.Provider>
+      </MemoryRouter>
+    </HelmetProvider>,
+    { wrapper: makeWrapper() },
+  );
+}
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
+
+describe('DashboardPage', () => {
+  it('greeting uses user.first_name from auth context', () => {
+    // Single active account so ``AccountSelector`` short-circuits
+    // to null — keeps the assertion focused on the heading.
+    mockAccounts([fakeAccount]);
+    renderDashboard(buildMe());
+    expect(
+      screen.getByRole('heading', { level: 1, name: 'Hola, Demo' }),
+    ).toBeInTheDocument();
+  });
+
+  it('"+ Nuevo trade" CTA renders as an outlined cyan pill (border + text-primary, transparent bg)', () => {
+    // Two accounts so the AccountSelector stays mounted — but the CTA
+    // contract is independent of the selector's presence.
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    const drawerOpen = vi.fn();
+    useNewTradeDrawer.setState({ open: drawerOpen });
+    renderDashboard(buildMe());
+
+    const cta = screen.getByTestId('dash-new-trade');
+    expect(cta).toHaveClass('border');
+    expect(cta).toHaveClass('border-primary');
+    expect(cta).toHaveClass('text-primary');
+    // Opaque fill is gone — outline only.
+    expect(cta).not.toHaveClass('bg-primary');
+    expect(cta.className).toContain('bg-transparent');
+    // Hover glow stays so the CTA still reads as primary on hover.
+    expect(cta).toHaveClass('hover:shadow-glow-cyan');
+    expect(cta).toHaveClass('hover:bg-primary/10');
+  });
+
+  it('"+ Nuevo trade" CTA no longer carries the opaque text-bg + bg-primary standalone pair (regression guard)', () => {
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    renderDashboard(buildMe());
+
+    const cta = screen.getByTestId('dash-new-trade');
+    // Tokenise the className so `hover:bg-primary/10` doesn't trip
+    // a naive substring check — only standalone `bg-primary` /
+    // `text-bg` classes are forbidden.
+    const tokens = cta.className.split(/\s+/);
+    expect(tokens).not.toContain('bg-primary');
+    expect(tokens).not.toContain('text-bg');
+    // Label text is preserved verbatim.
+    expect(cta).toHaveTextContent('+ Nuevo trade');
+  });
+
+  it('clicking "+ Nuevo trade" CTA still opens the new-trade drawer (regression)', () => {
+    mockAccounts([fakeAccount, { ...fakeAccount, id: 'a2', name: 'Second' }]);
+    const drawerOpen = vi.fn();
+    useNewTradeDrawer.setState({ open: drawerOpen });
+    renderDashboard(buildMe());
+
+    const cta = screen.getByTestId('dash-new-trade');
+    cta.click();
+
+    expect(drawerOpen).toHaveBeenCalledTimes(1);
+  });
+});
