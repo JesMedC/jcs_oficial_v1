@@ -83,3 +83,108 @@ export function sessionForTimestamp(
   if (hour < 17) return 'NEW_YORK';
   return 'SYDNEY';
 }
+
+/**
+ * TWR-06 / USC — TZ-aware ``(local_day, band)`` bucketer.
+ *
+ * Frontend mirror of the backend pair
+ * (``backend/app/services/session_service.py`` ::
+ * ``local_date_for_timestamp`` + ``session_for_timestamp``). Returns
+ * a tuple the NewTradeForm pre-flight can compare directly with the
+ * bucket rows the backend returns, so the frontend pill and the
+ * wire verdict agree byte-for-byte on which ``(local_day, band)`` a
+ * trade belongs to.
+ *
+ * Why we can't reuse ``sessionForTimestamp``: that helper resolves
+ * the band from the UTC hour (it predates the TZ-aware admission
+ * gate and is still used by the TradeTableRow session badge, where
+ * the backend serializes ``opened_at`` with an explicit "Z" suffix
+ * and the absolute UTC hour is the right unit). The session gate,
+ * by contrast, must bucket by the USER's local day + local hour so
+ * a CLOSED_LOSS in a different local day does not wrongly lock the
+ * form (the UTC-only mirror triggered a false positive when a LOSS
+ * happened to share the UTC band with "now" but lived on a
+ * different local day).
+ *
+ * Behaviour:
+ *   - ``day`` is the ISO ``YYYY-MM-DD`` of the timestamp after
+ *     conversion to ``tz`` (NOT the UTC date — that's the whole
+ *     point).
+ *   - ``band`` follows the same four-window table as
+ *     ``sessionForTimestamp`` but on the LOCAL hour.
+ *   - Returns ``null`` for garbage ISO strings OR for invalid IANA
+ *     timezone names (``Intl.DateTimeFormat`` throws
+ *     ``RangeError`` for unknown zones — we catch and return null
+ *     so callers don't need a try/catch).
+ *
+ * @param iso - UTC ISO 8601 timestamp (the wire shape for
+ *   ``Trade.opened_at``).
+ * @param tz - IANA timezone name (e.g. ``"America/Santiago"``,
+ *   ``"UTC"``). Caller should fall back to ``"UTC"`` when the
+ *   user profile has no timezone set.
+ */
+export function localBucketForTimestamp(
+  iso: string,
+  tz: string,
+): { day: string; band: SessionBand } | null {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return null;
+
+  // Single ``Intl.DateTimeFormat`` call to keep the conversion
+  // atomic — splitting day + hour into two formatters risks drift
+  // if a DST boundary lands between the two calls. ``en-CA``
+  // formats the date as ``YYYY-MM-DD`` so we can read the day
+  // verbatim. ``hour12: false`` + ``hourCycle: 'h23'`` forces a
+  // 0–23 range across all engines (some legacy locales render
+  // midnight as "24"; the hourCycle flag kills that).
+  let parts: Intl.DateTimeFormatPart[];
+  try {
+    parts = new Intl.DateTimeFormat('en-CA', {
+      timeZone: tz,
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+      hour: '2-digit',
+      hour12: false,
+      hourCycle: 'h23',
+    }).formatToParts(d);
+  } catch {
+    // RangeError for unknown IANA names — translate to the canonical
+    // null return so callers don't need their own try/catch.
+    return null;
+  }
+
+  let year: string | null = null;
+  let month: string | null = null;
+  let dayPart: string | null = null;
+  let hour: number | null = null;
+  for (const part of parts) {
+    if (part.type === 'year') year = part.value;
+    else if (part.type === 'month') month = part.value;
+    else if (part.type === 'day') dayPart = part.value;
+    else if (part.type === 'hour') {
+      const h = Number(part.value);
+      // Normalize midnight (some engines return "24" instead of "00"
+      // without hourCycle; defensive modulo for any leftover).
+      hour = ((h % 24) + 24) % 24;
+    }
+  }
+  if (
+    year === null ||
+    month === null ||
+    dayPart === null ||
+    hour === null ||
+    !Number.isFinite(hour)
+  ) {
+    return null;
+  }
+  const day = `${year}-${month}-${dayPart}`;
+
+  let band: SessionBand;
+  if (hour < 7) band = 'ASIA';
+  else if (hour < 12) band = 'LONDON';
+  else if (hour < 17) band = 'NEW_YORK';
+  else band = 'SYDNEY';
+
+  return { day, band };
+}
