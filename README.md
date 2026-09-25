@@ -40,3 +40,16 @@ sub-slices posteriores (`p1b`–`p1f`).
 
 El README completo, la guía de contribución y la documentación por área se entregan en el slice
 final (`p1f`).
+
+## Auth
+
+- Email + password: `POST /api/v1/auth/register`, `POST /api/v1/auth/login`,
+  `POST /api/v1/auth/refresh`, `POST /api/v1/auth/logout`,
+  `GET/PATCH /api/v1/auth/me`. Devuelve JWT firmado (HS256) + refresh
+  token rotado + cookie httpOnly.
+- Google OAuth: `GET /api/v1/auth/google/login` redirige a Google;
+  `GET /api/v1/auth/google/callback` intercambia el code por tokens,
+  busca/crea el user por `google_sub` y emite el mismo par JWT que
+  email/password. Devuelve 503 si las env vars no están configuradas.
+
+Setup paso a paso de Google Cloud Console: [docs/google-oauth-setup.md](docs/google-oauth-setup.md).
