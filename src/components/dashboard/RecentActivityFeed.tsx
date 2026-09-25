@@ -41,7 +41,6 @@ interface Props {
 // (jarvis-ui-redesign T-15 — pairFlag emoji replaced by the
 // <CurrencyIcon> primitive that renders two overlapping coin
 // circles in the JARVIS HUD palette.)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _legacyPairFlag(instrument: string): string {
   // Light heuristic — uppercase substring before any slash. If the
   // instrument starts with a 6-letter FX pair the first 2 chars map

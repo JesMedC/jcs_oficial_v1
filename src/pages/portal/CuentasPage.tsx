@@ -35,7 +35,6 @@ import { StatCard } from '../../components/trading/StatCard';
 import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { HudButton } from '../../components/ui/HudButton';
 import { useAccounts } from '../../features/accounts/hooks';
 import { useTradesAll } from '../../features/trades/useTradesAll';
 import {

@@ -119,6 +119,7 @@ export function montoCalculadoParaBalance(balanceUsd: number): number | null {
 export function isHardBlockedByDiscipline(
   deductUsd: number,
   capitalInicialUsd: number,
+  _type?: unknown,
 ): boolean {
   if (!Number.isFinite(deductUsd) || deductUsd <= 0) return false;
   // Rule 3 — broker cap (404 USD).
@@ -146,6 +147,10 @@ export const DISCIPLINE_ERROR_CODES = {
   SESSION_CAP_EXCEEDED: 'SESSION_CAP_EXCEEDED',
   INTEREST_INVALID: 'INTEREST_INVALID',
   PAYOUT_OUT_OF_RANGE: 'PAYOUT_OUT_OF_RANGE',
+  // Client-side evaluator can flag the form when a session already
+  // contains a LOSS; this code is purely UX — the server still
+  // enforces the underlying discipline rules.
+  LOSS_IN_SESSION: 'LOSS_IN_SESSION',
   // REQ-DSC-005: PATCH /workspaces/{id}/discipline rejected because
   // the submitted value is outside ``[1, plan_ceiling]``. Added by
   // sessions-configurable-cap Slice A; mirrored here for the
@@ -168,6 +173,8 @@ export const DISCIPLINE_ERROR_MESSAGE: Record<DisciplineErrorCode, string> = {
   SESSION_CAP_EXCEEDED: 'Ya tenés 4 operaciones en esta sesión.',
   INTEREST_INVALID: 'Interés inválido.',
   PAYOUT_OUT_OF_RANGE: 'Payout fuera de rango (70..99).',
+  LOSS_IN_SESSION:
+    'La sesión ya tiene una LOSS; esperá a que cierre como WIN.',
   // Slice B T-019: message for the DisciplinaTab out-of-range pill.
   // The backend also includes the ceiling in the envelope message
   // (``session_ops_cap X fuera de rango; techo Y``); we render the
@@ -175,3 +182,47 @@ export const DISCIPLINE_ERROR_MESSAGE: Record<DisciplineErrorCode, string> = {
   DISCIPLINE_CAP_OUT_OF_RANGE:
     'El tope de operaciones por sesión excede el máximo de tu plan.',
 };
+
+/**
+ * Stub of ``evaluateBinarySession`` — the canonical implementation lived
+ * in this file pre-scanner-merge and was lost. The form's preview still
+ * expects an object with ``ok``, ``reason``, ``stats`` (wins/losses/pnlUsd)
+ * and ``cap`` keys, so we keep a minimal client-side stub that returns a
+ * neutral verdict. The server is the source of truth (see module-level
+ * docstring) — every gate still runs in the backend trade-open endpoint.
+ *
+ * TODO: port the canonical evaluator from
+ * ``backend/app/services/discipline_engine.py`` and delete this stub.
+ */
+export interface BinarySessionTradeSummary {
+  wins: number;
+  losses: number;
+  pnlUsd: number;
+}
+
+export interface BinarySessionResult {
+  ok: boolean;
+  reason?: DisciplineErrorCode;
+  stats: BinarySessionTradeSummary;
+  cap: number;
+}
+
+export function evaluateBinarySession(
+  bucket: ReadonlyArray<{ result?: string | null; pnl_usd?: string | number | null }>,
+  cap: number,
+): BinarySessionResult {
+  // Stub: never hard-block on the client; the backend enforces the cap.
+  let wins = 0;
+  let losses = 0;
+  let pnlUsd = 0;
+  for (const t of bucket) {
+    if (t.result === 'WIN') wins += 1;
+    else if (t.result === 'LOSS') losses += 1;
+    pnlUsd += Number(t.pnl_usd ?? 0);
+  }
+  return {
+    ok: true,
+    stats: { wins, losses, pnlUsd },
+    cap,
+  };
+}

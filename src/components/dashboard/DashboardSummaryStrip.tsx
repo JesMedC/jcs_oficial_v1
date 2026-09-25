@@ -49,7 +49,6 @@ interface Props {
 //  superseded by the reusable <Sparkline> primitive that takes the
 //  real equity-curve series. Kept the export below as a fallback
 //  in case a parent still passes it.)
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
 function _legacySparklineIcon() {
   // Tiny cyan-green sparkline — pure decoration so the Operaciones card
   // doesn't feel text-only next to the three numeric siblings.

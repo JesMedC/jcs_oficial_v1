@@ -243,8 +243,8 @@ describe('NewTradeForm — discipline gates (PR-4)', () => {
 // The form fetches the active account's recent BINARY trades,
 // filters them down to the same ``(local_day, band)`` bucket the
 // backend uses (post-USC: universal cap of 4 ops/session, honours
-// the user's IANA timezone), then runs ``evaluateBinarySession`` to
-// disable submit when the bucket has hit the cap or contains a
+// the user's IANA timezone), then disables submit when the bucket
+// has hit the cap or contains a
 // LOSS. Every test pins the trade timestamps to land in the
 // current ``(local_day, band)`` of the form's internal clock so
 // the bucketing is deterministic across the day boundary.

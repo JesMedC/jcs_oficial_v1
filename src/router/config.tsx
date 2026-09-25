@@ -33,10 +33,6 @@ import { ProtectedRoute } from '../features/auth/ProtectedRoute';
  * resolves via a Navigate redirect so any legacy bookmark or in-app
  * link keeps working.
  *
- * scanner: ``/portal/scanner`` (Market Analyzer Bot main view) is
- * a sibling of Diario + Playbook. The order becomes: dashboard,
- * cuentas, operaciones, diario, scanner, playbook, configuracion.
- *
  * p0e.3: ``/portal/cuentas/:accountId`` (CuentasDetailPage) nested
  * under the existing ``/portal`` parent so it inherits PortalShell.
  * Uses the inline ``lazy`` form (instead of a top-level
@@ -87,9 +83,6 @@ const PortalOperacionesPage = lazy(() =>
 );
 const PortalDiarioPage = lazy(() =>
   import('../pages/portal/DiarioPage').then((m) => ({ default: m.DiarioPage })),
-);
-const PortalScannerPage = lazy(() =>
-  import('../pages/portal/ScannerPage').then((m) => ({ default: m.ScannerPage })),
 );
 const PortalPlaybookPage = lazy(() =>
   import('../pages/portal/PlaybookPage').then((m) => ({ default: m.PlaybookPage })),
@@ -191,11 +184,6 @@ export const routeChildren: RouteObject[] = [
           },
           { path: 'operaciones', element: <PortalOperacionesPage /> },
           { path: 'diario', element: <PortalDiarioPage /> },
-          // Market Analyzer Bot main view — alert feed on the left,
-          // candlestick chart with EMA 200 + Stochastic oscillator on
-          // the right. Mirrors the scanner service's WS + REST
-          // surfaces.
-          { path: 'scanner', element: <PortalScannerPage /> },
           { path: 'playbook', element: <PortalPlaybookPage /> },
           { path: 'configuracion', element: <PortalConfiguracionPage /> },
         ],

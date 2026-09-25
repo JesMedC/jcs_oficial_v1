@@ -4,7 +4,7 @@
  *
  * Each nav item renders as a rectangular pill with a cyan border,
  * uppercase tracked-wide label, and a glow halo on the active
- * state. Items that open drawers (Cuentas / Operaciones / Scanner /
+ * state. Items that open drawers (Cuentas / Operaciones /
  * Playbook) get a small `+` glyph anchored to the right edge as a
  * visual hint.
  */
@@ -94,32 +94,6 @@ function LogIcon() {
   );
 }
 
-function ScannerIcon() {
-  return (
-    <svg
-      className="w-5 h-5"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="1.5"
-      aria-hidden="true"
-    >
-      <path strokeLinecap="round" strokeLinejoin="round" d="M4 12h2M18 12h2M12 4v2M12 18v2" />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M7.5 7.5a6 6 0 010 9M16.5 7.5a6 6 0 010 9"
-      />
-      <path
-        strokeLinecap="round"
-        strokeLinejoin="round"
-        d="M9.5 9.5a3 3 0 010 5M14.5 9.5a3 3 0 010 5"
-      />
-      <circle cx="12" cy="12" r="0.75" fill="currentColor" />
-    </svg>
-  );
-}
-
 function PlaybookIcon() {
   return (
     <svg
@@ -164,7 +138,6 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/portal/cuentas', label: 'Accounts', icon: <CuentasIcon />, showAdd: true },
   { to: '/portal/operaciones', label: 'Operations', icon: <OperacionesIcon />, showAdd: true },
   { to: '/portal/diario', label: 'Log', icon: <LogIcon /> },
-  { to: '/portal/scanner', label: 'Scanner', icon: <ScannerIcon />, showAdd: true },
   { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon />, showAdd: true },
   { to: '/portal/configuracion', label: 'Settings', icon: <SettingsIcon /> },
 ];

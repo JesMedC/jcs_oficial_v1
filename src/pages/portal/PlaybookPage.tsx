@@ -9,7 +9,6 @@
  * OperacionesPage: visible Orbitron H1 in jade + a single
  * GlassCard with the "Próximamente" copy.
  */
-import { GlassCard } from '../../components/GlassCard';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { HudPanel } from '../../components/ui/HudPanel';
 

@@ -13,6 +13,7 @@
  * forwards ``value`` + ``onChange`` to the parent ``Controller``.
  */
 import { fireEvent, render, screen } from '@testing-library/react';
+import type { ComponentProps } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import {
@@ -23,7 +24,7 @@ import {
 import { InstrumentPicker } from '../InstrumentPicker';
 
 function renderPicker(
-  overrides: Partial<React.ComponentProps<typeof InstrumentPicker>> = {},
+  overrides: Partial<ComponentProps<typeof InstrumentPicker>> = {},
 ) {
   const onChange = vi.fn();
   const onBlur = vi.fn();

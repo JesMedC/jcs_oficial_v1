@@ -44,7 +44,7 @@ from alembic import op
 from app.services.discipline_engine import _PLAN_CEILING_BY_TIER
 
 revision: str = "0013_workspace_session_ops_cap"
-down_revision: Union[str, None] = "0012_add_fund_withdraw"
+down_revision: Union[str, None] = "0011_add_discipline_fields"
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 

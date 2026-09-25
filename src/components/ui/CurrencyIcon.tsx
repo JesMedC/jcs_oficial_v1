@@ -45,7 +45,7 @@ function coinFor(code: string): CoinSpec {
 }
 
 export function CurrencyIcon({ instrument, size = 24 }: CurrencyIconProps) {
-  const parts = instrument.split(/[\/\-_]/).map((s) => s.trim()).filter(Boolean);
+  const parts = instrument.split(/[/_-]/).map((s) => s.trim()).filter(Boolean);
   const base = parts[0] ?? '';
   const quote = parts[1] ?? '';
   const a = coinFor(base);

@@ -32,16 +32,12 @@ import { useContext, useMemo, useState } from 'react';
 import { useAuth } from '../../features/auth/useAuth';
 import { SeoHead } from '../../components/SeoHead';
 import { AccountSelector } from '../../components/dashboard/AccountSelector';
-import { CapitalCurveChart } from '../../components/dashboard/CapitalCurveChart';
-import { DashboardOrbitalOverview } from '../../components/dashboard/DashboardOrbitalOverview';
 import { DashboardSummaryStrip } from '../../components/dashboard/DashboardSummaryStrip';
-import { PerformanceCurveChart } from '../../components/dashboard/PerformanceCurveChart';
 import { RecentActivityFeed } from '../../components/dashboard/RecentActivityFeed';
 import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
 import { DotGrid } from '../../components/decor/DotGrid';
 import { NeuralNetwork } from '../../components/decor/NeuralNetwork';
 import { CoreInterfaceWatermark } from '../../components/dashboard/CoreInterfaceWatermark';
-import { AlertsToast } from '../../components/scanner/AlertsToast';
 import { DashboardKPIsGrid } from '../../features/trades/DashboardKPIsGrid';
 import { useEquityCurve } from '../../features/dashboard/useEquityCurve';
 import { useAccounts } from '../../features/accounts/hooks';
@@ -143,13 +139,6 @@ export function DashboardPage() {
         canonicalPath="/portal/dashboard"
         noindex
       />
-      {/* Market Analyzer Bot — live alert toast stack. Mounted once
-          near the top of the rendered tree so the floating layer
-          sits above every other dashboard surface (z-50 in
-          AlertsToast). The hook subscribes to /api/v1/scanner/ws
-          and the component renders the most recent alerts as
-          toasts that auto-dismiss after 8s. */}
-      <AlertsToast />
       <div className="relative w-full px-2 md:px-4">
             {/* core-interface-redesign (Slice 2, T-030) — JARVIS HUD decor.
              *
@@ -229,18 +218,6 @@ export function DashboardPage() {
           </div>
         </div>
 
-        <DashboardOrbitalOverview
-          tradesScoped={tradesScoped}
-          isLoading={tradesAll.isLoading || accountsQuery.isLoading}
-          isError={tradesAll.isError || accountsQuery.isError}
-          scopeLabel={
-            selectedAccountId
-              ? accountsQuery.data?.items.find((account) => account.id === selectedAccountId)
-                  ?.name ?? 'Cuenta seleccionada'
-              : 'Todas las cuentas'
-          }
-        />
-
         {/* ---- 6-metric winrate (general + 4 sessions) — REQ-WRS-007 ----
          *
          * Full-width band sitting BEFORE the chart + activity-feed split
@@ -311,33 +288,21 @@ export function DashboardPage() {
                 className="lg:col-span-3 min-w-0 flex flex-col gap-4"
                 data-testid="dash-equity-curve-section"
               >
-                <PerformanceCurveChart
-                  points={equityCurve.points.map((p) => ({
-                    date: p.date,
-                    account_balance: p.account_balance,
-                    cumulative_net_pnl: p.cumulative_net_pnl,
-                    daily_pnl: p.daily_pnl,
-                    capital_volume: p.capital_volume,
-                    trades: p.trades,
-                  }))}
-                  scopeLabel={scopeLabel}
-                />
-                <CapitalCurveChart
-                  points={equityCurve.points.map((p) => ({
-                    date: p.date,
-                    account_balance: p.account_balance,
-                    cumulative_net_pnl: p.cumulative_net_pnl,
-                    daily_pnl: p.daily_pnl,
-                    capital_volume: p.capital_volume,
-                    trades: p.trades,
-                  }))}
-                  scopeLabel={scopeLabel}
-                  headerSubtitle={
-                    totalBalance > 0
-                      ? `Capital agregado: ${formatUsd(totalBalance)}`
-                      : undefined
-                  }
-                />
+                {/* Equity curve placeholder — restored in upcoming slice
+                    (the lightweight-charts component pair was removed
+                    with the scanner-merge cleanup). The hook
+                    (``useEquityCurve``) is preserved so the data path
+                    stays intact when the charts return. */}
+                <div
+                  data-testid="dash-equity-curve-placeholder"
+                  className="rounded-lg border border-border bg-surface/40 p-6 text-sm text-text-secondary"
+                >
+                  Equity curve — {equityCurve.points.length} days tracked
+                  {scopeLabel ? ` · ${scopeLabel}` : ''}
+                  {totalBalance > 0
+                    ? ` · Capital agregado: ${formatUsd(totalBalance)}`
+                    : ''}
+                </div>
               </div>
               <div className="lg:col-span-1 min-w-0 flex flex-col gap-4">
                 <RecentActivityFeed trades={tradesScoped} />
