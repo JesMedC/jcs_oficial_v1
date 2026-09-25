@@ -14,7 +14,7 @@
  * intended URL (defaults to ``/portal/dashboard``).
  */
 import { useEffect, useRef } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 
 import { SeoHead } from '../components/SeoHead';
 import { GlassCard } from '../components/GlassCard';
@@ -23,7 +23,6 @@ import { tokenStore } from '../lib/api/client';
 
 export function LoginPage() {
   const [searchParams, setSearchParams] = useSearchParams();
-  const navigate = useNavigate();
   const consumed = useRef(false);
 
   // Google OAuth callback: persist tokens, then forward to the SPA.
