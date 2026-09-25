@@ -10,6 +10,7 @@ from app.api.v1 import (
     analytics,
     auth,
     calendar,
+    google_oauth,
     me,
     subscriptions,
     trades,
@@ -20,6 +21,7 @@ from app.api.v1 import (
 
 api_router = APIRouter(prefix="/api/v1")
 api_router.include_router(auth.router)
+api_router.include_router(google_oauth.router)
 api_router.include_router(me.router)
 api_router.include_router(subscriptions.router)
 api_router.include_router(admin.router)

@@ -62,6 +62,22 @@ export const tokenStore = {
     sessionStorage.setItem(ACCESS_TOKEN_KEY, access);
     sessionStorage.setItem(REFRESH_TOKEN_KEY, refresh);
   },
+  /**
+   * Persist tokens after an OAuth callback (or any flow that only
+   * carries the tokens via querystring). ``refreshToken`` and
+   * ``expiresIn`` are optional — we still write ``null`` so the
+   * caller can always trust `getAccess()` to return what was set.
+   */
+  setTokens(tokens: {
+    accessToken: string;
+    refreshToken?: string | null;
+    expiresIn?: number;
+  }): void {
+    sessionStorage.setItem(ACCESS_TOKEN_KEY, tokens.accessToken);
+    if (tokens.refreshToken !== undefined && tokens.refreshToken !== null) {
+      sessionStorage.setItem(REFRESH_TOKEN_KEY, tokens.refreshToken);
+    }
+  },
   clear(): void {
     sessionStorage.removeItem(ACCESS_TOKEN_KEY);
     sessionStorage.removeItem(REFRESH_TOKEN_KEY);
@@ -152,9 +168,31 @@ apiClient.interceptors.response.use(
 
     // Normalize: ensure every error has a backend-shaped envelope so
     // callers can always read `.code`, `.message`, `.correlation_id`.
+    //
+    // The backend's error envelope lives at two possible locations,
+    // depending on the failure mode:
+    //   1. AppError → serialized as `{ "code", "message", "correlation_id" }`
+    //      directly on the response body.
+    //   2. FastAPI's HTTPException(detail=<envelope>) → wraps the envelope
+    //      under `detail`: `{ "detail": { "code", "message", "correlation_id" } }`.
+    // Accept both so login / 4xx / 5xx all show the human message
+    // instead of falling back to INTERNAL_ERROR.
     const data = error.response?.data;
-    if (data !== undefined && typeof data === 'object' && 'code' in data && 'message' in data) {
-      return Promise.reject(data as ErrorEnvelope);
+    const candidate: unknown =
+      data !== undefined &&
+      typeof data === 'object' &&
+      'detail' in data &&
+      typeof (data as { detail: unknown }).detail === 'object'
+        ? (data as { detail: unknown }).detail
+        : data;
+    if (
+      candidate !== undefined &&
+      candidate !== null &&
+      typeof candidate === 'object' &&
+      'code' in candidate &&
+      'message' in candidate
+    ) {
+      return Promise.reject(candidate as ErrorEnvelope);
     }
     const correlationId =
       (error.response?.headers as Record<string, string> | undefined)?.['x-correlation-id'] ??

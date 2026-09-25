@@ -67,9 +67,25 @@ class Settings(BaseSettings):
     # back_urls por defecto cuando el cliente no las pasa.
     frontend_base_url: str = "http://localhost:5173"
 
+    # Google OAuth — ``/auth/google/login`` and ``/auth/google/callback``
+    # return 503 unless both client_id and redirect_uri are set. The
+    # client_secret is required at runtime for the token exchange, so
+    # leave it empty in dev only if you don't want Google login yet.
+    google_oauth_client_id: str = ""
+    google_oauth_client_secret: str = ""
+    google_oauth_redirect_uri: str = ""
+
     @property
     def is_production(self) -> bool:
         return self.environment == "production"
+
+    @property
+    def google_oauth_enabled(self) -> bool:
+        return bool(
+            self.google_oauth_client_id
+            and self.google_oauth_client_secret
+            and self.google_oauth_redirect_uri
+        )
 
 
 @lru_cache(maxsize=1)

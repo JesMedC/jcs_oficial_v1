@@ -45,8 +45,9 @@ services:
       MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:-}
       MERCADOPAGO_WEBHOOK_URL: ${MERCADOPAGO_WEBHOOK_URL:-}
     # expose (NO ports): backend NO se publica al host — solo Nginx puede llegar.
-    expose:
-      - "8000"
+    # expose OR publish — tunnel talks to the host so publish :8000.
+    ports:
+      - "8000:8000"
     volumes:
       # Hot-reload friendly: monta el código desde el host.
       - ./backend:/app
@@ -75,6 +76,7 @@ services:
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/conf.d/default.conf:ro
       - ./infra/nginx/certs:/etc/nginx/certs:ro
+      - ./dist:/usr/share/nginx/html:ro
 
 volumes:
   postgres_data:
