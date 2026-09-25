@@ -53,6 +53,18 @@ class User(Base, TimestampMixin):
     is_active: Mapped[bool] = mapped_column(
         Boolean, default=True, nullable=False
     )
+    # Google OAuth ``sub`` (subject). Stable per-(provider,user) id
+    # issued by Google — when present, lets the OAuth callback look
+    # the user up even if they change email addresses. Unique +
+    # indexed so ``find_or_create_user_from_google`` can do a
+    # single index lookup before falling back to email.
+    google_sub: Mapped[str | None] = mapped_column(
+        String(255),
+        unique=True,
+        nullable=True,
+        default=None,
+        index=True,
+    )
     # IANA timezone string (e.g. ``"America/Buenos_Aires"``). Used by
     # ``session_service`` to bucket trades into 4 sessions
     # (ASIA/LONDON/NEW_YORK/SYDNEY). Default UTC keeps existing
