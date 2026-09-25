@@ -44,6 +44,14 @@ services:
       MERCADOPAGO_ACCESS_TOKEN: ${MERCADOPAGO_ACCESS_TOKEN:-}
       MERCADOPAGO_PUBLIC_KEY: ${MERCADOPAGO_PUBLIC_KEY:-}
       MERCADOPAGO_WEBHOOK_URL: ${MERCADOPAGO_WEBHOOK_URL:-}
+      # Google OAuth — p0auth.1. When all three are empty, the
+      # ``/api/v1/auth/google/login`` endpoint returns 503 with the
+      # canonical "Google login no esta configurado" envelope. Set
+      # them to real values (see docs/google-oauth-setup.md) to
+      # enable Google login.
+      GOOGLE_OAUTH_CLIENT_ID: ${GOOGLE_OAUTH_CLIENT_ID:-}
+      GOOGLE_OAUTH_CLIENT_SECRET: ${GOOGLE_OAUTH_CLIENT_SECRET:-}
+      GOOGLE_OAUTH_REDIRECT_URI: ${GOOGLE_OAUTH_REDIRECT_URI:-}
     # expose (NO ports): backend NO se publica al host — solo Nginx puede llegar.
     # expose OR publish — tunnel talks to the host so publish :8000.
     ports:
