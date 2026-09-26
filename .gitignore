@@ -29,3 +29,6 @@ blob-report/
 
 # Internal tooling / debug artefacts (not source)
 .atl/
+
+# Local backups of .env (created by ad-hoc sed fixes)
+.env.bak.*
