@@ -32,7 +32,14 @@ import uuid
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, Index, Numeric, String
+from sqlalchemy import (
+    Enum,
+    ForeignKey,
+    Index,
+    Numeric,
+    SmallInteger,
+    String,
+)
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -77,9 +84,32 @@ class TradingAccount(Base, TimestampMixin):
     balance_usd: Mapped[Decimal] = mapped_column(
         Numeric(10, 2), nullable=False, default=Decimal("0")
     )
+    # Per-account risk-control settings (REQ-RISK-PER-ACCOUNT). Moved
+    # off ``Workspace`` so each account has its own session-ops cap and
+    # percentage-loss thresholds; the discipline engine already buckets
+    # trades per account, so the workspace columns were a forced coupling
+    # between unrelated accounts.
+    risk_control_mode: Mapped[str] = mapped_column(
+        String(32),
+        default="operations",
+        server_default="operations",
+        nullable=False,
+    )
+    session_ops_cap: Mapped[int | None] = mapped_column(
+        SmallInteger, nullable=True
+    )
+    daily_loss_pct: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    weekly_loss_pct: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    monthly_loss_pct: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
 
-    user: Mapped["User"] = relationship()
-    workspace: Mapped["Workspace"] = relationship()
+    user: Mapped[User] = relationship()
+    workspace: Mapped[Workspace] = relationship()
 
     __table_args__ = (
         Index("ix_trading_accounts_user_id", "user_id"),

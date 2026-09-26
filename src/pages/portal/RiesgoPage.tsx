@@ -4,7 +4,9 @@ import { SeoHead } from '../../components/SeoHead';
 import { PageHeader } from '../../components/ui/PageHeader';
 import { MetricCard, type MetricCardTone } from '../../components/ui/MetricCard';
 import { SurfacePanel } from '../../components/ui/SurfacePanel';
+import { AccountSelector } from '../../components/dashboard/AccountSelector';
 import { AuthContext } from '../../features/auth/AuthProvider';
+import { useAccounts } from '../../features/accounts/hooks';
 import type { RiskControlMode } from '../../features/auth/types';
 import { useRiskSummary } from '../../features/trades/hooks';
 import type { RiskLevel } from '../../features/trades/types';
@@ -39,7 +41,7 @@ type RiskControlDraft = Record<DraftField, string>;
 const MODE_COPY: Record<RiskControlMode, { label: string; description: string }> = {
   operations: {
     label: 'Cantidad de operaciones',
-    description: 'Limitá cuántas operaciones puede abrir el workspace por sesión.',
+    description: 'Limitá cuántas operaciones puede abrir esta cuenta por sesión.',
   },
   percentage_loss: {
     label: 'Porcentaje de pérdida',
@@ -127,9 +129,27 @@ function RiskGlyph() {
 export function RiesgoPage() {
   const authCtx = useContext(AuthContext);
   const workspace = authCtx?.user?.workspaces[0];
-  const workspaceId = workspace?.id;
+  const workspaceName = workspace?.name ?? 'Sin workspace';
+
+  // Per-account scope: each account carries its own cap and loss
+  // thresholds. ``null`` = aggregate across every active account.
+  const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
+  const accountsQuery = useAccounts();
+  const accounts = useMemo(
+    () => accountsQuery.data?.items ?? [],
+    [accountsQuery.data?.items],
+  );
+  const activeAccount = useMemo(
+    () =>
+      selectedAccountId !== null
+        ? accounts.find((a) => a.id === selectedAccountId) ?? null
+        : null,
+    [accounts, selectedAccountId],
+  );
+  const accountId = activeAccount?.id;
+
   const riskQuery = useRiskSummary();
-  const controlsQuery = useRiskControls(workspaceId);
+  const controlsQuery = useRiskControls(accountId);
   const updateControls = useUpdateRiskControls();
   const [draft, setDraft] = useState<RiskControlDraft>(EMPTY_DRAFT);
   const [mode, setMode] = useState<RiskControlMode>('operations');
@@ -142,12 +162,12 @@ export function RiesgoPage() {
   useEffect(() => {
     setDraft(draftFromControls(controls));
     if (controls) setMode(controls.risk_control_mode);
-  }, [controls]);
+  }, [controls, accountId]);
 
   const effectiveSessionCap = controls?.session_ops_cap ?? controls?.ceiling;
   const activeMode = controls?.risk_control_mode ?? mode;
-  const hasWorkspace = Boolean(workspaceId);
-  const canSave = hasWorkspace && !controlsQuery.isLoading && !updateControls.isPending;
+  const hasAccount = Boolean(accountId);
+  const canSave = hasAccount && !controlsQuery.isLoading && !updateControls.isPending;
 
   const currentLimitCards = useMemo(
     () => [
@@ -183,12 +203,12 @@ export function RiesgoPage() {
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!workspaceId) return;
+    if (!accountId) return;
     setSaveMessage(null);
     await updateControls.mutateAsync(
       mode === 'operations'
         ? {
-            workspaceId,
+            accountId,
             risk_control_mode: 'operations',
             session_ops_cap: parseOptionalNumber(draft.session_ops_cap),
             daily_loss_pct: null,
@@ -196,7 +216,7 @@ export function RiesgoPage() {
             monthly_loss_pct: null,
           }
         : {
-            workspaceId,
+            accountId,
             risk_control_mode: 'percentage_loss',
             session_ops_cap: null,
             daily_loss_pct: parseOptionalPct(draft.daily_loss_pct),
@@ -219,10 +239,17 @@ export function RiesgoPage() {
         <PageHeader
           subLabel="Risk Control"
           title="Riesgo"
-          subtitle="Goberná la exposición antes de operar: semáforo, métricas activas y límites editables del workspace."
+          subtitle="Goberná la exposición antes de operar: semáforo, métricas activas y límites editables por cuenta."
           actions={
-            <SurfacePanel as="div" variant="outline" padding="sm" className="text-xs text-text-secondary">
-              Workspace: <span className="font-mono text-text-primary">{workspace?.name ?? 'Sin workspace'}</span>
+            <SurfacePanel as="div" variant="outline" padding="sm" className="flex flex-wrap items-center gap-3 text-xs text-text-secondary">
+              <span>
+                Workspace:{' '}
+                <span className="font-mono text-text-primary">{workspaceName}</span>
+              </span>
+              <AccountSelector
+                value={selectedAccountId}
+                onChange={setSelectedAccountId}
+              />
             </SurfacePanel>
           }
         />
@@ -274,18 +301,18 @@ export function RiesgoPage() {
               <div>
                 <span data-portal-kicker className="text-[10px]">Límites actuales</span>
                 <h2 className="mt-2 font-display text-xl uppercase tracking-wide text-text-primary">
-                  Controles del workspace
+                  Controles de la cuenta
                 </h2>
                 <p className="mt-1 max-w-3xl text-sm leading-relaxed text-text-secondary">
-                  Estos valores impactan la disciplina operativa del workspace. Dejá un campo vacío para usar el límite por defecto o desactivar ese corte porcentual.
+                  Estos valores impactan la disciplina operativa de la cuenta seleccionada. Dejá un campo vacío para usar el límite por defecto o desactivar ese corte porcentual.
                 </p>
               </div>
               {controlsQuery.isLoading ? <span className="text-sm text-text-secondary">Cargando límites...</span> : null}
             </div>
 
-            {!hasWorkspace ? (
+            {!hasAccount ? (
               <SurfacePanel as="div" variant="outline" padding="md" className="border-warning/50">
-                <p className="text-sm text-warning">Necesitás un workspace activo para editar controles de riesgo.</p>
+                <p className="text-sm text-warning">Seleccioná una cuenta para editar sus controles de riesgo.</p>
               </SurfacePanel>
             ) : null}
 

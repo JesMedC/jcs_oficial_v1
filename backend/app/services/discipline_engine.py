@@ -13,7 +13,7 @@ short-circuits on the first failure (REQ-DISC-010 binding order):
      daily cap (TZ-aware via ``session_service.local_date_for_timestamp``)
   6. ``count(trades in session bucket today) < _workspace_session_cap(ws)``
      — REQ-DISC-008 session ops-cap. Reads
-     ``account.workspace.session_ops_cap`` first; falls back to
+     ``account.session_ops_cap`` first; falls back to
      ``_PLAN_CEILING_BY_TIER[plan_tier]`` (or
      ``_PLAN_CEILING_FALLBACK`` if plan_tier is unknown). Single
      source of truth: ``_PLAN_CEILING_BY_TIER``.
@@ -24,7 +24,7 @@ Schema checks (``interest`` required, ``INVALID_TIMEZONE``) happen
 in Pydantic / the API boundary before this engine runs.
 
 Workspace-driven session cap (REQ-DISC-008 / REQ-DSC-006): rule 6
-reads ``account.workspace.session_ops_cap`` (nullable ``SMALLINT``)
+reads ``account.session_ops_cap`` (nullable ``SMALLINT``)
 first; the effective cap falls back to ``_PLAN_CEILING_BY_TIER`` —
 STARTER=4, PRO=6, ELITE=10 — and finally to ``_PLAN_CEILING_FALLBACK``
 (4) for unknown / unprovisioned workspaces. ``_PLAN_CEILING_BY_TIER``
@@ -159,7 +159,7 @@ _DAILY_PCT_FALLBACK = Decimal("0.05")
 
 
 def _workspace_session_cap(workspace: Workspace | None) -> int:
-    """Resolve the effective session ops cap for ``workspace``.
+    """Plan-tier fallback when no per-account cap is set.
 
     Order (REQ-DISC-008 + REQ-DSC-003):
       1. ``workspace.session_ops_cap`` if set (workspace-level tightening)
@@ -178,6 +178,22 @@ def _workspace_session_cap(workspace: Workspace | None) -> int:
     if override is not None:
         return int(override)
     return plan_ceiling_for(getattr(workspace, "plan_tier", None))
+
+
+def _account_session_cap(account: TradingAccount | None) -> int:
+    """Resolve the effective session ops cap for ``account``.
+
+    Per-account override wins; otherwise the workspace's plan-tier
+    ceiling (or its workspace-level override) takes over. Same shape
+    as the old workspace resolver, but reads ``account.session_ops_cap``
+    first so each account can run a different cap than its siblings.
+    """
+    workspace = getattr(account, "workspace", None) if account is not None else None
+    if account is not None:
+        override = getattr(account, "session_ops_cap", None)
+        if override is not None:
+            return int(override)
+    return _workspace_session_cap(workspace)
 
 
 # ---- error model ----
@@ -385,17 +401,14 @@ async def _enforce_realized_loss_limits(
     """
     if capital_inicial <= 0:
         return
-    workspace = account.workspace
-    if workspace is None:
-        return
-    if getattr(workspace, "risk_control_mode", None) != WorkspaceRiskControlMode.PERCENTAGE_LOSS.value:
+    if getattr(account, "risk_control_mode", None) != WorkspaceRiskControlMode.PERCENTAGE_LOSS.value:
         return
     checks: tuple[
         tuple[Literal["day", "week", "month"], Decimal | None, str], ...
     ] = (
-        ("day", getattr(workspace, "daily_loss_pct", None), "diaria"),
-        ("week", getattr(workspace, "weekly_loss_pct", None), "semanal"),
-        ("month", getattr(workspace, "monthly_loss_pct", None), "mensual"),
+        ("day", getattr(account, "daily_loss_pct", None), "diaria"),
+        ("week", getattr(account, "weekly_loss_pct", None), "semanal"),
+        ("month", getattr(account, "monthly_loss_pct", None), "mensual"),
     )
     for period, pct, label in checks:
         if pct is None:
@@ -482,7 +495,7 @@ async def validate_open_trade(
     # cap moved to its own helper below (REQ-DISC-008 + REQ-DSC-003).
     plan_tier = getattr(account.workspace, "plan_tier", WorkspacePlanTier.NONE)
     daily_pct = _plan_caps(plan_tier)[0]
-    session_ops_cap = _workspace_session_cap(account.workspace)
+    session_ops_cap = _account_session_cap(account)
     local_day = local_date_for_timestamp(ts, tz)
     band = session_for_timestamp(ts, tz)
 
@@ -546,7 +559,7 @@ async def validate_open_trade(
     # mutually exclusive operations mode; percentage-loss mode relies on
     # realized-loss limits instead and deliberately ignores this cap.
     risk_control_mode = getattr(
-        account.workspace,
+        account,
         "risk_control_mode",
         WorkspaceRiskControlMode.OPERATIONS.value,
     )
@@ -576,4 +589,5 @@ __all__ = [
     "_PLAN_CEILING_FALLBACK",
     "plan_ceiling_for",
     "_workspace_session_cap",
+    "_account_session_cap",
 ]

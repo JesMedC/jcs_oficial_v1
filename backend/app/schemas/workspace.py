@@ -19,13 +19,11 @@ class WorkspaceOut(BaseModel):
     plan_tier: WorkspacePlanTier
     role_in_workspace: WorkspaceMemberRole
     created_at: datetime
-    # REQ-DSC-007: frontend surfaces this in the Disciplina tab. NULL
-    # means "use the plan ceiling".
-    session_ops_cap: int | None = None
-    risk_control_mode: WorkspaceRiskControlMode = WorkspaceRiskControlMode.OPERATIONS
-    daily_loss_pct: Decimal | None = None
-    weekly_loss_pct: Decimal | None = None
-    monthly_loss_pct: Decimal | None = None
+    # Per-account risk-control settings (REQ-RISK-PER-ACCOUNT) used to
+    # live here. Migration 0022 moved them to ``TradingAccount`` so each
+    # account can run independent discipline. Kept on the output for
+    # legacy frontends; new clients read the values from
+    # ``GET /accounts/{id}/discipline``.
 
 
 class WorkspaceDisciplineOut(BaseModel):

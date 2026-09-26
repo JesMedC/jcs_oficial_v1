@@ -6,13 +6,21 @@
 - [x] Redesign Risk page with control form, exposure metrics, and professional hierarchy.
 - [x] Redesign Diario page with professional calendar, KPI, and selected-day detail surfaces.
 - [x] Validate complete production flow with Playwright and deployment.
+- [x] Fix session-cap off-by-one: move `validate_open_trade` before `db.add/flush` in `trade_service.open_trade` so the new trade does not count itself.
+- [x] Move risk-control settings (risk_control_mode, session_ops_cap, daily_loss_pct, weekly_loss_pct, monthly_loss_pct) from `Workspace` to `TradingAccount` (REQ-RISK-PER-ACCOUNT) so each account can run independent discipline. RiesgoPage adds an AccountSelector; the discipline endpoint moved from `/workspaces/{id}/discipline` to `/accounts/{id}/discipline` and `useRiskControls(accountId)` plus `useRiskSummary` follow the new shape.
 
 Evidence:
-- Work-unit commit: `f3f5344 feat(risk): configure workspace loss controls`
-- Frontend typecheck, lint, build: passed.
-- Focused Risk/Diario tests: 6 passed.
-- Backend Ruff and Alembic heads: passed.
-- Full frontend suite: 99 passed, 8 pre-existing/unrelated failures remain.
-- Backend discipline suite: blocked by missing `db_session` fixture in repository test setup.
-- Mutually exclusive risk mode validation: `pnpm typecheck`, `pnpm lint`, `pnpm build`, focused Riesgo/Diario/Disciplina tests (9 passed), backend Ruff, Alembic head `0021_workspace_risk_control_mode`, production migration, and production Playwright smoke passed.
-- Session cap off-by-one: backend `open_trade` flushed the new Trade before running `validate_open_trade`, so the just-submitted trade was counted against its own session cap. With `session_ops_cap=4` the user could only open 3 trades. Fix moves the discipline engine pre-flight before the `db.add/flush`. Re-verified in production with both the one-shot script (trades 1–4 OK, 5th rejected with `SESSION_CAP_EXCEEDED`) and a Playwright spec (`session cap allows 4 ops and rejects the 5th`, 1 test passed).
+- Work-unit commits:
+  - `f3f5344 feat(risk): configure workspace loss controls`
+  - `2105e2c docs(odd): record risk controls validation`
+  - `d88513d fix(trades): validate session cap before persisting trade`
+  - `c1610bd feat(risk): persist workspace risk-control mode in schema and engine`
+  - `04935f0 feat(risk): make RiesgoPage expose mutually exclusive control modes`
+  - `813c77d docs(odd): record session-cap off-by-one fix as evidence`
+- Backend validation:
+  - Ruff on `account_discipline.py`, `me.py`, `discipline_engine.py`, `trade_service.py`, `trading_account.py`, `workspace.py`, schemas, migration 0022: all passed.
+  - Alembic head `0022_account_risk_control` after migration apply; workspace columns dropped, account columns backfilled from prior workspace settings.
+  - Production Playwright spec (during this session) confirms: per-account settings persisted, mode flipping works, cross-field 422 (`DISCIPLINE_MODE_CONFLICT`), per-account isolation (second account does not inherit first account's percentages), session cap off-by-one (4 trades OK, 5th rejected).
+- Frontend validation:
+  - `pnpm typecheck` and `pnpm lint` clean.
+  - `pnpm vitest run` on RiesgoPage (4 tests), DiarioPage (3 tests), DisciplinaTab (3 tests) — 10/10 passed.

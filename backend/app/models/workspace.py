@@ -9,10 +9,9 @@ from __future__ import annotations
 
 import enum
 import uuid
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, Numeric, SmallInteger, String
+from sqlalchemy import Enum, ForeignKey, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -54,33 +53,11 @@ class Workspace(Base, TimestampMixin):
         server_default=WorkspacePlanTier.NONE.value,
         nullable=False,
     )
-    # REQ-DSC-001: nullable SMALLINT. NULL = use the plan-tier ceiling
-    # (``plan_ceiling_for(workspace.plan_tier)``). App-side validation
-    # in the PATCH endpoint enforces ``1 <= value <= ceiling`` — no DB
-    # CHECK constraint because the ceiling is plan-tier-aware.
-    session_ops_cap: Mapped[int | None] = mapped_column(
-        SmallInteger, nullable=True
-    )
-    # Mutually exclusive risk-control mode. Existing workspaces default
-    # to operations mode so legacy session-cap behaviour is preserved.
-    risk_control_mode: Mapped[str] = mapped_column(
-        String(32),
-        default=WorkspaceRiskControlMode.OPERATIONS.value,
-        server_default=WorkspaceRiskControlMode.OPERATIONS.value,
-        nullable=False,
-    )
-    # Nullable Decimal percentages. NULL means the corresponding
-    # realized-loss guard is disabled; this preserves today's safe
-    # default until the workspace explicitly opts into a stop-loss.
-    daily_loss_pct: Mapped[Decimal | None] = mapped_column(
-        Numeric(6, 2), nullable=True
-    )
-    weekly_loss_pct: Mapped[Decimal | None] = mapped_column(
-        Numeric(6, 2), nullable=True
-    )
-    monthly_loss_pct: Mapped[Decimal | None] = mapped_column(
-        Numeric(6, 2), nullable=True
-    )
+    # Note: per-account risk-control settings (risk_control_mode,
+    # session_ops_cap override, daily/weekly/monthly loss percentages)
+    # now live on ``TradingAccount`` (see migration 0022). The
+    # workspace only carries the plan-tier ceiling as a fallback for
+    # accounts that haven't configured their own override.
 
     members: Mapped[list[WorkspaceMember]] = relationship(
         back_populates="workspace", cascade="all, delete-orphan", lazy="selectin"
@@ -89,5 +66,5 @@ class Workspace(Base, TimestampMixin):
     def __repr__(self) -> str:
         return (
             f"<Workspace id={self.id} name={self.name!r} "
-            f"tier={self.plan_tier} cap={self.session_ops_cap}>"
+            f"tier={self.plan_tier}>"
         )

@@ -1,11 +1,13 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { HelmetProvider } from 'react-helmet-async';
 import type { ReactNode } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
 import type { AuthMeOut } from '../../../features/auth/types';
+import { useAccounts } from '../../../features/accounts/hooks';
 import type { RiskSummary } from '../../../features/trades/types';
 import { useRiskSummary } from '../../../features/trades/hooks';
 import {
@@ -18,12 +20,17 @@ vi.mock('../../../features/trades/hooks', () => ({
   useRiskSummary: vi.fn(),
 }));
 
+vi.mock('../../../features/accounts/hooks', () => ({
+  useAccounts: vi.fn(),
+}));
+
 vi.mock('../../../features/workspace-discipline/useRiskControls', () => ({
   useRiskControls: vi.fn(),
   useUpdateRiskControls: vi.fn(),
 }));
 
 const mockUseRiskSummary = vi.mocked(useRiskSummary);
+const mockUseAccounts = vi.mocked(useAccounts);
 const mockUseRiskControls = vi.mocked(useRiskControls);
 const mockUseUpdateRiskControls = vi.mocked(useUpdateRiskControls);
 
@@ -79,6 +86,14 @@ function makeWrapper() {
   );
 }
 
+function mockAccounts(items: Array<Partial<{ id: string; name: string; type: 'BINARY' | 'FOREX'; balance_usd: string }>> = []) {
+  mockUseAccounts.mockReturnValue({
+    data: { items, total: items.length, skip: 0, limit: 50 },
+    isLoading: false,
+    isError: false,
+  } as unknown as ReturnType<typeof useAccounts>);
+}
+
 function mockRiskSummary(data: RiskSummary) {
   mockUseRiskSummary.mockReturnValue({
     data,
@@ -112,6 +127,7 @@ function mockRiskControls() {
 
 describe('RiesgoPage', () => {
   it('renders the risk summary from useRiskSummary', () => {
+    mockAccounts();
     mockRiskSummary({
       level: 'red',
       daily_pnl_usd: '-150.00',
@@ -131,7 +147,26 @@ describe('RiesgoPage', () => {
     expect(screen.getByText('25%')).toBeInTheDocument();
   });
 
-  it('shows workspace risk controls on the risk page', () => {
+  it('shows the per-account scope warning before an account is picked', () => {
+    mockAccounts([{ id: 'a1', name: 'Cuenta 1', type: 'BINARY', balance_usd: '100.00' }]);
+    mockRiskSummary({
+      level: 'green',
+      daily_pnl_usd: '0.00',
+      open_trades_count: 0,
+      win_rate_today: 0,
+      message: 'Plan activo',
+    });
+    mockRiskControls();
+
+    render(<RiesgoPage />, { wrapper: makeWrapper() });
+
+    expect(
+      screen.getByText(/Seleccioná una cuenta para editar sus controles de riesgo/i),
+    ).toBeInTheDocument();
+  });
+
+  it('loads the controls when an account is selected', async () => {
+    mockAccounts([{ id: 'a1', name: 'Cuenta 1', type: 'BINARY', balance_usd: '100.00' }]);
     mockRiskSummary({
       level: 'green',
       daily_pnl_usd: '25.00',
@@ -143,7 +178,10 @@ describe('RiesgoPage', () => {
 
     render(<RiesgoPage />, { wrapper: makeWrapper() });
 
-    expect(screen.getByRole('heading', { level: 2, name: /Controles del workspace/i })).toBeInTheDocument();
+    const user = userEvent.setup();
+    await user.selectOptions(screen.getByRole('combobox'), 'a1');
+
+    expect(screen.getByRole('heading', { level: 2, name: /Controles de la cuenta/i })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: /Cantidad de operaciones/i })).toBeChecked();
     expect(screen.getByRole('radio', { name: /Porcentaje de pérdida/i })).not.toBeChecked();
     expect(screen.getByDisplayValue('7')).toBeInTheDocument();
@@ -152,6 +190,7 @@ describe('RiesgoPage', () => {
   });
 
   it('shows a loading message while the summary is pending', () => {
+    mockAccounts();
     mockUseRiskSummary.mockReturnValue({
       data: undefined,
       isLoading: true,

@@ -1076,6 +1076,12 @@ async def get_risk_summary(
     # Una sola round-trip: open_count + daily_pnl + wins_today +
     # closed_today. ``filtered aggregates`` evitan el doble COUNT+SUM
     # sobre subsets distintos de filas.
+    #
+    # Soft-deleted trades (``Trade.deleted_at IS NOT NULL``) MUST be
+    # excluded — otherwise a test cleanup row still shows up as an
+    # ``open_count`` ghost (each soft-deleted OPEN row keeps status=OPEN
+    # because the delete is a tombstone, not a status flip). Same
+    # guard as ``list_trades`` and the discipline bucket.
     stmt = select(
         func.count()
         .filter(Trade.status == TradeStatus.OPEN)
@@ -1102,7 +1108,10 @@ async def get_risk_summary(
             )
         )
         .label("closed_today"),
-    ).where(Trade.workspace_id == workspace_id)
+    ).where(
+        Trade.workspace_id == workspace_id,
+        Trade.deleted_at.is_(None),
+    )
 
     row = (await db.execute(stmt)).one()
     open_count = row.open_count or 0

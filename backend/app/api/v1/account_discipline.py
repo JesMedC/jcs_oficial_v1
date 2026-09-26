@@ -1,24 +1,23 @@
-"""Workspaces API — workspace-level settings.
+"""Accounts API — per-account discipline/risk-control settings.
 
-Slice A of ``sessions-configurable-cap`` lands ONE endpoint here:
+Slice A of ``sessions-configurable-cap`` originally exposed
+``PATCH /workspaces/{workspace_id}/discipline``. After the per-account
+move (migration 0022) the endpoint now lives under ``/accounts`` so
+each account owns its own session_ops_cap, daily_loss_pct,
+weekly_loss_pct, monthly_loss_pct, and the mutually-exclusive
+``risk_control_mode`` (operations vs percentage_loss).
 
-    PATCH /api/v1/workspaces/{workspace_id}/discipline
-
-Lets a workspace member tighten (never loosen) the discipline
-engine's per-session ops cap within the plan-tier ceiling. The
-endpoint is the single source of truth for cap mutation; the engine
-reads ``workspace.session_ops_cap`` at trade-open time
-(REQ-DISC-008).
-
-Resource-scoped path (``/workspaces/{id}/discipline``) — workspaces
-are first-class entities in the multi-tenant model and this mirrors
-``workspace_service.py`` conventions.
+The discipline engine still buckets trades per account (already did
+before this move); the workspace columns are gone, so two accounts
+in the same workspace can now run different caps without leaking
+through one shared setting.
 
 Errors:
 - 422 ``DISCIPLINE_CAP_OUT_OF_RANGE`` when ``session_ops_cap`` is
   outside ``[1, plan_ceiling]``; the message includes the ceiling
   so the client can render a localized "tope N" pill.
 - 403 ``WORKSPACE_ACCESS_DENIED`` when the caller is not a member.
+- 404 ``NOT_FOUND`` when the account does not exist.
 """
 from __future__ import annotations
 
@@ -28,7 +27,7 @@ from fastapi import APIRouter, HTTPException
 from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
-from app.models import Workspace
+from app.models import TradingAccount, Workspace
 from app.models.workspace import WorkspaceRiskControlMode
 from app.schemas.envelope import ErrorCode
 from app.schemas.workspace import (
@@ -38,84 +37,91 @@ from app.schemas.workspace import (
 from app.services.discipline_engine import plan_ceiling_for
 from app.services.workspace_service import get_user_workspace_role
 
-router = APIRouter(prefix="/workspaces", tags=["workspaces"])
+router = APIRouter(prefix="/accounts", tags=["accounts"])
 
 
-def _discipline_out(ws: Workspace, *, ceiling: int) -> WorkspaceDisciplineOut:
+def _account_discipline_out(
+    account: TradingAccount, *, workspace: Workspace, ceiling: int
+) -> WorkspaceDisciplineOut:
     return WorkspaceDisciplineOut(
-        workspace_id=ws.id,
-        plan_tier=ws.plan_tier,
-        risk_control_mode=ws.risk_control_mode,
-        session_ops_cap=ws.session_ops_cap,
-        daily_loss_pct=ws.daily_loss_pct,
-        weekly_loss_pct=ws.weekly_loss_pct,
-        monthly_loss_pct=ws.monthly_loss_pct,
+        workspace_id=account.workspace_id,
+        plan_tier=workspace.plan_tier,
+        risk_control_mode=account.risk_control_mode,
+        session_ops_cap=account.session_ops_cap,
+        daily_loss_pct=account.daily_loss_pct,
+        weekly_loss_pct=account.weekly_loss_pct,
+        monthly_loss_pct=account.monthly_loss_pct,
         ceiling=ceiling,
     )
 
 
-async def _get_member_workspace(
+async def _get_member_account(
     db: DbSession,
     *,
     user_id: uuid.UUID,
-    workspace_id: uuid.UUID,
-) -> Workspace:
-    role = await get_user_workspace_role(db, user_id, workspace_id)
+    account_id: uuid.UUID,
+) -> TradingAccount:
+    account = await db.scalar(
+        select(TradingAccount).where(TradingAccount.id == account_id)
+    )
+    if account is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": ErrorCode.NOT_FOUND.value,
+                "message": "cuenta no encontrada",
+                "correlation_id": "0" * 36,
+            },
+        )
+    role = await get_user_workspace_role(
+        db, user_id, account.workspace_id
+    )
     if role is None:
         raise HTTPException(
             status_code=403,
             detail={
                 "code": ErrorCode.WORKSPACE_ACCESS_DENIED.value,
-                "message": "No tienes acceso a este workspace",
+                "message": "No tienes acceso a esta cuenta",
                 "correlation_id": "0" * 36,
             },
         )
-
-    ws = await db.scalar(
-        select(Workspace).where(Workspace.id == workspace_id)
-    )
-    if ws is None:
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "code": ErrorCode.NOT_FOUND.value,
-                "message": "workspace no encontrado",
-                "correlation_id": "0" * 36,
-            },
-        )
-    return ws
+    return account
 
 
 @router.get(
-    "/{workspace_id}/discipline",
+    "/{account_id}/discipline",
     response_model=WorkspaceDisciplineOut,
 )
-async def get_workspace_discipline(
-    workspace_id: uuid.UUID,
+async def get_account_discipline(
+    account_id: uuid.UUID,
     user: CurrentUser,
     db: DbSession,
 ) -> WorkspaceDisciplineOut:
-    """Read workspace discipline/risk-control settings."""
-    ws = await _get_member_workspace(
-        db, user_id=user.id, workspace_id=workspace_id
+    """Read per-account discipline/risk-control settings."""
+    account = await _get_member_account(
+        db, user_id=user.id, account_id=account_id
     )
-    return _discipline_out(ws, ceiling=plan_ceiling_for(ws.plan_tier))
+    workspace = await db.scalar(
+        select(Workspace).where(Workspace.id == account.workspace_id)
+    )
+    ceiling = plan_ceiling_for(workspace.plan_tier) if workspace else 4
+    return _account_discipline_out(account, workspace=workspace, ceiling=ceiling)
 
 
 @router.patch(
-    "/{workspace_id}/discipline",
+    "/{account_id}/discipline",
     response_model=WorkspaceDisciplineOut,
 )
-async def patch_workspace_discipline(
-    workspace_id: uuid.UUID,
+async def patch_account_discipline(
+    account_id: uuid.UUID,
     payload: WorkspaceDisciplinePatchIn,
     user: CurrentUser,
     db: DbSession,
 ) -> WorkspaceDisciplineOut:
-    """Update ``workspace.session_ops_cap`` (REQ-DSC-004 + REQ-DSC-005).
+    """Update per-account discipline settings (REQ-DSC-004 + REQ-DSC-005).
 
     Rules:
-    - Caller MUST be a workspace member (403 otherwise).
+    - Caller MUST be a workspace member of the account (403 otherwise).
     - ``session_ops_cap=None`` resets to the plan-tier ceiling
       (REQ-DSC-003).
     - Otherwise ``1 <= value <= plan_ceiling_for(workspace.plan_tier)``
@@ -124,10 +130,13 @@ async def patch_workspace_discipline(
       the ceiling so the frontend can show a localized "tope N"
       pill without a follow-up query.
     """
-    ws = await _get_member_workspace(
-        db, user_id=user.id, workspace_id=workspace_id
+    account = await _get_member_account(
+        db, user_id=user.id, account_id=account_id
     )
-    ceiling = plan_ceiling_for(ws.plan_tier)
+    workspace = await db.scalar(
+        select(Workspace).where(Workspace.id == account.workspace_id)
+    )
+    ceiling = plan_ceiling_for(workspace.plan_tier) if workspace else 4
 
     fields = payload.model_fields_set
     loss_fields = {"daily_loss_pct", "weekly_loss_pct", "monthly_loss_pct"}
@@ -152,7 +161,7 @@ async def patch_workspace_discipline(
                 },
             )
         else:
-            requested_mode = WorkspaceRiskControlMode(ws.risk_control_mode)
+            requested_mode = WorkspaceRiskControlMode(account.risk_control_mode)
 
     if requested_mode == WorkspaceRiskControlMode.OPERATIONS:
         if payload.session_ops_cap is not None and not (
@@ -175,12 +184,12 @@ async def patch_workspace_discipline(
                     },
                 },
             )
-        ws.risk_control_mode = WorkspaceRiskControlMode.OPERATIONS.value
+        account.risk_control_mode = WorkspaceRiskControlMode.OPERATIONS.value
         if has_cap_payload:
-            ws.session_ops_cap = payload.session_ops_cap
-        ws.daily_loss_pct = None
-        ws.weekly_loss_pct = None
-        ws.monthly_loss_pct = None
+            account.session_ops_cap = payload.session_ops_cap
+        account.daily_loss_pct = None
+        account.weekly_loss_pct = None
+        account.monthly_loss_pct = None
     else:
         if has_cap_payload and payload.session_ops_cap is not None:
             raise HTTPException(
@@ -195,19 +204,19 @@ async def patch_workspace_discipline(
                     "details": {"field": "session_ops_cap"},
                 },
             )
-        ws.risk_control_mode = WorkspaceRiskControlMode.PERCENTAGE_LOSS.value
-        ws.session_ops_cap = None
+        account.risk_control_mode = WorkspaceRiskControlMode.PERCENTAGE_LOSS.value
+        account.session_ops_cap = None
         if "daily_loss_pct" in fields:
-            ws.daily_loss_pct = payload.daily_loss_pct
+            account.daily_loss_pct = payload.daily_loss_pct
         if "weekly_loss_pct" in fields:
-            ws.weekly_loss_pct = payload.weekly_loss_pct
+            account.weekly_loss_pct = payload.weekly_loss_pct
         if "monthly_loss_pct" in fields:
-            ws.monthly_loss_pct = payload.monthly_loss_pct
-    db.add(ws)
+            account.monthly_loss_pct = payload.monthly_loss_pct
+    db.add(account)
     await db.commit()
-    await db.refresh(ws)
+    await db.refresh(account)
 
-    return _discipline_out(ws, ceiling=ceiling)
+    return _account_discipline_out(account, workspace=workspace, ceiling=ceiling)
 
 
 __all__ = ["router"]
