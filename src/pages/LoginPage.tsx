@@ -14,10 +14,10 @@
  * intended URL (defaults to ``/portal/dashboard``).
  */
 import { useEffect, useRef } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 
 import { SeoHead } from '../components/SeoHead';
-import { GlassCard } from '../components/GlassCard';
+import { AuthValuePanel } from '../components/home/AuthValuePanel';
 import { LoginForm } from '../features/auth/LoginForm';
 import { tokenStore } from '../lib/api/client';
 
@@ -71,35 +71,20 @@ export function LoginPage() {
         noindex
       />
       <div className="max-w-6xl mx-auto px-4 md:px-8 py-4 grid grid-cols-1 md:grid-cols-2 gap-10 items-center">
-        <div>
-          <h1
-            className="font-display uppercase tracking-wide text-primary text-2xl md:text-4xl"
-            style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*).
-          >
-            Bienvenido de nuevo
-          </h1>
-          <p className="text-text-secondary font-body text-sm md:text-base mt-4 max-w-md">
-            Inicia sesion para registrar operaciones, controlar cuentas y revisar tus metricas.
-          </p>
-
-          <GlassCard variant="default" className="mt-8 max-w-md">
-            <h2 className="font-display uppercase tracking-wide text-sm md:text-base">
-              Tu sesion esta protegida
-            </h2>
-            <ul className="text-text-secondary font-body text-xs md:text-sm mt-3 space-y-2 list-disc list-inside">
-              <li>Contrasenas hasheadas con PBKDF2 + sal por usuario.</li>
-              <li>Tokens de acceso JWT firmados (HS256) y rotacion automatica.</li>
-              <li>7 dias gratis sin tarjeta. Cancela cuando quieras.</li>
-            </ul>
-          </GlassCard>
-
-          <p className="text-text-muted font-body text-xs mt-6">
-            Aun no tenes cuenta?{' '}
-            <Link to="/register" className="text-primary hover:underline">
-              Crear cuenta gratis
-            </Link>
-          </p>
-        </div>
+        <AuthValuePanel
+          eyebrow="Acceso seguro"
+          title="Bienvenido de nuevo"
+          description="Iniciá sesión para registrar operaciones, controlar cuentas y revisar tus métricas."
+          panelTitle="Tu sesión está protegida"
+          benefits={[
+            'Contraseñas hasheadas con PBKDF2 + sal por usuario.',
+            'Tokens de acceso JWT firmados y rotación automática.',
+            '7 días gratis sin tarjeta. Cancelá cuando quieras.',
+          ]}
+          footerText="¿Aún no tenés cuenta?"
+          footerLinkLabel="Crear cuenta gratis"
+          footerTo="/register"
+        />
 
         <div>
           {oauthError === 'denied' ? (

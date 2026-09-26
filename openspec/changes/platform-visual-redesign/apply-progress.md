@@ -38,6 +38,10 @@
 - [x] Added focused intro test; public tests: 3 passed.
 - [x] `pnpm typecheck` passed.
 - [x] `pnpm lint` passed.
-- [ ] Authentication pages remain for the next public conversion slice.
+- [x] Added shared `AuthValuePanel` and applied it to login/register trust surfaces.
+- [x] Added focused auth value panel test; 1 test passed.
+- [x] `pnpm typecheck` passed.
+- [x] `pnpm lint` passed.
+- [ ] Authentication form internals remain for a later conversion slice.
 - [ ] Implement user and admin page redesigns.
 - [ ] Run full responsive/accessibility/build validation.
