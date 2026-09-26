@@ -31,5 +31,13 @@
 - [x] Added conversion-focused feature introduction and final CTA treatment.
 - [x] Added `HomeConversion.test.tsx` with 2 passing tests.
 - [x] Commit: `d26cd02 feat(public): improve conversion landing experience`.
+
+## Slice 5: public page intros
+- [x] Added shared `PublicPageIntro` for pricing, features, and about pages.
+- [x] Added responsive spacing, eyebrow hierarchy, semantic tokens, and reduced-motion reveal.
+- [x] Added focused intro test; public tests: 3 passed.
+- [x] `pnpm typecheck` passed.
+- [x] `pnpm lint` passed.
+- [ ] Authentication pages remain for the next public conversion slice.
 - [ ] Implement user and admin page redesigns.
 - [ ] Run full responsive/accessibility/build validation.

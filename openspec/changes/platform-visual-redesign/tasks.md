@@ -16,6 +16,7 @@
 - [x] Redesign home hero and first viewport for clear value proposition and primary CTA.
 - [ ] Add trust/product narrative sections and responsive workspace preview.
 - [ ] Redesign pricing, features, about, login, and register surfaces around conversion clarity.
+  - [x] Shared public page intro adopted by pricing, features, and about.
 - [ ] Add public responsive, accessibility, and reduced-motion tests.
 
 ## User workspace

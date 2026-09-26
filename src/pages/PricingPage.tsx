@@ -4,6 +4,7 @@ import { BillingCycleToggle } from '../components/pricing/BillingCycleToggle';
 import { PricingTiersGrid } from '../components/pricing/PricingTiersGrid';
 import { ComparisonTable } from '../components/pricing/ComparisonTable';
 import { FaqAccordion } from '../components/pricing/FaqAccordion';
+import { PublicPageIntro } from '../components/home/PublicPageIntro';
 import { buildPricingOffers, type BillingCycle } from '../lib/seo/jsonLd';
 
 /*
@@ -25,20 +26,14 @@ export function PricingPage() {
         canonicalPath="/pricing"
         jsonLd={offers}
       />
-      <section className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-4 text-center">
-        <h1
-          className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl"
-          style={{ textShadow: '0 0 20px rgba(0,255,157,0.4)' }} // design-system-v1 (Wave 3d, T3d.1) — cyan rgba swapped for neon jade rgba(0,255,157,*).
-        >
-          Planes simples para traders individuales
-        </h1>
-        <p className="text-text-secondary font-body text-base md:text-lg mt-4 max-w-2xl mx-auto">
-          Comienza con 14 dias gratis. Cancela cuando quieras, sin permanencia.
-        </p>
-        <div className="mt-8">
-          <BillingCycleToggle cycle={cycle} onChange={setCycle} />
-        </div>
-      </section>
+      <PublicPageIntro
+        eyebrow="Elegí tu ritmo"
+        title="Planes simples para traders individuales"
+        description="Comenzá con 14 días gratis. Cancelá cuando quieras, sin permanencia."
+      />
+      <div className="mx-auto max-w-7xl px-4 pb-10 md:px-8">
+        <BillingCycleToggle cycle={cycle} onChange={setCycle} />
+      </div>
       <section className="max-w-7xl mx-auto px-4 md:px-8 pb-4">
         <PricingTiersGrid cycle={cycle} />
       </section>
