@@ -37,7 +37,9 @@ export function LoginForm() {
     formState: { errors, isValid },
   } = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
-    mode: 'onBlur',
+    // Validate while typing so the submit control becomes usable without
+    // requiring a blur first (a disabled button cannot trigger that blur).
+    mode: 'onChange',
   });
 
   const { submit, isSubmitting, isDebouncing, error, reset } = useDebouncedSubmit<LoginFormValues>({
