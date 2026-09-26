@@ -25,5 +25,11 @@
 - [x] `pnpm lint` passed.
 - [ ] Isolate public/admin/user shells.
 - [ ] Implement public conversion surfaces.
+
+## Slice 4: public conversion entry point
+- [x] Redesigned home hero with responsive spacing, ambient motion, semantic CTAs, and reduced-motion support.
+- [x] Added conversion-focused feature introduction and final CTA treatment.
+- [x] Added `HomeConversion.test.tsx` with 2 passing tests.
+- [x] Commit: `d26cd02 feat(public): improve conversion landing experience`.
 - [ ] Implement user and admin page redesigns.
 - [ ] Run full responsive/accessibility/build validation.
