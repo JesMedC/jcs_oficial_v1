@@ -6,6 +6,52 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Shared motion primitives for the public conversion surfaces and workspace
+ * transitions. Decorative motion is always opt-out via reduced motion. */
+@layer utilities {
+  .motion-surface {
+    transition:
+      transform var(--motion-standard) var(--motion-ease-standard),
+      box-shadow var(--motion-standard) ease,
+      border-color var(--motion-fast) ease;
+  }
+
+  .motion-surface:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-elevated);
+  }
+
+  .motion-reveal {
+    animation: platform-reveal var(--motion-slow) var(--motion-ease-standard) both;
+  }
+}
+
+@keyframes platform-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+
+  .motion-surface:hover {
+    transform: none;
+  }
+}
+
 /*
  * design-system-v1 (Wave 5) — Las CSS vars de tokens viven en
  * ``themes.css`` (importadas arriba). Este archivo sólo aporta las
@@ -268,7 +314,48 @@ tbody tr {
 }
 
 tbody tr:hover {
-  background-color: rgba(0, 168, 107, 0.06);
+  background-color: var(--portal-surface-soft);
+}
+
+/* Portal SaaS polish — calm high-contrast scrollbars and reusable surfaces. */
+[data-portal-shell] {
+  background: var(--portal-bg);
+}
+
+[data-portal-panel] {
+  background: var(--portal-surface);
+  border: 1px solid var(--portal-border);
+  box-shadow: var(--portal-shadow);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
+}
+
+[data-portal-kicker] {
+  color: var(--color-jade);
+  font-family: 'Orbitron', 'Rajdhani', ui-monospace, monospace;
+  letter-spacing: 0.32em;
+  text-transform: uppercase;
+}
+
+[data-portal-shell] ::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+[data-portal-shell] ::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.14);
+}
+
+[data-portal-shell] ::-webkit-scrollbar-thumb {
+  background: var(--portal-border-strong);
+  border-radius: 9999px;
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+
+[data-portal-shell] ::-webkit-scrollbar-thumb:hover {
+  background: var(--color-jade);
+  background-clip: content-box;
 }
 
 tbody td {
@@ -500,10 +587,8 @@ tbody td {
 }
 
 .portal-selector-bg {
-  background:
-    radial-gradient(60% 50% at 50% 30%, rgba(0, 255, 157, 0.16), transparent 70%),
-    radial-gradient(50% 40% at 80% 80%, rgba(0, 184, 255, 0.1), transparent 70%),
-    var(--color-bg);
+  background: radial-gradient(60% 50% at 50% 30%, rgba(0, 255, 157, 0.16), transparent 70%),
+    radial-gradient(50% 40% at 80% 80%, rgba(0, 184, 255, 0.1), transparent 70%), var(--color-bg);
 }
 
 @keyframes auth-pulse {

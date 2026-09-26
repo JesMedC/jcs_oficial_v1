@@ -42,7 +42,7 @@ export function AdminTopBar({ title = 'Panel de administracion' }: AdminTopBarPr
   };
 
   return (
-    <header className="sticky top-0 z-30 bg-surface/40 backdrop-blur-xl backdrop-saturate-150 border-b border-primary/30 h-16 flex items-center px-4 md:px-8 gap-4">
+    <header className="sticky top-0 z-30 bg-[var(--color-bg-surface)]/90 backdrop-blur-xl backdrop-saturate-150 border-b border-[var(--color-border-subtle)] h-16 flex items-center px-4 md:px-8 gap-4">
       <h1 className="font-display uppercase tracking-[0.2em] text-sm md:text-base truncate">
         {title}
       </h1>

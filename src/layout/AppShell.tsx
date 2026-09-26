@@ -10,11 +10,11 @@ interface AppShellProps {
 }
 
 export function AppShell({ children }: AppShellProps) {
-  // The portal runs its own chrome (sidebar + FAB + workspace + user
-  // info), so the public TopNav is hidden there. Public marketing
-  // routes keep it.
+  // Authenticated workspaces own their navigation and status chrome. Public
+  // marketing routes keep the conversion-oriented header and footer.
   const location = useLocation();
-  const isPortal = location.pathname.startsWith('/portal');
+  const isWorkspace =
+    location.pathname.startsWith('/portal') || location.pathname.startsWith('/admin');
 
   return (
     /*
@@ -26,9 +26,9 @@ export function AppShell({ children }: AppShellProps) {
      */
     <div className="relative min-h-dvh flex flex-col bg-[#060B10] text-text-primary">
       <NeuralMesh />
-      {isPortal ? null : <TopNav />}
+      {isWorkspace ? null : <TopNav />}
       <main className="flex-1">{children ?? <Outlet />}</main>
-      {isPortal ? null : <Footer />}
+      {isWorkspace ? null : <Footer />}
       {/*
        * CookiesConsent is rendered last so its `z-50` overlay sits above
        * TopNav (`z-40`) and the page content. It unmounts itself once the

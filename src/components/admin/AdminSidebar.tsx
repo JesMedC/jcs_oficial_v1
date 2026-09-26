@@ -162,9 +162,9 @@ export function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
   return (
     <aside
       className={[
-        'shrink-0 sticky top-0 self-start h-dvh border-r border-primary/20',
-        'bg-surface-el/40 backdrop-blur-md',
-        'flex flex-col transition-[width] duration-200',
+        'shrink-0 sticky top-0 self-start h-dvh border-r border-[var(--color-border-subtle)]',
+        'bg-[var(--color-bg-surface)] backdrop-blur-xl shadow-[var(--portal-shadow)]',
+        'flex flex-col transition-[width] duration-200 motion-reduce:transition-none',
         collapsed ? 'w-16' : 'w-60',
       ].join(' ')}
       aria-label="Menu lateral del panel admin"

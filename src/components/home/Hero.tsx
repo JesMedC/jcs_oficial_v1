@@ -19,12 +19,20 @@ interface HeroProps {
 
 export function Hero({ preview }: HeroProps) {
   return (
-    <section className="relative overflow-hidden">
-      <div className="max-w-7xl mx-auto px-4 md:px-8 pt-4 pb-4 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
-        <div className="order-last md:order-first flex flex-col gap-6">
+    <section
+      data-public-hero
+      className="relative isolate overflow-hidden border-b border-[var(--color-border-subtle)]"
+    >
+      <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute left-[8%] top-10 h-64 w-64 rounded-full bg-[var(--color-brand-primary)]/10 blur-3xl motion-reveal" />
+        <div className="absolute right-[12%] top-1/3 h-80 w-80 rounded-full bg-info/10 blur-3xl motion-reveal [animation-delay:180ms]" />
+        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[var(--color-bg-canvas)] to-transparent" />
+      </div>
+      <div className="max-w-7xl mx-auto px-4 md:px-8 py-16 md:py-24 grid md:grid-cols-2 gap-10 md:gap-16 items-center">
+        <div className="order-last md:order-first flex flex-col gap-6 motion-reveal">
           <h1
-            className="font-display uppercase tracking-wide text-primary text-3xl md:text-4xl lg:text-5xl"
-            style={{ textShadow: '0 0 28px rgba(0,255,157,0.65)' }} // Wave 6.5 (Nivel 1 bump): spread 20→28px, opacity 0.4→0.65 for stronger jade glow on the hero H1.
+            className="font-display uppercase tracking-wide text-[var(--color-text-primary)] text-3xl md:text-5xl lg:text-6xl leading-tight"
+            style={{ textShadow: '0 0 28px color-mix(in srgb, var(--color-brand-primary) 45%, transparent)' }}
           >
             Convierte cada operacion en una decision mas inteligente
           </h1>
@@ -35,13 +43,13 @@ export function Hero({ preview }: HeroProps) {
           <div className="flex flex-wrap items-center gap-3 md:gap-4 mt-2">
             <Link
               to="/register"
-              className="inline-flex bg-primary text-bg font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:shadow-[0_0_24px_rgba(0,255,157,0.5)] transition-shadow text-sm" // Wave 3c (T3c.1): old-jade CTA hover shadow → neon jade rgba(0,255,157,*).
+              className="motion-surface inline-flex bg-[var(--color-brand-primary)] text-[var(--color-text-on-primary)] font-display uppercase tracking-wide px-5 py-3 rounded-lg hover:shadow-[var(--portal-glow)] text-sm"
             >
               Registrarse
             </Link>
             <Link
               to="/pricing"
-              className="inline-flex border-2 border-primary text-primary font-display uppercase tracking-wide px-4 py-2 rounded-lg hover:bg-primary hover:text-bg transition-colors text-sm"
+              className="motion-surface inline-flex border border-[var(--color-brand-primary)] text-[var(--color-brand-primary)] font-display uppercase tracking-wide px-5 py-3 rounded-lg hover:bg-[var(--color-brand-primary)] hover:text-[var(--color-text-on-primary)] text-sm"
             >
               Ver planes
             </Link>
@@ -52,7 +60,7 @@ export function Hero({ preview }: HeroProps) {
             <Bullet text="Cancela cuando quieras" />
           </ul>
         </div>
-        <div className="order-first md:order-none">{preview}</div>
+        <div className="order-first md:order-none motion-reveal [animation-delay:120ms]">{preview}</div>
       </div>
     </section>
   );
