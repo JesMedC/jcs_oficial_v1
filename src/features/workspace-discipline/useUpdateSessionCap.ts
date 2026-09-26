@@ -8,6 +8,7 @@
 import {
   updateRiskControlsApi,
   useUpdateRiskControls,
+  type RiskControls,
   type UpdateRiskControlsOutput,
 } from './useRiskControls';
 
@@ -15,6 +16,8 @@ export interface UpdateSessionCapInput {
   readonly workspaceId: string;
   readonly session_ops_cap: number | null;
 }
+
+export type { RiskControls };
 
 export type UpdateSessionCapOutput = UpdateRiskControlsOutput;
 

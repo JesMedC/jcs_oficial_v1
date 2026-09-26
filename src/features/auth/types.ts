@@ -33,6 +33,8 @@ export type UserRole = UserRoleLiteral;
  */
 export type WorkspacePlanTier = 'NONE' | 'STARTER' | 'PRO' | 'ELITE';
 
+export type RiskControlMode = 'operations' | 'percentage_loss';
+
 export type WorkspaceMemberRole = 'OWNER' | 'ADMIN' | 'MEMBER' | 'VIEWER';
 
 export interface WorkspaceOut {
@@ -43,6 +45,7 @@ export interface WorkspaceOut {
   readonly created_at: string;
   // REQ-DSC-007: frontend surfaces this in the Disciplina tab.
   // ``null`` means "use the plan ceiling" (REQ-DSC-003).
+  readonly risk_control_mode: RiskControlMode;
   readonly session_ops_cap: number | null;
   readonly daily_loss_pct?: string | null;
   readonly weekly_loss_pct?: string | null;

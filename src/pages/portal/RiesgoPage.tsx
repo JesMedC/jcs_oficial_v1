@@ -5,6 +5,7 @@ import { PageHeader } from '../../components/ui/PageHeader';
 import { MetricCard, type MetricCardTone } from '../../components/ui/MetricCard';
 import { SurfacePanel } from '../../components/ui/SurfacePanel';
 import { AuthContext } from '../../features/auth/AuthProvider';
+import type { RiskControlMode } from '../../features/auth/types';
 import { useRiskSummary } from '../../features/trades/hooks';
 import type { RiskLevel } from '../../features/trades/types';
 import {
@@ -34,6 +35,17 @@ const LEVEL_COPY: Record<RiskLevel, { label: string; tone: MetricCardTone; detai
 type DraftField = 'session_ops_cap' | 'daily_loss_pct' | 'weekly_loss_pct' | 'monthly_loss_pct';
 
 type RiskControlDraft = Record<DraftField, string>;
+
+const MODE_COPY: Record<RiskControlMode, { label: string; description: string }> = {
+  operations: {
+    label: 'Cantidad de operaciones',
+    description: 'Limitá cuántas operaciones puede abrir el workspace por sesión.',
+  },
+  percentage_loss: {
+    label: 'Porcentaje de pérdida',
+    description: 'Usá cortes diarios, semanales y mensuales por drawdown porcentual.',
+  },
+};
 
 const EMPTY_DRAFT: RiskControlDraft = {
   session_ops_cap: '',
@@ -120,6 +132,7 @@ export function RiesgoPage() {
   const controlsQuery = useRiskControls(workspaceId);
   const updateControls = useUpdateRiskControls();
   const [draft, setDraft] = useState<RiskControlDraft>(EMPTY_DRAFT);
+  const [mode, setMode] = useState<RiskControlMode>('operations');
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const summary = riskQuery.data;
   const controls = controlsQuery.data;
@@ -128,27 +141,34 @@ export function RiesgoPage() {
 
   useEffect(() => {
     setDraft(draftFromControls(controls));
+    if (controls) setMode(controls.risk_control_mode);
   }, [controls]);
 
   const effectiveSessionCap = controls?.session_ops_cap ?? controls?.ceiling;
+  const activeMode = controls?.risk_control_mode ?? mode;
   const hasWorkspace = Boolean(workspaceId);
   const canSave = hasWorkspace && !controlsQuery.isLoading && !updateControls.isPending;
 
   const currentLimitCards = useMemo(
     () => [
-      {
-        label: 'Ops por sesión',
-        value: effectiveSessionCap === undefined ? '—' : `${effectiveSessionCap}`,
-        detail:
-          controls?.session_ops_cap === null
-            ? `Usa el techo del plan (${controls.ceiling})`
-            : 'Límite operativo personalizado',
-      },
-      { label: 'Pérdida diaria', value: formatPct(controls?.daily_loss_pct), detail: 'Corte máximo del día' },
-      { label: 'Pérdida semanal', value: formatPct(controls?.weekly_loss_pct), detail: 'Control de drawdown semanal' },
-      { label: 'Pérdida mensual', value: formatPct(controls?.monthly_loss_pct), detail: 'Presupuesto mensual de riesgo' },
+      ...(activeMode === 'operations'
+        ? [
+            {
+              label: 'Ops por sesión',
+              value: effectiveSessionCap === undefined ? '—' : `${effectiveSessionCap}`,
+              detail:
+                controls?.session_ops_cap === null
+                  ? `Usa el techo del plan (${controls.ceiling})`
+                  : 'Límite operativo personalizado',
+            },
+          ]
+        : [
+            { label: 'Pérdida diaria', value: formatPct(controls?.daily_loss_pct), detail: 'Corte máximo del día' },
+            { label: 'Pérdida semanal', value: formatPct(controls?.weekly_loss_pct), detail: 'Control de drawdown semanal' },
+            { label: 'Pérdida mensual', value: formatPct(controls?.monthly_loss_pct), detail: 'Presupuesto mensual de riesgo' },
+          ]),
     ],
-    [controls, effectiveSessionCap],
+    [activeMode, controls, effectiveSessionCap],
   );
 
   function updateDraft(field: DraftField, value: string) {
@@ -156,17 +176,34 @@ export function RiesgoPage() {
     setSaveMessage(null);
   }
 
+  function updateMode(nextMode: RiskControlMode) {
+    setMode(nextMode);
+    setSaveMessage(null);
+  }
+
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!workspaceId) return;
     setSaveMessage(null);
-    await updateControls.mutateAsync({
-      workspaceId,
-      session_ops_cap: parseOptionalNumber(draft.session_ops_cap),
-      daily_loss_pct: parseOptionalPct(draft.daily_loss_pct),
-      weekly_loss_pct: parseOptionalPct(draft.weekly_loss_pct),
-      monthly_loss_pct: parseOptionalPct(draft.monthly_loss_pct),
-    });
+    await updateControls.mutateAsync(
+      mode === 'operations'
+        ? {
+            workspaceId,
+            risk_control_mode: 'operations',
+            session_ops_cap: parseOptionalNumber(draft.session_ops_cap),
+            daily_loss_pct: null,
+            weekly_loss_pct: null,
+            monthly_loss_pct: null,
+          }
+        : {
+            workspaceId,
+            risk_control_mode: 'percentage_loss',
+            session_ops_cap: null,
+            daily_loss_pct: parseOptionalPct(draft.daily_loss_pct),
+            weekly_loss_pct: parseOptionalPct(draft.weekly_loss_pct),
+            monthly_loss_pct: parseOptionalPct(draft.monthly_loss_pct),
+          },
+    );
     setSaveMessage('Controles de riesgo guardados.');
   }
 
@@ -258,64 +295,97 @@ export function RiesgoPage() {
               ))}
             </div>
 
-            <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
-              <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-                <label className="flex flex-col gap-2 text-sm text-text-secondary">
-                  Ops por sesión
-                  <input
-                    type="number"
-                    min="1"
-                    max={controls?.ceiling}
-                    value={draft.session_ops_cap}
-                    onChange={(event) => updateDraft('session_ops_cap', event.target.value)}
-                    placeholder={controls?.ceiling ? `Plan: ${controls.ceiling}` : 'Plan'}
-                    className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-text-secondary">
-                  Pérdida diaria (%)
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={draft.daily_loss_pct}
-                    onChange={(event) => updateDraft('daily_loss_pct', event.target.value)}
-                    placeholder="Ej. 2.00"
-                    className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-text-secondary">
-                  Pérdida semanal (%)
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={draft.weekly_loss_pct}
-                    onChange={(event) => updateDraft('weekly_loss_pct', event.target.value)}
-                    placeholder="Ej. 5.00"
-                    className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
-                  />
-                </label>
-                <label className="flex flex-col gap-2 text-sm text-text-secondary">
-                  Pérdida mensual (%)
-                  <input
-                    type="number"
-                    min="0"
-                    step="0.01"
-                    value={draft.monthly_loss_pct}
-                    onChange={(event) => updateDraft('monthly_loss_pct', event.target.value)}
-                    placeholder="Ej. 10.00"
-                    className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
-                  />
-                </label>
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <fieldset className="grid grid-cols-1 gap-3 md:grid-cols-2" aria-label="Modo de control de riesgo">
+                {(Object.keys(MODE_COPY) as RiskControlMode[]).map((option) => (
+                  <label
+                    key={option}
+                    className={`flex cursor-pointer flex-col gap-1 rounded-xl border p-4 transition ${
+                      mode === option
+                        ? 'border-primary/70 bg-primary/10 text-text-primary'
+                        : 'border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] text-text-secondary hover:border-primary/40'
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 font-display text-xs uppercase tracking-[0.18em]">
+                      <input
+                        type="radio"
+                        name="risk-control-mode"
+                        value={option}
+                        checked={mode === option}
+                        onChange={() => updateMode(option)}
+                        className="accent-primary"
+                      />
+                      {MODE_COPY[option].label}
+                    </span>
+                    <span className="text-sm leading-relaxed text-text-secondary">{MODE_COPY[option].description}</span>
+                  </label>
+                ))}
+              </fieldset>
+
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1fr_auto] lg:items-end">
+                <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {mode === 'operations' ? (
+                    <label className="flex flex-col gap-2 text-sm text-text-secondary">
+                      Ops por sesión
+                      <input
+                        type="number"
+                        min="1"
+                        max={controls?.ceiling}
+                        value={draft.session_ops_cap}
+                        onChange={(event) => updateDraft('session_ops_cap', event.target.value)}
+                        placeholder={controls?.ceiling ? `Plan: ${controls.ceiling}` : 'Plan'}
+                        className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
+                      />
+                    </label>
+                  ) : (
+                    <>
+                      <label className="flex flex-col gap-2 text-sm text-text-secondary">
+                        Pérdida diaria (%)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={draft.daily_loss_pct}
+                          onChange={(event) => updateDraft('daily_loss_pct', event.target.value)}
+                          placeholder="Ej. 2.00"
+                          className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-2 text-sm text-text-secondary">
+                        Pérdida semanal (%)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={draft.weekly_loss_pct}
+                          onChange={(event) => updateDraft('weekly_loss_pct', event.target.value)}
+                          placeholder="Ej. 5.00"
+                          className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
+                        />
+                      </label>
+                      <label className="flex flex-col gap-2 text-sm text-text-secondary">
+                        Pérdida mensual (%)
+                        <input
+                          type="number"
+                          min="0"
+                          step="0.01"
+                          value={draft.monthly_loss_pct}
+                          onChange={(event) => updateDraft('monthly_loss_pct', event.target.value)}
+                          placeholder="Ej. 10.00"
+                          className="rounded-lg border border-[var(--color-border-subtle)] bg-[var(--color-bg-elevated)] px-3 py-2 font-mono text-text-primary outline-none transition focus:border-primary"
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+                <button
+                  type="submit"
+                  disabled={!canSave}
+                  className="rounded-lg border border-primary/50 bg-primary/15 px-5 py-2.5 font-display text-xs uppercase tracking-[0.22em] text-primary transition hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {updateControls.isPending ? 'Guardando...' : 'Guardar límites'}
+                </button>
               </div>
-              <button
-                type="submit"
-                disabled={!canSave}
-                className="rounded-lg border border-primary/50 bg-primary/15 px-5 py-2.5 font-display text-xs uppercase tracking-[0.22em] text-primary transition hover:bg-primary/25 disabled:cursor-not-allowed disabled:opacity-50"
-              >
-                {updateControls.isPending ? 'Guardando...' : 'Guardar límites'}
-              </button>
             </form>
 
             {saveMessage ? <p className="text-sm text-profit">{saveMessage}</p> : null}

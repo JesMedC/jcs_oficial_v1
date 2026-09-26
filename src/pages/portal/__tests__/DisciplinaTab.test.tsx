@@ -47,6 +47,7 @@ const PRO_WORKSPACE: WorkspaceOut = {
   plan_tier: 'PRO',
   role_in_workspace: 'OWNER',
   created_at: '2026-01-01T00:00:00.000Z',
+  risk_control_mode: 'operations',
   session_ops_cap: null,
 };
 

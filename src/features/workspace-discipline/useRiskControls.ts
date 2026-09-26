@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../../lib/api/client';
-import type { ErrorEnvelope, WorkspacePlanTier } from '../auth/types';
+import type { ErrorEnvelope, RiskControlMode, WorkspacePlanTier } from '../auth/types';
 import { workspaceKeys } from './keys';
 
 export interface RiskControls {
   readonly workspace_id: string;
   readonly plan_tier: WorkspacePlanTier;
+  readonly risk_control_mode: RiskControlMode;
   readonly session_ops_cap: number | null;
   readonly daily_loss_pct: string | null;
   readonly weekly_loss_pct: string | null;
@@ -16,6 +17,7 @@ export interface RiskControls {
 
 export interface UpdateRiskControlsInput {
   readonly workspaceId: string;
+  readonly risk_control_mode?: RiskControlMode;
   readonly session_ops_cap?: number | null;
   readonly daily_loss_pct?: string | null;
   readonly weekly_loss_pct?: string | null;
