@@ -28,6 +28,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { PageHeader } from '../../components/ui/PageHeader';
 import { HudButton } from '../../components/ui/HudButton';
+import { SurfacePanel } from '../../components/ui/SurfacePanel';
 import { OperationsKPIsHeader } from '../../features/trades/OperationsKPIsHeader';
 import {
   TradeFilters,
@@ -177,42 +178,47 @@ export function OperacionesPage() {
   }, [queryClient]);
 
   return (
-    <div data-testid="operaciones-page" className="flex flex-col gap-4 p-4">
-      <PageHeader
-        subLabel="Trade Station"
-        title="Operaciones"
-        actions={
-          <HudButton
-            data-testid="operaciones-new-trade"
-            onClick={openDrawer}
-          >
-            + Nuevo trade
-          </HudButton>
-        }
-      />
+    <div data-testid="operaciones-page" className="mx-auto flex w-full max-w-[1440px] flex-col gap-5 p-2 sm:p-4 lg:p-6">
+      <SurfacePanel as="section" variant="elevated" padding="md" className="motion-reveal">
+        <PageHeader
+          subLabel="Trade Station"
+          title="Operaciones"
+          actions={
+            <HudButton
+              data-testid="operaciones-new-trade"
+              onClick={openDrawer}
+            >
+              + Nuevo trade
+            </HudButton>
+          }
+        />
+        <div data-testid="operaciones-account-selector" className="mt-2">
+          <AccountSelector
+            value={selectedAccountId}
+            onChange={setSelectedAccountId}
+          />
+        </div>
+      </SurfacePanel>
 
       <OperationsKPIsHeader filters={filters} />
 
-      <div data-testid="operaciones-account-selector">
-        <AccountSelector
-          value={selectedAccountId}
-          onChange={setSelectedAccountId}
+      <SurfacePanel as="section" variant="default" padding="sm" className="motion-reveal">
+        <TradeFilters
+          filters={filters}
+          dateRange={dateRange}
+          onChange={setFilters}
+          onDateRangeChange={setDateRange}
+          matchCount={visibleTrades.length}
+          onExport={handleExport}
         />
-      </div>
+      </SurfacePanel>
 
-      <TradeFilters
-        filters={filters}
-        dateRange={dateRange}
-        onChange={setFilters}
-        onDateRangeChange={setDateRange}
-        matchCount={visibleTrades.length}
-        onExport={handleExport}
-      />
-
-      <TradeTable
-        filters={filters}
-        tradesForBalance={allTradesScoped}
-      />
+      <SurfacePanel as="section" variant="default" padding="none" className="motion-reveal overflow-hidden">
+        <TradeTable
+          filters={filters}
+          tradesForBalance={allTradesScoped}
+        />
+      </SurfacePanel>
     </div>
   );
 }
