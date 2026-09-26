@@ -40,6 +40,66 @@ from app.services.workspace_service import get_user_workspace_role
 router = APIRouter(prefix="/workspaces", tags=["workspaces"])
 
 
+def _discipline_out(ws: Workspace, *, ceiling: int) -> WorkspaceDisciplineOut:
+    return WorkspaceDisciplineOut(
+        workspace_id=ws.id,
+        plan_tier=ws.plan_tier,
+        session_ops_cap=ws.session_ops_cap,
+        daily_loss_pct=ws.daily_loss_pct,
+        weekly_loss_pct=ws.weekly_loss_pct,
+        monthly_loss_pct=ws.monthly_loss_pct,
+        ceiling=ceiling,
+    )
+
+
+async def _get_member_workspace(
+    db: DbSession,
+    *,
+    user_id: uuid.UUID,
+    workspace_id: uuid.UUID,
+) -> Workspace:
+    role = await get_user_workspace_role(db, user_id, workspace_id)
+    if role is None:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "code": ErrorCode.WORKSPACE_ACCESS_DENIED.value,
+                "message": "No tienes acceso a este workspace",
+                "correlation_id": "0" * 36,
+            },
+        )
+
+    ws = await db.scalar(
+        select(Workspace).where(Workspace.id == workspace_id)
+    )
+    if ws is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "code": ErrorCode.NOT_FOUND.value,
+                "message": "workspace no encontrado",
+                "correlation_id": "0" * 36,
+            },
+        )
+    return ws
+
+
+@router.get(
+    "/{workspace_id}/discipline",
+    response_model=WorkspaceDisciplineOut,
+)
+async def get_workspace_discipline(
+    workspace_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+) -> WorkspaceDisciplineOut:
+    """Read workspace discipline/risk-control settings."""
+    ws = await _get_member_workspace(
+        db, user_id=user.id, workspace_id=workspace_id
+    )
+    return _discipline_out(ws, ceiling=plan_ceiling_for(ws.plan_tier))
+
+
 @router.patch(
     "/{workspace_id}/discipline",
     response_model=WorkspaceDisciplineOut,
@@ -62,37 +122,9 @@ async def patch_workspace_discipline(
       the ceiling so the frontend can show a localized "tope N"
       pill without a follow-up query.
     """
-    # Membership gate first — non-members get 403 even if the
-    # payload would otherwise be valid.
-    role = await get_user_workspace_role(db, user.id, workspace_id)
-    if role is None:
-        raise HTTPException(
-            status_code=403,
-            detail={
-                "code": ErrorCode.WORKSPACE_ACCESS_DENIED.value,
-                "message": "No tienes acceso a este workspace",
-                "correlation_id": "0" * 36,
-            },
-        )
-
-    ws = await db.scalar(
-        select(Workspace).where(Workspace.id == workspace_id)
+    ws = await _get_member_workspace(
+        db, user_id=user.id, workspace_id=workspace_id
     )
-    if ws is None:
-        # The membership check above already returned 403 for any
-        # caller that doesn't see this workspace, so reaching this
-        # branch implies the workspace was deleted between the
-        # membership lookup and now. Surface as NOT_FOUND rather
-        # than a silent success.
-        raise HTTPException(
-            status_code=404,
-            detail={
-                "code": ErrorCode.NOT_FOUND.value,
-                "message": "workspace no encontrado",
-                "correlation_id": "0" * 36,
-            },
-        )
-
     ceiling = plan_ceiling_for(ws.plan_tier)
 
     if payload.session_ops_cap is not None and not (
@@ -116,17 +148,20 @@ async def patch_workspace_discipline(
             },
         )
 
-    ws.session_ops_cap = payload.session_ops_cap
+    fields = payload.model_fields_set
+    if "session_ops_cap" in fields:
+        ws.session_ops_cap = payload.session_ops_cap
+    if "daily_loss_pct" in fields:
+        ws.daily_loss_pct = payload.daily_loss_pct
+    if "weekly_loss_pct" in fields:
+        ws.weekly_loss_pct = payload.weekly_loss_pct
+    if "monthly_loss_pct" in fields:
+        ws.monthly_loss_pct = payload.monthly_loss_pct
     db.add(ws)
     await db.commit()
     await db.refresh(ws)
 
-    return WorkspaceDisciplineOut(
-        workspace_id=ws.id,
-        plan_tier=ws.plan_tier,
-        session_ops_cap=ws.session_ops_cap,
-        ceiling=ceiling,
-    )
+    return _discipline_out(ws, ceiling=ceiling)
 
 
 __all__ = ["router"]

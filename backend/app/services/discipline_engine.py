@@ -61,6 +61,7 @@ from datetime import UTC, datetime, time, timedelta
 from datetime import date as date_type
 from decimal import Decimal
 from typing import Literal
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -310,6 +311,109 @@ async def _importe_sum_for_day(
     return total
 
 
+def _local_period_bounds_utc(
+    ts: datetime, tz: str, period: Literal["day", "week", "month"]
+) -> tuple[datetime, datetime]:
+    """Return UTC half-open bounds for the user's local period."""
+    if ts.tzinfo is None:
+        ts = ts.replace(tzinfo=UTC)
+    zone = ZoneInfo(tz)
+    local = ts.astimezone(zone)
+    if period == "day":
+        start_date = local.date()
+    elif period == "week":
+        start_date = local.date() - timedelta(days=local.weekday())
+    else:
+        start_date = local.date().replace(day=1)
+
+    local_start = datetime.combine(start_date, time.min, tzinfo=zone)
+    if period == "day":
+        local_end = local_start + timedelta(days=1)
+    elif period == "week":
+        local_end = local_start + timedelta(days=7)
+    elif local_start.month == 12:
+        local_end = local_start.replace(
+            year=local_start.year + 1, month=1
+        )
+    else:
+        local_end = local_start.replace(month=local_start.month + 1)
+    return local_start.astimezone(UTC), local_end.astimezone(UTC)
+
+
+async def _realized_pnl_for_period(
+    db: AsyncSession,
+    *,
+    user: User,
+    account: TradingAccount,
+    ts: datetime,
+    tz: str,
+    period: Literal["day", "week", "month"],
+) -> Decimal:
+    """Sum realized closed-trade P&L for ``account`` in a local period."""
+    start, end = _local_period_bounds_utc(ts, tz, period)
+    stmt = select(Trade.pnl_usd).where(
+        Trade.user_id == user.id,
+        Trade.account_id == account.id,
+        Trade.deleted_at.is_(None),
+        Trade.type.in_(("FOREX", "BINARY")),
+        Trade.status != "OPEN",
+        Trade.closed_at.is_not(None),
+        Trade.closed_at >= start,
+        Trade.closed_at < end,
+        Trade.pnl_usd.is_not(None),
+    )
+    rows = (await db.execute(stmt)).scalars().all()
+    return sum((Decimal(str(pnl)) for pnl in rows), Decimal("0"))
+
+
+async def _enforce_realized_loss_limits(
+    db: AsyncSession,
+    *,
+    user: User,
+    account: TradingAccount,
+    ts: datetime,
+    tz: str,
+    capital_inicial: Decimal,
+) -> None:
+    """Block new opens once configured realized-loss percentages are hit.
+
+    The workspace settings are nullable. ``None`` disables the guard so
+    existing workspaces keep today's behaviour until configured.
+    Percent values are human percentages: ``5.00`` means 5% of the
+    account capital proxy used by the existing discipline engine.
+    """
+    if capital_inicial <= 0:
+        return
+    workspace = account.workspace
+    if workspace is None:
+        return
+    checks: tuple[
+        tuple[Literal["day", "week", "month"], Decimal | None, str], ...
+    ] = (
+        ("day", getattr(workspace, "daily_loss_pct", None), "diaria"),
+        ("week", getattr(workspace, "weekly_loss_pct", None), "semanal"),
+        ("month", getattr(workspace, "monthly_loss_pct", None), "mensual"),
+    )
+    for period, pct, label in checks:
+        if pct is None:
+            continue
+        limit = (capital_inicial * Decimal(str(pct)) / Decimal("100")).quantize(
+            Decimal("0.01")
+        )
+        realized = await _realized_pnl_for_period(
+            db, user=user, account=account, ts=ts, tz=tz, period=period
+        )
+        realized_loss = -realized if realized < 0 else Decimal("0")
+        if realized_loss > 0 and realized_loss >= limit:
+            raise DisciplineError(
+                code="DAILY_CAP_EXCEEDED",
+                message=(
+                    f"pérdida realizada {label} ${realized_loss} "
+                    f"alcanzó el límite {pct}% (${limit})"
+                ),
+            )
+
+
 async def _deduct_amount_for(payload: TradeCreateIn) -> Decimal | None:
     """Mirror of the deducción formula in ``trade_service.open_trade``.
 
@@ -395,6 +499,15 @@ async def validate_open_trade(
     # ``INSUFFICIENT_BALANCE`` gate in ``trade_service.open_trade``
     # owns the rejection (preserves the legacy error code).
     capital_inicial = _capital_inicial_usd(account)
+    await _enforce_realized_loss_limits(
+        db,
+        user=user,
+        account=account,
+        ts=ts,
+        tz=tz,
+        capital_inicial=capital_inicial,
+    )
+
     if capital_inicial >= _MIN_BALANCE_FOR_DISCIPLINE:
         # Rule 4 — capital-inicial cap (0.25% rounded up).
         ceiling = ceil_to_next_dollar(

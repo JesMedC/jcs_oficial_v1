@@ -9,16 +9,16 @@ from __future__ import annotations
 
 import enum
 import uuid
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Enum, ForeignKey, SmallInteger, String
+from sqlalchemy import Enum, ForeignKey, Numeric, SmallInteger, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base, TimestampMixin
 
 if TYPE_CHECKING:
-    from app.models.user import User
     from app.models.workspace_member import WorkspaceMember
 
 
@@ -56,8 +56,20 @@ class Workspace(Base, TimestampMixin):
     session_ops_cap: Mapped[int | None] = mapped_column(
         SmallInteger, nullable=True
     )
+    # Nullable Decimal percentages. NULL means the corresponding
+    # realized-loss guard is disabled; this preserves today's safe
+    # default until the workspace explicitly opts into a stop-loss.
+    daily_loss_pct: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    weekly_loss_pct: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
+    monthly_loss_pct: Mapped[Decimal | None] = mapped_column(
+        Numeric(6, 2), nullable=True
+    )
 
-    members: Mapped[list["WorkspaceMember"]] = relationship(
+    members: Mapped[list[WorkspaceMember]] = relationship(
         back_populates="workspace", cascade="all, delete-orphan", lazy="selectin"
     )
 

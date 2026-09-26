@@ -44,6 +44,9 @@ export interface WorkspaceOut {
   // REQ-DSC-007: frontend surfaces this in the Disciplina tab.
   // ``null`` means "use the plan ceiling" (REQ-DSC-003).
   readonly session_ops_cap: number | null;
+  readonly daily_loss_pct?: string | null;
+  readonly weekly_loss_pct?: string | null;
+  readonly monthly_loss_pct?: string | null;
 }
 
 /*

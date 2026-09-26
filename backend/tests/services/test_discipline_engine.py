@@ -23,12 +23,12 @@ from app.models import (
     User,
     UserRole,
     Workspace,
+    WorkspacePlanTier,
 )
 from app.models.trading_account import TradingAccount as TradingAccountModel
 from app.schemas.trade import TradeCreateIn
 from app.services.discipline import ceil_to_next_dollar
 from app.services.discipline_engine import DisciplineError, validate_open_trade
-from app.models import WorkspacePlanTier
 
 
 async def _seed(
@@ -40,6 +40,9 @@ async def _seed(
     trades_in_bucket: int = 0,
     plan_tier: WorkspacePlanTier | str = WorkspacePlanTier.STARTER,
     session_ops_cap: int | None = None,
+    daily_loss_pct: Decimal | None = None,
+    weekly_loss_pct: Decimal | None = None,
+    monthly_loss_pct: Decimal | None = None,
 ) -> tuple[User, TradingAccount]:
     """Seed a user + workspace + account with the given parameters.
 
@@ -65,6 +68,9 @@ async def _seed(
         owner_user_id=user.id,
         plan_tier=plan_tier,
         session_ops_cap=session_ops_cap,
+        daily_loss_pct=daily_loss_pct,
+        weekly_loss_pct=weekly_loss_pct,
+        monthly_loss_pct=monthly_loss_pct,
     )
     db_session.add(workspace)
     await db_session.flush()
@@ -404,11 +410,12 @@ async def test_session_cap_still_fires_with_fund_withdraw_present(
     with pytest.raises(DisciplineError) as ei:
         await validate_open_trade(
             db_session,
-        user=user,
-        account=account,
-        payload=p,
-        now=_FUND_FIXED_TS,
-    )
+            user=user,
+            account=account,
+            payload=p,
+            now=_FUND_FIXED_TS,
+        )
+    assert ei.value.code == "SESSION_CAP_EXCEEDED"
 
 
 # ============================================================
@@ -684,4 +691,135 @@ async def test_fund_withdraw_excluded_from_daily_cap(
         account=account,
         payload=p,
         now=_FUND_FIXED_TS,
+    )
+
+
+# ============================================================
+# Workspace realized-loss limits
+# ============================================================
+
+
+async def test_daily_loss_pct_blocks_after_realized_closed_loss(
+    db_session: AsyncSession,
+) -> None:
+    """daily_loss_pct uses realized CLOSED P&L before allowing opens."""
+    user, account = await _seed(
+        db_session,
+        balance=Decimal("10000"),
+        daily_loss_pct=Decimal("1.00"),
+    )
+    closed_at = datetime(2026, 9, 4, 12, 0, tzinfo=UTC)
+    db_session.add(
+        Trade(
+            user_id=user.id,
+            account_id=account.id,
+            workspace_id=account.workspace_id,
+            instrument="EUR/USD OTC",
+            type=TradeType.BINARY,
+            status=TradeStatus.CLOSED_LOSS,
+            opened_at=closed_at,
+            closed_at=closed_at,
+            investment_usd=Decimal("100"),
+            payout_pct=Decimal("85"),
+            expiration_seconds=60,
+            direction="CALL",
+            pnl_usd=Decimal("-100.00"),
+            interest="PLAN",
+        )
+    )
+    await db_session.commit()
+
+    with pytest.raises(DisciplineError) as ei:
+        await validate_open_trade(
+            db_session,
+            user=user,
+            account=account,
+            payload=_payload(investment_usd=Decimal("2")),
+            now=closed_at,
+        )
+    assert ei.value.code == "DAILY_CAP_EXCEEDED"
+    assert "pérdida realizada diaria" in ei.value.message
+
+
+async def test_weekly_monthly_loss_pct_are_local_period_scoped(
+    db_session: AsyncSession,
+) -> None:
+    """Weekly/monthly guards include only realized P&L in local periods."""
+    user, account = await _seed(
+        db_session,
+        balance=Decimal("10000"),
+        tz="America/Buenos_Aires",
+        weekly_loss_pct=Decimal("1.00"),
+        monthly_loss_pct=Decimal("2.00"),
+    )
+    prior_month = datetime(2026, 8, 31, 12, 0, tzinfo=UTC)
+    this_week = datetime(2026, 9, 2, 15, 0, tzinfo=UTC)
+    for closed_at, pnl in (
+        (prior_month, Decimal("-500.00")),
+        (this_week, Decimal("-100.00")),
+    ):
+        db_session.add(
+            Trade(
+                user_id=user.id,
+                account_id=account.id,
+                workspace_id=account.workspace_id,
+                instrument="EUR/USD OTC",
+                type=TradeType.BINARY,
+                status=TradeStatus.CLOSED_LOSS,
+                opened_at=closed_at,
+                closed_at=closed_at,
+                investment_usd=abs(pnl),
+                payout_pct=Decimal("85"),
+                expiration_seconds=60,
+                direction="CALL",
+                pnl_usd=pnl,
+                interest="PLAN",
+            )
+        )
+    await db_session.commit()
+
+    with pytest.raises(DisciplineError) as ei:
+        await validate_open_trade(
+            db_session,
+            user=user,
+            account=account,
+            payload=_payload(investment_usd=Decimal("2")),
+            now=this_week,
+        )
+    assert ei.value.code == "DAILY_CAP_EXCEEDED"
+    assert "semanal" in ei.value.message
+
+
+async def test_null_loss_pct_preserves_existing_default(
+    db_session: AsyncSession,
+) -> None:
+    """NULL loss settings do not add a realized-loss rejection."""
+    user, account = await _seed(db_session, balance=Decimal("10000"))
+    closed_at = datetime(2026, 9, 4, 12, 0, tzinfo=UTC)
+    db_session.add(
+        Trade(
+            user_id=user.id,
+            account_id=account.id,
+            workspace_id=account.workspace_id,
+            instrument="EUR/USD OTC",
+            type=TradeType.BINARY,
+            status=TradeStatus.CLOSED_LOSS,
+            opened_at=closed_at,
+            closed_at=closed_at,
+            investment_usd=Decimal("900"),
+            payout_pct=Decimal("85"),
+            expiration_seconds=60,
+            direction="CALL",
+            pnl_usd=Decimal("-900.00"),
+            interest="PLAN",
+        )
+    )
+    await db_session.commit()
+
+    await validate_open_trade(
+        db_session,
+        user=user,
+        account=account,
+        payload=_payload(investment_usd=Decimal("2")),
+        now=closed_at,
     )

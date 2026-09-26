@@ -1,26 +1,25 @@
-/*
- * one-by-one-thousand-discipline (PR-2) — DiarioPage test.
- *
- * DiarioPage used to be a stub; PR-2 mounts ``PnLCalendar`` as the
- * body of the page. We verify:
- *   1. The page renders the H1 + PnLCalendar mount testids when
- *      AuthContext supplies a workspace id.
- *   2. The fallback "Necesitás un workspace activo" renders when
- *      AuthContext is missing.
- *
- * FASE 6 added an AccountSelector on top; the page now also reads
- * ``useAccounts`` (TanStack Query), so each render is wrapped in a
- * QueryClientProvider just like the rest of the portal.
- */
 import { render, screen } from '@testing-library/react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { describe, expect, it, vi } from 'vitest';
 import { MemoryRouter } from 'react-router-dom';
 
 import * as apiHooks from '../../../features/dashboard/hooks';
+import { useAccounts } from '../../../features/accounts/hooks';
+import { useTradesAll } from '../../../features/trades/useTradesAll';
 import { DiarioPage } from '../DiarioPage';
 import { AuthContext, type AuthContextValue } from '../../../features/auth/AuthProvider';
 import type { AuthMeOut } from '../../../features/auth/types';
+
+vi.mock('../../../features/accounts/hooks', () => ({
+  useAccounts: vi.fn(),
+}));
+
+vi.mock('../../../features/trades/useTradesAll', () => ({
+  useTradesAll: vi.fn(),
+}));
+
+const mockUseAccounts = vi.mocked(useAccounts);
+const mockUseTradesAll = vi.mocked(useTradesAll);
 
 function makeAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextValue {
   const base: AuthMeOut = {
@@ -30,7 +29,19 @@ function makeAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextVa
     last_name: 'Doe',
     phone: '+54',
     role: 'USER',
-    workspaces: [{ id: 'w1', name: 'WS1', plan_tier: 'NONE', role_in_workspace: 'OWNER', created_at: '2026-01-01T00:00:00.000Z', session_ops_cap: null }],
+    workspaces: [
+      {
+        id: 'w1',
+        name: 'WS1',
+        plan_tier: 'NONE',
+        role_in_workspace: 'OWNER',
+        created_at: '2026-01-01T00:00:00.000Z',
+        session_ops_cap: null,
+        daily_loss_pct: null,
+        weekly_loss_pct: null,
+        monthly_loss_pct: null,
+      },
+    ],
     current_subscription: null,
     timezone: 'UTC',
   };
@@ -50,65 +61,87 @@ function makeAuthValue(overrides: Partial<AuthContextValue> = {}): AuthContextVa
   };
 }
 
-describe('DiarioPage', () => {
-  it('monta el PnLCalendar cuando auth provee workspaceId', () => {
-    vi.spyOn(apiHooks, 'usePnLCalendar').mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof apiHooks.usePnLCalendar>);
-
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <AuthContext.Provider value={makeAuthValue()}>
+function renderPage(authValue: AuthContextValue | null = makeAuthValue()) {
+  render(
+    <MemoryRouter>
+      <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
+        {authValue ? (
+          <AuthContext.Provider value={authValue}>
             <DiarioPage />
           </AuthContext.Provider>
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+        ) : (
+          <DiarioPage />
+        )}
+      </QueryClientProvider>
+    </MemoryRouter>,
+  );
+}
+
+function mockCalendarDependencies({ withAccount = true }: { withAccount?: boolean } = {}) {
+  vi.spyOn(apiHooks, 'usePnLCalendar').mockReturnValue({
+    data: undefined,
+    isLoading: false,
+    isError: false,
+    error: null,
+  } as unknown as ReturnType<typeof apiHooks.usePnLCalendar>);
+
+  mockUseAccounts.mockReturnValue({
+    data: withAccount
+      ? {
+          items: [
+            {
+              id: 'a1',
+              user_id: 'u1',
+              workspace_id: 'w1',
+              broker_name: 'Broker',
+              type: 'FOREX',
+              name: 'Cuenta principal',
+              balance_usd: '1000.00',
+              created_at: '2026-01-01T00:00:00.000Z',
+              updated_at: '2026-01-01T00:00:00.000Z',
+            },
+          ],
+          total: 1,
+          skip: 0,
+          limit: 100,
+        }
+      : { items: [], total: 0, skip: 0, limit: 100 },
+    isFetching: false,
+  } as unknown as ReturnType<typeof useAccounts>);
+
+  mockUseTradesAll.mockReturnValue({
+    trades: [],
+    isLoading: false,
+    isError: false,
+    closedCount: 0,
+    openCount: 0,
+    totalPnl: 0,
+  });
+}
+
+describe('DiarioPage', () => {
+  it('monta el PnLCalendar cuando auth provee workspaceId', () => {
+    mockCalendarDependencies();
+
+    renderPage();
 
     expect(screen.getByRole('heading', { level: 1, name: /Calendario P&L/i })).toBeInTheDocument();
+    expect(screen.getAllByText(/Cuenta principal/i).length).toBeGreaterThan(0);
     expect(screen.getByTestId('pnl-calendar')).toBeInTheDocument();
   });
 
   it('muestra fallback cuando auth no provee workspace', () => {
-    vi.spyOn(apiHooks, 'usePnLCalendar').mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof apiHooks.usePnLCalendar>);
+    mockCalendarDependencies({ withAccount: false });
 
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <AuthContext.Provider value={makeAuthValue({ user: null })}>
-            <DiarioPage />
-          </AuthContext.Provider>
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+    renderPage(makeAuthValue({ user: null }));
 
     expect(screen.getByText(/Necesitás un workspace activo/i)).toBeInTheDocument();
   });
 
   it('muestra fallback cuando AuthContext está ausente (defensive)', () => {
-    vi.spyOn(apiHooks, 'usePnLCalendar').mockReturnValue({
-      data: undefined,
-      isLoading: false,
-      isError: false,
-      error: null,
-    } as unknown as ReturnType<typeof apiHooks.usePnLCalendar>);
+    mockCalendarDependencies({ withAccount: false });
 
-    render(
-      <MemoryRouter>
-        <QueryClientProvider client={new QueryClient({ defaultOptions: { queries: { retry: false } } })}>
-          <DiarioPage />
-        </QueryClientProvider>
-      </MemoryRouter>,
-    );
+    renderPage(null);
 
     expect(screen.getByText(/Necesitás un workspace activo/i)).toBeInTheDocument();
   });
