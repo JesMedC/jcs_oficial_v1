@@ -32,7 +32,8 @@ from __future__ import annotations
 import json
 import logging
 import secrets
-from urllib.parse import urlencode
+from http.cookies import SimpleCookie
+from urllib.parse import quote, unquote, urlencode
 
 import httpx
 from fastapi import APIRouter, Cookie, HTTPException, Request, Response, status
@@ -178,6 +179,19 @@ async def google_callback(
             "OAuth state invalido (posible CSRF)",
         )
 
+    # Starlette's ``Response.set_cookie`` formats values via
+    # ``http.cookies.SimpleCookie.output()`` which wraps anything that
+    # is not strictly ``token``-shaped (per RFC 7230) in
+    # ``DQUOTE ... DQUOTE``. The leading ``/`` of our return-to path
+    # trips that, so the cookie that comes back on the callback is
+    # literally ``"/portal/dashboard"`` — not what the SPA can
+    # ``window.location.assign``. Parse with ``SimpleCookie`` to strip
+    # the wrapping quotes the same way a conformant cookie jar would.
+    if oauth_return is not None:
+        parsed = SimpleCookie()
+        parsed.load(f"jcs_oauth_return={oauth_return}")
+        oauth_return = parsed["jcs_oauth_return"].value
+
     # Exchange the code for an access_token + id_token. Reuses the
     # shared httpx client via service module so connection pooling kicks
     # in across repeated calls.
@@ -217,11 +231,22 @@ async def google_callback(
 
     return_to = oauth_return or "/portal/dashboard"
     frontend_base = _frontend_base_from_redirect(settings.google_oauth_redirect_uri)
+    # Always bounce through ``/login`` so the SPA's ``LoginPage``
+    # ``useEffect`` can capture the tokens from the querystring and
+    # persist them in ``sessionStorage`` before the SPA navigates to
+    # the intended URL. Sending the tokens straight to ``return_to``
+    # (e.g. ``/portal/dashboard``) lands on ``DashboardPage`` /
+    # ``ProtectedRoute``, which don't read the querystring — the
+    # tokens evaporate, ``ProtectedRoute`` sees an anonymous user,
+    # and bounces back to ``/login`` with no banner and no error.
+    # The ``return_to`` value travels along as a separate query
+    # parameter so ``LoginPage`` can forward to it after persisting.
     target = (
-        f"{frontend_base}{return_to}"
+        f"{frontend_base}/login"
         f"?token={access}"
         f"&refresh={refresh}"
         f"&expires_in={expires_in}"
+        f"&return_to={quote(return_to, safe='')}"
         f"&provider=google"
     )
     response = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
