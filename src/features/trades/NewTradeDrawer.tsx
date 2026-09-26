@@ -26,7 +26,7 @@ export function NewTradeDrawer() {
       open={isOpen}
       onClose={close}
       side="right"
-      maxWidth="md"
+      maxWidth="lg"
       variant="default"
       title="Nuevo trade"
     >

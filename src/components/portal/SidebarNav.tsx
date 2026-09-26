@@ -94,6 +94,27 @@ function LogIcon() {
   );
 }
 
+function RiskIcon() {
+  return (
+    <svg
+      className="w-5 h-5"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.5"
+      aria-hidden="true"
+    >
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        d="M12 3l7.5 3.5v5.2c0 4.3-2.9 7.7-7.5 9.3-4.6-1.6-7.5-5-7.5-9.3V6.5L12 3z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v5" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5h.01" />
+    </svg>
+  );
+}
+
 function PlaybookIcon() {
   return (
     <svg
@@ -137,6 +158,7 @@ const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: <DashboardIcon />, end: true },
   { to: '/portal/cuentas', label: 'Cuentas', icon: <CuentasIcon />, showAdd: true },
   { to: '/portal/operaciones', label: 'Operaciones', icon: <OperacionesIcon />, showAdd: true },
+  { to: '/portal/riesgo', label: 'Riesgo', icon: <RiskIcon /> },
   { to: '/portal/diario', label: 'Diario', icon: <LogIcon /> },
   { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon />, showAdd: true },
   { to: '/portal/configuracion', label: 'Configuración', icon: <SettingsIcon /> },

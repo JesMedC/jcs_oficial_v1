@@ -81,6 +81,9 @@ const PortalCuentasPage = lazy(() =>
 const PortalOperacionesPage = lazy(() =>
   import('../pages/portal/OperacionesPage').then((m) => ({ default: m.OperacionesPage })),
 );
+const PortalRiesgoPage = lazy(() =>
+  import('../pages/portal/RiesgoPage').then((m) => ({ default: m.RiesgoPage })),
+);
 const PortalDiarioPage = lazy(() =>
   import('../pages/portal/DiarioPage').then((m) => ({ default: m.DiarioPage })),
 );
@@ -183,6 +186,7 @@ export const routeChildren: RouteObject[] = [
             },
           },
           { path: 'operaciones', element: <PortalOperacionesPage /> },
+          { path: 'riesgo', element: <PortalRiesgoPage /> },
           { path: 'diario', element: <PortalDiarioPage /> },
           { path: 'playbook', element: <PortalPlaybookPage /> },
           { path: 'configuracion', element: <PortalConfiguracionPage /> },

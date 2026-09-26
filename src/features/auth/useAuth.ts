@@ -14,3 +14,8 @@ export function useAuth(): AuthContextValue {
   }
   return ctx;
 }
+
+/** Read auth state from reusable form components and isolated tests. */
+export function useAuthOptional(): AuthContextValue | null {
+  return useContext(AuthContext);
+}

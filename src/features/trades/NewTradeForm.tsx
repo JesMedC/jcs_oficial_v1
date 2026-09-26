@@ -32,7 +32,7 @@ import {
   montoCalculadoParaBalance,
   type DisciplineErrorCode,
 } from './discipline';
-import { useAuth } from '../auth/useAuth';
+import { useAuthOptional } from '../auth/useAuth';
 import {
   localBucketForTimestamp,
   sessionForTimestamp,
@@ -153,6 +153,7 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
   // by RHF's string-typed register.
   const [disciplineError, setDisciplineError] =
     useState<DisciplineErrorCode | null>(null);
+  const [validationMessage, setValidationMessage] = useState<string | null>(null);
   const [analysisImageUrl, setAnalysisImageUrl] = useState<string | null>(null);
   const [imageUploading, setImageUploading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
@@ -196,7 +197,8 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
   // same value for every plan tier). Backend is still
   // authoritative; this is a UX shortcut so the user sees the
   // localized reason before clicking.
-  const { user } = useAuth();
+  const auth = useAuthOptional();
+  const user = auth?.user ?? null;
   const activeWorkspace = user?.workspaces[0];
   const tz = user?.timezone ?? 'UTC';
   const sessionCap = useMemo(() => {
@@ -311,6 +313,7 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
   }
   const handleSubmitClick: SubmitHandler<TradeFormValues> = (values) => {
     setDisciplineError(null);
+    setValidationMessage(null);
     if (!getAvailableInstruments(values.type).some((instrument) => instrument.symbol === values.pair)) {
       setError('pair', { type: 'validate', message: 'Selecciona un instrumento disponible para esta cuenta.' });
       return;
@@ -395,11 +398,17 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
 
   return (
     <form
-      onSubmit={handleSubmit(handleSubmitClick)}
-      className="flex flex-col gap-4"
+      onSubmit={handleSubmit(handleSubmitClick, () => {
+        setValidationMessage('Revisá los campos marcados antes de crear la operación.');
+      })}
+      className="flex flex-col gap-5"
       data-testid="new-trade-form"
       noValidate
     >
+      <div className="border-b border-border-subtle pb-3">
+        <p className="font-display text-[10px] uppercase tracking-[0.2em] text-primary">Paso 1 · Mercado</p>
+        <p className="mt-1 text-xs text-text-secondary">Elegí la cuenta y el instrumento que vas a operar.</p>
+      </div>
       <Field label="Cuenta" error={errors.account_id?.message}>
         <Controller
           control={control}
@@ -625,6 +634,11 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
         </>
       )}
 
+      <div className="border-b border-border-subtle pb-3 pt-1">
+        <p className="font-display text-[10px] uppercase tracking-[0.2em] text-primary">Paso 2 · Parámetros</p>
+        <p className="mt-1 text-xs text-text-secondary">Definí dirección, exposición y salida. El riesgo se actualiza en vivo.</p>
+      </div>
+
       {/* PR-4: the "Máx permitido" pill is gone. The investment
           field itself is now the canonical read-only display of the
           calculated amount (three-tier rule), so duplicating it in
@@ -696,6 +710,12 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
         </label>
         <EmotionalTagsChips value={emotionalTags} onChange={setEmotionalTags} />
       </div>
+
+      {validationMessage !== null ? (
+        <div role="alert" data-testid="new-trade-validation-error" className="rounded-lg border border-loss/40 bg-loss/10 px-3 py-2 text-sm text-loss">
+          {validationMessage}
+        </div>
+      ) : null}
 
       {createTrade.isError || disciplineError !== null ? (
         <div
