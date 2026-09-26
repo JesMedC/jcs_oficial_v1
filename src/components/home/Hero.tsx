@@ -21,6 +21,7 @@ export function Hero({ preview }: HeroProps) {
   return (
     <section
       data-public-hero
+      data-testid="public-hero"
       className="relative isolate overflow-hidden border-b border-[var(--color-border-subtle)]"
     >
       <div aria-hidden="true" className="pointer-events-none absolute inset-0 -z-10">
