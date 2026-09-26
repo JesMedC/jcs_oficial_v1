@@ -28,6 +28,7 @@ from sqlalchemy import select
 
 from app.core.security.password import hash_password
 from app.models import User, UserRole
+from app.services.workspace_service import ensure_default_workspace_for_user
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
@@ -119,6 +120,10 @@ async def find_or_create_user_from_google(
     by_sub = await db.execute(select(User).where(User.google_sub == sub))
     user = by_sub.scalar_one_or_none()
     if user is not None:
+        workspace = await ensure_default_workspace_for_user(db, user)
+        if workspace is not None:
+            await db.commit()
+            await db.refresh(user)
         return user
 
     # 2) Lookup by email — link the google_sub to the existing row
@@ -129,6 +134,7 @@ async def find_or_create_user_from_google(
         user = by_email.scalar_one_or_none()
         if user is not None:
             user.google_sub = sub
+            await ensure_default_workspace_for_user(db, user)
             await db.commit()
             await db.refresh(user)
             return user
@@ -156,6 +162,7 @@ async def find_or_create_user_from_google(
         google_sub=sub,
     )
     db.add(user)
+    await ensure_default_workspace_for_user(db, user)
     try:
         await db.commit()
     except Exception as exc:  # noqa: BLE001 — surface as a domain error

@@ -68,6 +68,25 @@ async def create_default_workspace_for_user(
     return workspace
 
 
+async def ensure_default_workspace_for_user(
+    db: AsyncSession, user: User
+) -> Workspace | None:
+    """Repair legacy users that predate workspace provisioning.
+
+    OAuth users created before workspace provisioning can authenticate but
+    cannot load accounts or trades. Return the created workspace, or None
+    when the user already has a membership.
+    """
+    existing_id = await db.scalar(
+        select(WorkspaceMember.workspace_id)
+        .where(WorkspaceMember.user_id == user.id)
+        .limit(1)
+    )
+    if existing_id is not None:
+        return None
+    return await create_default_workspace_for_user(db, user)
+
+
 async def get_user_workspace_role(
     db: AsyncSession,
     user_id: uuid.UUID,
