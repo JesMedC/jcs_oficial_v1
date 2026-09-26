@@ -44,6 +44,7 @@ import { useAccounts } from '../../features/accounts/hooks';
 import { useTradesAll } from '../../features/trades/useTradesAll';
 import { useNewTradeDrawer } from '../../stores/useNewTradeDrawer';
 import { AuthContext } from '../../features/auth/AuthProvider';
+import { SurfacePanel } from '../../components/ui/SurfacePanel';
 
 export function DashboardPage() {
   const { user } = useAuth();
@@ -177,9 +178,12 @@ export function DashboardPage() {
          * glow halo (--jarvis-h1-glow) + sub-line subtitle. The CTA
          * is now a HudButton (T-08) for the outlined JARVIS look.
          */}
-        <section
+        <SurfacePanel
+          as="section"
           data-portal-panel
-          className="relative overflow-hidden rounded-2xl p-4 sm:p-5 lg:p-6 mb-4"
+          variant="elevated"
+          padding="none"
+          className="relative mb-4 overflow-hidden rounded-2xl p-4 motion-reveal sm:p-5 lg:p-6"
         >
           <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-primary/70 to-transparent" />
           <div className="relative flex items-start justify-between gap-4 flex-wrap">
@@ -210,7 +214,7 @@ export function DashboardPage() {
               </button>
             </div>
           </div>
-        </section>
+        </SurfacePanel>
 
         {/* ---- 6-metric winrate (general + 4 sessions) — REQ-WRS-007 ----
          *

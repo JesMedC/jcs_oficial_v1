@@ -43,5 +43,14 @@
 - [x] `pnpm typecheck` passed.
 - [x] `pnpm lint` passed.
 - [ ] Authentication form internals remain for a later conversion slice.
+
+## Slice 6: user dashboard summary surface
+- [x] Applied `SurfacePanel` to the dashboard hero/header without changing selectors or behavior.
+- [x] Preserved account selector, new-trade action, and data-query flow.
+- [x] Focused portal/account regression tests: 11 passed.
+- [x] `pnpm typecheck` passed.
+- [x] `pnpm lint` passed.
+- [x] Frontend live at `http://127.0.0.1:5173/`.
+- [x] Backend live at `http://127.0.0.1:8001/health` with local development environment variables.
 - [ ] Implement user and admin page redesigns.
 - [ ] Run full responsive/accessibility/build validation.
