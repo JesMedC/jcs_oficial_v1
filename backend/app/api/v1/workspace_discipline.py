@@ -29,6 +29,7 @@ from sqlalchemy import select
 
 from app.api.deps import CurrentUser, DbSession
 from app.models import Workspace
+from app.models.workspace import WorkspaceRiskControlMode
 from app.schemas.envelope import ErrorCode
 from app.schemas.workspace import (
     WorkspaceDisciplineOut,
@@ -44,6 +45,7 @@ def _discipline_out(ws: Workspace, *, ceiling: int) -> WorkspaceDisciplineOut:
     return WorkspaceDisciplineOut(
         workspace_id=ws.id,
         plan_tier=ws.plan_tier,
+        risk_control_mode=ws.risk_control_mode,
         session_ops_cap=ws.session_ops_cap,
         daily_loss_pct=ws.daily_loss_pct,
         weekly_loss_pct=ws.weekly_loss_pct,
@@ -127,36 +129,80 @@ async def patch_workspace_discipline(
     )
     ceiling = plan_ceiling_for(ws.plan_tier)
 
-    if payload.session_ops_cap is not None and not (
-        1 <= payload.session_ops_cap <= ceiling
-    ):
-        raise HTTPException(
-            status_code=422,
-            detail={
-                "code": ErrorCode.DISCIPLINE_CAP_OUT_OF_RANGE.value,
-                "message": (
-                    f"session_ops_cap {payload.session_ops_cap} fuera de "
-                    f"rango; techo {ceiling}"
-                ),
-                "correlation_id": "0" * 36,
-                "details": {
-                    "field": "session_ops_cap",
-                    "min": 1,
-                    "max": ceiling,
-                    "submitted": payload.session_ops_cap,
-                },
-            },
-        )
-
     fields = payload.model_fields_set
-    if "session_ops_cap" in fields:
-        ws.session_ops_cap = payload.session_ops_cap
-    if "daily_loss_pct" in fields:
-        ws.daily_loss_pct = payload.daily_loss_pct
-    if "weekly_loss_pct" in fields:
-        ws.weekly_loss_pct = payload.weekly_loss_pct
-    if "monthly_loss_pct" in fields:
-        ws.monthly_loss_pct = payload.monthly_loss_pct
+    loss_fields = {"daily_loss_pct", "weekly_loss_pct", "monthly_loss_pct"}
+    has_loss_payload = bool(fields & loss_fields)
+    has_cap_payload = "session_ops_cap" in fields
+
+    requested_mode = payload.risk_control_mode
+    if requested_mode is None:
+        if has_cap_payload:
+            requested_mode = WorkspaceRiskControlMode.OPERATIONS
+        elif has_loss_payload:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "DISCIPLINE_MODE_REQUIRED",
+                    "message": (
+                        "risk_control_mode=percentage_loss is required "
+                        "when updating loss percentage limits"
+                    ),
+                    "correlation_id": "0" * 36,
+                    "details": {"field": "risk_control_mode"},
+                },
+            )
+        else:
+            requested_mode = WorkspaceRiskControlMode(ws.risk_control_mode)
+
+    if requested_mode == WorkspaceRiskControlMode.OPERATIONS:
+        if payload.session_ops_cap is not None and not (
+            1 <= payload.session_ops_cap <= ceiling
+        ):
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": ErrorCode.DISCIPLINE_CAP_OUT_OF_RANGE.value,
+                    "message": (
+                        f"session_ops_cap {payload.session_ops_cap} fuera de "
+                        f"rango; techo {ceiling}"
+                    ),
+                    "correlation_id": "0" * 36,
+                    "details": {
+                        "field": "session_ops_cap",
+                        "min": 1,
+                        "max": ceiling,
+                        "submitted": payload.session_ops_cap,
+                    },
+                },
+            )
+        ws.risk_control_mode = WorkspaceRiskControlMode.OPERATIONS.value
+        if has_cap_payload:
+            ws.session_ops_cap = payload.session_ops_cap
+        ws.daily_loss_pct = None
+        ws.weekly_loss_pct = None
+        ws.monthly_loss_pct = None
+    else:
+        if has_cap_payload and payload.session_ops_cap is not None:
+            raise HTTPException(
+                status_code=422,
+                detail={
+                    "code": "DISCIPLINE_MODE_CONFLICT",
+                    "message": (
+                        "session_ops_cap cannot be set when "
+                        "risk_control_mode=percentage_loss"
+                    ),
+                    "correlation_id": "0" * 36,
+                    "details": {"field": "session_ops_cap"},
+                },
+            )
+        ws.risk_control_mode = WorkspaceRiskControlMode.PERCENTAGE_LOSS.value
+        ws.session_ops_cap = None
+        if "daily_loss_pct" in fields:
+            ws.daily_loss_pct = payload.daily_loss_pct
+        if "weekly_loss_pct" in fields:
+            ws.weekly_loss_pct = payload.weekly_loss_pct
+        if "monthly_loss_pct" in fields:
+            ws.monthly_loss_pct = payload.monthly_loss_pct
     db.add(ws)
     await db.commit()
     await db.refresh(ws)

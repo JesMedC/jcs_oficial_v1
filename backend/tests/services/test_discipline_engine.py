@@ -26,6 +26,7 @@ from app.models import (
     WorkspacePlanTier,
 )
 from app.models.trading_account import TradingAccount as TradingAccountModel
+from app.models.workspace import WorkspaceRiskControlMode
 from app.schemas.trade import TradeCreateIn
 from app.services.discipline import ceil_to_next_dollar
 from app.services.discipline_engine import DisciplineError, validate_open_trade
@@ -40,6 +41,7 @@ async def _seed(
     trades_in_bucket: int = 0,
     plan_tier: WorkspacePlanTier | str = WorkspacePlanTier.STARTER,
     session_ops_cap: int | None = None,
+    risk_control_mode: WorkspaceRiskControlMode = WorkspaceRiskControlMode.OPERATIONS,
     daily_loss_pct: Decimal | None = None,
     weekly_loss_pct: Decimal | None = None,
     monthly_loss_pct: Decimal | None = None,
@@ -68,6 +70,7 @@ async def _seed(
         owner_user_id=user.id,
         plan_tier=plan_tier,
         session_ops_cap=session_ops_cap,
+        risk_control_mode=risk_control_mode.value,
         daily_loss_pct=daily_loss_pct,
         weekly_loss_pct=weekly_loss_pct,
         monthly_loss_pct=monthly_loss_pct,
@@ -263,6 +266,25 @@ async def test_session_cap_isolated_per_band(db_session: AsyncSession) -> None:
     now = datetime(2026, 9, 4, 14, 0, tzinfo=UTC)
     await validate_open_trade(
         db_session, user=user, account=account, payload=p, now=now
+    )
+
+
+async def test_percentage_loss_mode_does_not_enforce_session_cap(
+    db_session: AsyncSession,
+) -> None:
+    """Percentage-loss mode ignores session_ops_cap entirely."""
+    user, account = await _seed(
+        db_session,
+        balance=Decimal("100000"),
+        trades_in_bucket=4,
+        session_ops_cap=4,
+        risk_control_mode=WorkspaceRiskControlMode.PERCENTAGE_LOSS,
+        daily_loss_pct=Decimal("10.00"),
+    )
+    p = _payload(investment_usd=Decimal("2"))
+    seed_ts = datetime(2026, 9, 4, 18, 0, tzinfo=UTC)
+    await validate_open_trade(
+        db_session, user=user, account=account, payload=p, now=seed_ts
     )
 
 
@@ -706,6 +728,7 @@ async def test_daily_loss_pct_blocks_after_realized_closed_loss(
     user, account = await _seed(
         db_session,
         balance=Decimal("10000"),
+        risk_control_mode=WorkspaceRiskControlMode.PERCENTAGE_LOSS,
         daily_loss_pct=Decimal("1.00"),
     )
     closed_at = datetime(2026, 9, 4, 12, 0, tzinfo=UTC)
@@ -749,6 +772,7 @@ async def test_weekly_monthly_loss_pct_are_local_period_scoped(
         db_session,
         balance=Decimal("10000"),
         tz="America/Buenos_Aires",
+        risk_control_mode=WorkspaceRiskControlMode.PERCENTAGE_LOSS,
         weekly_loss_pct=Decimal("1.00"),
         monthly_loss_pct=Decimal("2.00"),
     )
@@ -790,11 +814,16 @@ async def test_weekly_monthly_loss_pct_are_local_period_scoped(
     assert "semanal" in ei.value.message
 
 
-async def test_null_loss_pct_preserves_existing_default(
+async def test_operations_mode_ignores_realized_loss_pct(
     db_session: AsyncSession,
 ) -> None:
-    """NULL loss settings do not add a realized-loss rejection."""
-    user, account = await _seed(db_session, balance=Decimal("10000"))
+    """Operations mode enforces session caps only, not loss percentages."""
+    user, account = await _seed(
+        db_session,
+        balance=Decimal("10000"),
+        risk_control_mode=WorkspaceRiskControlMode.OPERATIONS,
+        daily_loss_pct=Decimal("1.00"),
+    )
     closed_at = datetime(2026, 9, 4, 12, 0, tzinfo=UTC)
     db_session.add(
         Trade(

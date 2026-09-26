@@ -8,6 +8,7 @@ from decimal import Decimal
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models import WorkspaceMemberRole, WorkspacePlanTier
+from app.models.workspace import WorkspaceRiskControlMode
 
 
 class WorkspaceOut(BaseModel):
@@ -21,6 +22,7 @@ class WorkspaceOut(BaseModel):
     # REQ-DSC-007: frontend surfaces this in the Disciplina tab. NULL
     # means "use the plan ceiling".
     session_ops_cap: int | None = None
+    risk_control_mode: WorkspaceRiskControlMode = WorkspaceRiskControlMode.OPERATIONS
     daily_loss_pct: Decimal | None = None
     weekly_loss_pct: Decimal | None = None
     monthly_loss_pct: Decimal | None = None
@@ -33,6 +35,7 @@ class WorkspaceDisciplineOut(BaseModel):
 
     workspace_id: uuid.UUID
     plan_tier: WorkspacePlanTier
+    risk_control_mode: WorkspaceRiskControlMode
     session_ops_cap: int | None
     daily_loss_pct: Decimal | None = None
     weekly_loss_pct: Decimal | None = None
@@ -53,6 +56,7 @@ class WorkspaceDisciplinePatchIn(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
+    risk_control_mode: WorkspaceRiskControlMode | None = None
     session_ops_cap: int | None = None
     daily_loss_pct: Decimal | None = Field(
         default=None, ge=Decimal("0"), le=Decimal("100"), max_digits=6, decimal_places=2

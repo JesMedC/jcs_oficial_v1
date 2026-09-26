@@ -29,6 +29,11 @@ class WorkspacePlanTier(str, enum.Enum):
     ELITE = "ELITE"
 
 
+class WorkspaceRiskControlMode(str, enum.Enum):
+    OPERATIONS = "operations"
+    PERCENTAGE_LOSS = "percentage_loss"
+
+
 class Workspace(Base, TimestampMixin):
     __tablename__ = "workspaces"
 
@@ -55,6 +60,14 @@ class Workspace(Base, TimestampMixin):
     # CHECK constraint because the ceiling is plan-tier-aware.
     session_ops_cap: Mapped[int | None] = mapped_column(
         SmallInteger, nullable=True
+    )
+    # Mutually exclusive risk-control mode. Existing workspaces default
+    # to operations mode so legacy session-cap behaviour is preserved.
+    risk_control_mode: Mapped[str] = mapped_column(
+        String(32),
+        default=WorkspaceRiskControlMode.OPERATIONS.value,
+        server_default=WorkspaceRiskControlMode.OPERATIONS.value,
+        nullable=False,
     )
     # Nullable Decimal percentages. NULL means the corresponding
     # realized-loss guard is disabled; this preserves today's safe

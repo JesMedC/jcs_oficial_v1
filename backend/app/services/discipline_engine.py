@@ -67,6 +67,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import Trade, TradingAccount, User, Workspace, WorkspacePlanTier
+from app.models.workspace import WorkspaceRiskControlMode
 from app.schemas.trade import TradeCreateIn
 from app.services.discipline import ceil_to_next_dollar
 from app.services.session_service import (
@@ -377,8 +378,8 @@ async def _enforce_realized_loss_limits(
 ) -> None:
     """Block new opens once configured realized-loss percentages are hit.
 
-    The workspace settings are nullable. ``None`` disables the guard so
-    existing workspaces keep today's behaviour until configured.
+    Applies only when the workspace selected percentage-loss mode. The
+    percentage settings are nullable; ``None`` disables that period.
     Percent values are human percentages: ``5.00`` means 5% of the
     account capital proxy used by the existing discipline engine.
     """
@@ -386,6 +387,8 @@ async def _enforce_realized_loss_limits(
         return
     workspace = account.workspace
     if workspace is None:
+        return
+    if getattr(workspace, "risk_control_mode", None) != WorkspaceRiskControlMode.PERCENTAGE_LOSS.value:
         return
     checks: tuple[
         tuple[Literal["day", "week", "month"], Decimal | None, str], ...
@@ -539,25 +542,30 @@ async def validate_open_trade(
                 ),
             )
 
-    # Rule 6 — session ops-cap (REQ-DISC-008). The cap is
-    # ``workspace.session_ops_cap`` when set, otherwise the plan-tier
-    # ceiling — see ``_workspace_session_cap``. Single source of truth
-    # is ``_PLAN_CEILING_BY_TIER``.
-    existing_in_bucket = await _bucket_trades_for_day(
-        db,
-        user=user,
-        account=account,
-        local_day=local_day,
-        band=band,
+    # Rule 6 — session ops-cap (REQ-DISC-008). Enforced only in the
+    # mutually exclusive operations mode; percentage-loss mode relies on
+    # realized-loss limits instead and deliberately ignores this cap.
+    risk_control_mode = getattr(
+        account.workspace,
+        "risk_control_mode",
+        WorkspaceRiskControlMode.OPERATIONS.value,
     )
-    if existing_in_bucket >= session_ops_cap:
-        raise DisciplineError(
-            code="SESSION_CAP_EXCEEDED",
-            message=(
-                f"ya hay {existing_in_bucket} operaciones en "
-                f"({local_day}, {band}); tope {session_ops_cap}"
-            ),
+    if risk_control_mode == WorkspaceRiskControlMode.OPERATIONS.value:
+        existing_in_bucket = await _bucket_trades_for_day(
+            db,
+            user=user,
+            account=account,
+            local_day=local_day,
+            band=band,
         )
+        if existing_in_bucket >= session_ops_cap:
+            raise DisciplineError(
+                code="SESSION_CAP_EXCEEDED",
+                message=(
+                    f"ya hay {existing_in_bucket} operaciones en "
+                    f"({local_day}, {band}); tope {session_ops_cap}"
+                ),
+            )
 
 
 __all__ = [
