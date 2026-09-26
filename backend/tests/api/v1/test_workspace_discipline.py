@@ -7,6 +7,7 @@ from decimal import Decimal
 from sqlalchemy import select
 
 from app.models import Workspace, WorkspacePlanTier
+from app.models.workspace import WorkspaceRiskControlMode
 
 
 async def _register(client, payload):
@@ -34,6 +35,7 @@ async def test_get_workspace_discipline_returns_all_settings(
     ).scalar_one()
     row.plan_tier = WorkspacePlanTier.PRO
     row.session_ops_cap = 5
+    row.risk_control_mode = WorkspaceRiskControlMode.PERCENTAGE_LOSS.value
     row.daily_loss_pct = Decimal("1.50")
     row.weekly_loss_pct = Decimal("3.00")
     row.monthly_loss_pct = Decimal("6.00")
@@ -46,6 +48,7 @@ async def test_get_workspace_discipline_returns_all_settings(
     assert resp.status_code == 200, resp.text
     body = resp.json()
     assert body["workspace_id"] == ws["id"]
+    assert body["risk_control_mode"] == "percentage_loss"
     assert body["session_ops_cap"] == 5
     assert body["daily_loss_pct"] == "1.50"
     assert body["weekly_loss_pct"] == "3.00"
@@ -53,7 +56,7 @@ async def test_get_workspace_discipline_returns_all_settings(
     assert body["ceiling"] == 6
 
 
-async def test_patch_workspace_discipline_updates_loss_limits_without_cap(
+async def test_patch_workspace_discipline_percentage_loss_clears_cap(
     client, valid_register_payload, db_session
 ) -> None:
     reg = await _register(client, valid_register_payload)
@@ -72,6 +75,7 @@ async def test_patch_workspace_discipline_updates_loss_limits_without_cap(
         f"/api/v1/workspaces/{ws['id']}/discipline",
         headers=headers,
         json={
+            "risk_control_mode": "percentage_loss",
             "daily_loss_pct": "1.25",
             "weekly_loss_pct": "2.50",
             "monthly_loss_pct": None,
@@ -80,19 +84,21 @@ async def test_patch_workspace_discipline_updates_loss_limits_without_cap(
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
-    assert body["session_ops_cap"] == 5
+    assert body["risk_control_mode"] == "percentage_loss"
+    assert body["session_ops_cap"] is None
     assert body["daily_loss_pct"] == "1.25"
     assert body["weekly_loss_pct"] == "2.50"
     assert body["monthly_loss_pct"] is None
 
     await db_session.refresh(row)
-    assert row.session_ops_cap == 5
+    assert row.risk_control_mode == "percentage_loss"
+    assert row.session_ops_cap is None
     assert row.daily_loss_pct == Decimal("1.25")
     assert row.weekly_loss_pct == Decimal("2.50")
     assert row.monthly_loss_pct is None
 
 
-async def test_patch_session_ops_cap_only_preserves_loss_limits(
+async def test_patch_session_ops_cap_only_preserves_legacy_operations_mode(
     client, valid_register_payload, db_session
 ) -> None:
     reg = await _register(client, valid_register_payload)
@@ -115,9 +121,49 @@ async def test_patch_session_ops_cap_only_preserves_loss_limits(
 
     assert resp.status_code == 200, resp.text
     body = resp.json()
+    assert body["risk_control_mode"] == "operations"
     assert body["session_ops_cap"] == 4
-    assert body["daily_loss_pct"] == "1.25"
+    assert body["daily_loss_pct"] is None
 
     await db_session.refresh(row)
+    assert row.risk_control_mode == "operations"
     assert row.session_ops_cap == 4
-    assert row.daily_loss_pct == Decimal("1.25")
+    assert row.daily_loss_pct is None
+
+
+async def test_patch_percentage_loss_rejects_session_cap_conflict(
+    client, valid_register_payload
+) -> None:
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    ws = await _workspace_of(client, headers)
+
+    resp = await client.patch(
+        f"/api/v1/workspaces/{ws['id']}/discipline",
+        headers=headers,
+        json={
+            "risk_control_mode": "percentage_loss",
+            "session_ops_cap": 4,
+            "daily_loss_pct": "1.00",
+        },
+    )
+
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["detail"]["code"] == "DISCIPLINE_MODE_CONFLICT"
+
+
+async def test_patch_loss_pct_requires_percentage_loss_mode(
+    client, valid_register_payload
+) -> None:
+    reg = await _register(client, valid_register_payload)
+    headers = {"Authorization": f"Bearer {reg['access_token']}"}
+    ws = await _workspace_of(client, headers)
+
+    resp = await client.patch(
+        f"/api/v1/workspaces/{ws['id']}/discipline",
+        headers=headers,
+        json={"daily_loss_pct": "1.00"},
+    )
+
+    assert resp.status_code == 422, resp.text
+    assert resp.json()["detail"]["code"] == "DISCIPLINE_MODE_REQUIRED"

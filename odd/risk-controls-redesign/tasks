@@ -2,8 +2,11 @@
 
 - [x] Make operation limits configurable from Risk management, not hidden in configuration.
 - [x] Add daily, weekly, and monthly loss-percentage controls with server persistence and enforcement.
+- [x] Make risk mode mutually exclusive: operation quantity OR percentage loss, never both.
 - [x] Redesign Risk page with control form, exposure metrics, and professional hierarchy.
 - [x] Redesign Diario page with professional calendar, KPI, and selected-day detail surfaces.
-- [ ] Validate complete production flow with Playwright and deployment.
+- [x] Validate complete production flow with Playwright and deployment.
+- [x] Fix session-cap off-by-one: move `validate_open_trade` before `db.add/flush` in `trade_service.open_trade` so the new trade does not count itself.
+- [x] Move risk-control settings (risk_control_mode, session_ops_cap, daily_loss_pct, weekly_loss_pct, monthly_loss_pct) from `Workspace` to `TradingAccount` (REQ-RISK-PER-ACCOUNT) so each account can run independent discipline. RiesgoPage adds an AccountSelector; the discipline endpoint moved from `/workspaces/{id}/discipline` to `/accounts/{id}/discipline` and `useRiskControls(accountId)` plus `useRiskSummary` follow the new shape.
 
-Evidence: work-unit commit `f3f5344`; frontend typecheck/lint/build passed; focused Risk/Diario tests passed; backend Ruff and Alembic heads passed.
+Evidence: work-unit commits `f3f5344`, `2105e2c`, `d88513d`, `c1610bd`, `04935f0`, `813c77d`; frontend typecheck/lint/build passed; focused Riesgo/Diario/Disciplina tests passed; backend Ruff and Alembic heads passed. Mutually exclusive risk mode validation passed with `pnpm typecheck`, `pnpm lint`, `pnpm build`, focused Riesgo/Diario/Disciplina tests (10 passed), backend Ruff, Alembic head `0022_account_risk_control`, production migration, and a production Playwright spec that flips between both modes, asserts the cross-field 422, and opens a second account to confirm per-account isolation. Session-cap off-by-one fix re-verified with a backend script (trades 1..4 OK, 5th rejected) and a production Playwright spec (1 test passed).

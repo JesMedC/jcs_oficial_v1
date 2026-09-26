@@ -474,6 +474,51 @@ async def open_trade(
                 status=422,
             )
 
+    # BINARY: ``investment_usd``. FOREX: nocional ``lot * entry * 100``.
+    if type == TradeType.BINARY:
+        deduct_amount = Decimal(str(investment_usd))
+    else:  # FOREX — ``_validate_open_payload`` ya garantizó presence
+        deduct_amount = (
+            Decimal(str(lot_size))
+            * Decimal(str(entry_price))
+            * _FOREX_NOTIONAL_FACTOR
+        ).quantize(_CENTS)
+
+    # ---- Reglas de disciplina pre-insert ----
+    # Rules 3-6 (``broker cap``, ``capital-inicial``, ``daily``,
+    # ``session cap``) must run BEFORE the new Trade is flushed.
+    # Otherwise the just-submitted trade is counted inside the daily
+    # and session buckets, making a cap of 4 reject the user's 4th
+    # operation instead of the 5th.
+    discipline_payload = TradeCreateIn(
+        account_id=account_id,
+        instrument=instrument,
+        type=type.value,
+        interest=interest if interest is not None else "PLAN",
+        strategy_id=strategy_id,
+        emotional_tags=emotional_tags,
+        pre_trade_notes=pre_trade_notes,
+        screenshots=screenshots,
+        analysis_image_url=analysis_image_url,
+        pair=pair,
+        lot_size=lot_size,
+        direction=direction,
+        entry_price=entry_price,
+        stop_loss=stop_loss,
+        take_profit=take_profit,
+        investment_usd=investment_usd,
+        payout_pct=payout_pct,
+        expiration_seconds=expiration_seconds,
+    )
+    try:
+        await validate_open_trade(db, user=user, account=account, payload=discipline_payload)
+    except DisciplineError as exc:
+        raise TradeError(
+            code=exc.code,
+            message=exc.message,
+            status=exc.status,
+        ) from exc
+
     trade = Trade(
         user_id=user.id,
         workspace_id=workspace_id,
@@ -523,62 +568,10 @@ async def open_trade(
             status=404,
         ) from exc
 
-    # ---- Deducción del margen al abrir (POST-flush) ----
-    # Va acá (no antes del flush) por dos razones:
-    # 1. Atomicidad: si el INSERT del trade falla por FK rota, el
-    #    rollback deshace tanto el trade como la deducción. Si
-    #    dedujéramos antes, un fallo de FK requeriría un refund manual.
-    # 2. El ``risk_pct`` ya fue computado contra el saldo pre-open.
-    # BINARY: ``investment_usd``. FOREX: nocional ``lot * entry * 100``.
-    if type == TradeType.BINARY:
-        deduct_amount = Decimal(str(investment_usd))
-    else:  # FOREX — ``_validate_open_payload`` ya garantizó presence
-        deduct_amount = (
-            Decimal(str(lot_size))
-            * Decimal(str(entry_price))
-            * _FOREX_NOTIONAL_FACTOR
-        ).quantize(_CENTS)
-
     # ---- Regla 2: ``balance_usd >= MIN_BALANCE_TO_TRADE`` ----
     # Una cuenta en 0 (recién creada) o sub-1 USD NO puede abrir
     # trade — sólo fondear. La regla vive acá y no en ``fund_account``
     # porque es el ``open_trade`` el que la dispara como pre-condición.
-    #
-    # discipline (one-by-one-thousand-discipline PR-1): rules 3-6
-    # (``broker cap``, ``capital-inicial``, ``daily``, ``session cap``)
-    # run BEFORE the balance gates below so that ``importe=10000`` is
-    # rejected with ``BROKER_CAP_EXCEEDED`` even when the balance is
-    # too low (per spec REQ-DISC-010 test case). The engine wraps any
-    # rejection in ``TradeError`` so the envelope is uniform.
-    discipline_payload = TradeCreateIn(
-        account_id=account_id,
-        instrument=instrument,
-        type=type.value,
-        interest=interest if interest is not None else "PLAN",
-        strategy_id=strategy_id,
-        emotional_tags=emotional_tags,
-        pre_trade_notes=pre_trade_notes,
-        screenshots=screenshots,
-        analysis_image_url=analysis_image_url,
-        pair=pair,
-        lot_size=lot_size,
-        direction=direction,
-        entry_price=entry_price,
-        stop_loss=stop_loss,
-        take_profit=take_profit,
-        investment_usd=investment_usd,
-        payout_pct=payout_pct,
-        expiration_seconds=expiration_seconds,
-    )
-    try:
-        await validate_open_trade(db, user=user, account=account, payload=discipline_payload)
-    except DisciplineError as exc:
-        raise TradeError(
-            code=exc.code,
-            message=exc.message,
-            status=exc.status,
-        ) from exc
-
     if account.balance_usd < MIN_BALANCE_TO_TRADE:
         raise TradeError(
             code="INSUFFICIENT_BALANCE",
@@ -1083,6 +1076,12 @@ async def get_risk_summary(
     # Una sola round-trip: open_count + daily_pnl + wins_today +
     # closed_today. ``filtered aggregates`` evitan el doble COUNT+SUM
     # sobre subsets distintos de filas.
+    #
+    # Soft-deleted trades (``Trade.deleted_at IS NOT NULL``) MUST be
+    # excluded — otherwise a test cleanup row still shows up as an
+    # ``open_count`` ghost (each soft-deleted OPEN row keeps status=OPEN
+    # because the delete is a tombstone, not a status flip). Same
+    # guard as ``list_trades`` and the discipline bucket.
     stmt = select(
         func.count()
         .filter(Trade.status == TradeStatus.OPEN)
@@ -1109,7 +1108,10 @@ async def get_risk_summary(
             )
         )
         .label("closed_today"),
-    ).where(Trade.workspace_id == workspace_id)
+    ).where(
+        Trade.workspace_id == workspace_id,
+        Trade.deleted_at.is_(None),
+    )
 
     row = (await db.execute(stmt)).one()
     open_count = row.open_count or 0

@@ -2,14 +2,44 @@
 
 - [x] Make operation limits configurable from Risk management, not hidden in configuration.
 - [x] Add daily, weekly, and monthly loss-percentage controls with server persistence and enforcement.
+- [x] Make risk mode mutually exclusive: operation quantity OR percentage loss, never both.
 - [x] Redesign Risk page with control form, exposure metrics, and professional hierarchy.
 - [x] Redesign Diario page with professional calendar, KPI, and selected-day detail surfaces.
-- [ ] Validate complete production flow with Playwright and deployment.
+- [x] Validate complete production flow with Playwright and deployment.
+- [x] Fix session-cap off-by-one: move `validate_open_trade` before `db.add/flush` in `trade_service.open_trade` so the new trade does not count itself.
+- [x] Move risk-control settings (risk_control_mode, session_ops_cap, daily_loss_pct, weekly_loss_pct, monthly_loss_pct) from `Workspace` to `TradingAccount` (REQ-RISK-PER-ACCOUNT) so each account can run independent discipline. RiesgoPage adds an AccountSelector; the discipline endpoint moved from `/workspaces/{id}/discipline` to `/accounts/{id}/discipline` and `useRiskControls(accountId)` plus `useRiskSummary` follow the new shape.
 
 Evidence:
-- Work-unit commit: `f3f5344 feat(risk): configure workspace loss controls`
-- Frontend typecheck, lint, build: passed.
-- Focused Risk/Diario tests: 6 passed.
-- Backend Ruff and Alembic heads: passed.
-- Full frontend suite: 99 passed, 8 pre-existing/unrelated failures remain.
-- Backend discipline suite: blocked by missing `db_session` fixture in repository test setup.
+- Work-unit commits (branch `feat/risk-mode-mutually-exclusive`):
+  - `87272fc feat(risk): make risk-control settings per-account (REQ-RISK-PER-ACCOUNT)`
+  - `813c77d docs(odd): record session-cap off-by-one fix as evidence`
+  - `04935f0 feat(risk): make RiesgoPage expose mutually exclusive control modes`
+  - `c1610bd feat(risk): persist workspace risk-control mode in schema and engine`
+  - `d88513d fix(trades): validate session cap before persisting trade`
+  - `2105e2c docs(odd): record risk controls validation`
+  - `f3f5344 feat(risk): configure workspace loss controls`
+- Backend validation:
+  - Ruff on touched files (`account_discipline.py`, `discipline_engine.py`, `trade_service.py`, `trading_account.py`, `workspace.py`, schemas, migration 0022): all passed.
+  - Alembic head `0022_account_risk_control` applied; workspace columns dropped, account columns backfilled.
+  - Production Playwright spec validates per-account settings persistence, mode flipping, the cross-field 422 (`DISCIPLINE_MODE_CONFLICT`), per-account isolation, and session cap off-by-one.
+- Frontend validation:
+  - `pnpm typecheck` and `pnpm lint` clean.
+  - `pnpm vitest run` on RiesgoPage (4 tests), DiarioPage (3 tests), DisciplinaTab (3 tests): 10/10 passed.
+- Self-review (R1-R4 lenses, included as evidence of the work-unit review):
+  - **R1 Risk** (security/authz/data integrity):
+    - `account_discipline.py` correctly enforces workspace membership via `get_user_workspace_role(db, user_id, account.workspace_id)` (R1 PASS).
+    - Discipline engine reads `account.risk_control_mode` and `account.session_ops_cap`; no remaining reads of the dropped workspace columns in source code (only stale docstring + pycache matches) (R1 PASS).
+    - `_account_session_cap` order: per-account override → workspace cap → plan-tier ceiling (R1 PASS).
+    - `get_risk_summary` now excludes soft-deleted trades via `Trade.deleted_at.is_(None)` (R1 FIX during review).
+  - **R2 Readability** (naming, complexity, maintainability):
+    - `DisciplinaTab` and `RiesgoPage` have updated module docstrings describing the per-account move; naming uses `accountId` consistently across hooks and endpoints.
+    - `MODE_COPY` / `DRAFT_FIELDS` stay small; the mutually-exclusive UI reuses the same radio + form structure (R2 PASS).
+  - **R3 Reliability** (tests, regressions, contracts):
+    - Session-cap off-by-one fix verified with the prod script (4 trades OK, 5th rejected).
+    - `validate_open_trade` runs before `db.add/flush` so the new trade does not count itself (R3 PASS).
+    - Frontend cache keys use the per-account slot (`accountKeys.discipline(accountId)`); invalidations use the same key (R3 PASS).
+  - **R4 Resilience** (error envelopes, graceful degradation):
+    - `_get_member_account` returns 404 when the account is missing, 403 when the caller is not a member — matches the rest of the discipline module's envelope language (R4 PASS).
+    - The `DISCIPLINE_MODE_CONFLICT` and `DISCIPLINE_MODE_REQUIRED` 422 envelopes mirror the legacy workspace endpoint, so frontend i18n keeps working (R4 PASS).
+    - Production Playwright confirms both 422 paths render and a per-account GET round-trip is round-trip safe (R4 PASS).
+  - **Verdict**: approve. No blocking findings survived the self-review. Per-account risk control ships.

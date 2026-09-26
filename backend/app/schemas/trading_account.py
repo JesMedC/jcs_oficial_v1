@@ -58,6 +58,16 @@ class TradingAccountOut(BaseModel):
     balance_usd: Decimal
     created_at: datetime
     updated_at: datetime
+    # Per-account risk-control settings (REQ-RISK-PER-ACCOUNT). Exposed
+    # so the Disciplina tab and the Riesgo page can read the live
+    # values without a separate /discipline round-trip just to render
+    # the form's initial state. Mirror of the discipline endpoint
+    # payload (same shape minus ``ceiling`` and ``plan_tier``).
+    risk_control_mode: str = "operations"
+    session_ops_cap: int | None = None
+    daily_loss_pct: Decimal | None = None
+    weekly_loss_pct: Decimal | None = None
+    monthly_loss_pct: Decimal | None = None
 
 
 class TradingAccountListOut(BaseModel):

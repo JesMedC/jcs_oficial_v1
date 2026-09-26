@@ -17,6 +17,11 @@
 export type AccountTypeLiteral = 'BINARY' | 'FOREX';
 
 /**
+ * RiskControlMode values. Mirrors `WorkspaceRiskControlMode` on the backend.
+ */
+export type RiskControlModeLiteral = 'operations' | 'percentage_loss';
+
+/**
  * AccountMovementType enum values. Mirrors `backend/app/models/account_movement.py`.
  */
 export type AccountMovementTypeLiteral =
@@ -41,6 +46,12 @@ export interface AccountOut {
   readonly balance_usd: string;
   readonly created_at: string;
   readonly updated_at: string;
+  // Per-account risk-control settings (REQ-RISK-PER-ACCOUNT).
+  readonly risk_control_mode?: RiskControlModeLiteral;
+  readonly session_ops_cap?: number | null;
+  readonly daily_loss_pct?: string | null;
+  readonly weekly_loss_pct?: string | null;
+  readonly monthly_loss_pct?: string | null;
 }
 
 /**

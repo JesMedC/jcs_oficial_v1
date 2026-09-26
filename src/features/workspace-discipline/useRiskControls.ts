@@ -1,12 +1,13 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { apiClient } from '../../lib/api/client';
-import type { ErrorEnvelope, WorkspacePlanTier } from '../auth/types';
-import { workspaceKeys } from './keys';
+import type { ErrorEnvelope, RiskControlMode, WorkspacePlanTier } from '../auth/types';
+import { accountKeys } from './keys';
 
 export interface RiskControls {
   readonly workspace_id: string;
   readonly plan_tier: WorkspacePlanTier;
+  readonly risk_control_mode: RiskControlMode;
   readonly session_ops_cap: number | null;
   readonly daily_loss_pct: string | null;
   readonly weekly_loss_pct: string | null;
@@ -15,7 +16,8 @@ export interface RiskControls {
 }
 
 export interface UpdateRiskControlsInput {
-  readonly workspaceId: string;
+  readonly accountId: string;
+  readonly risk_control_mode?: RiskControlMode;
   readonly session_ops_cap?: number | null;
   readonly daily_loss_pct?: string | null;
   readonly weekly_loss_pct?: string | null;
@@ -24,28 +26,31 @@ export interface UpdateRiskControlsInput {
 
 export type UpdateRiskControlsOutput = RiskControls;
 
-export function getRiskControlsApi(workspaceId: string): Promise<RiskControls> {
+export function getRiskControlsApi(accountId: string): Promise<RiskControls> {
   return apiClient
-    .get<RiskControls>(`/workspaces/${workspaceId}/discipline`)
+    .get<RiskControls>(`/accounts/${accountId}/discipline`)
     .then((res) => res.data);
 }
 
 export function updateRiskControlsApi(
   input: UpdateRiskControlsInput,
 ): Promise<UpdateRiskControlsOutput> {
-  const { workspaceId, ...payload } = input;
+  const { accountId, ...payload } = input;
   return apiClient
-    .patch<UpdateRiskControlsOutput>(`/workspaces/${workspaceId}/discipline`, payload)
+    .patch<UpdateRiskControlsOutput>(
+      `/accounts/${accountId}/discipline`,
+      payload,
+    )
     .then((res) => res.data);
 }
 
-export function useRiskControls(workspaceId: string | undefined) {
+export function useRiskControls(accountId: string | undefined) {
   return useQuery<RiskControls, ErrorEnvelope>({
-    queryKey: workspaceId
-      ? workspaceKeys.discipline(workspaceId)
-      : workspaceKeys.discipline('noop'),
-    queryFn: () => getRiskControlsApi(workspaceId!),
-    enabled: Boolean(workspaceId),
+    queryKey: accountId
+      ? accountKeys.discipline(accountId)
+      : accountKeys.discipline('noop'),
+    queryFn: () => getRiskControlsApi(accountId!),
+    enabled: Boolean(accountId),
     staleTime: 30_000,
   });
 }
@@ -61,7 +66,7 @@ export function useUpdateRiskControls() {
     mutationFn: updateRiskControlsApi,
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({
-        queryKey: workspaceKeys.discipline(variables.workspaceId),
+        queryKey: accountKeys.discipline(variables.accountId),
       });
       queryClient.invalidateQueries({ queryKey: ['auth', 'me'] });
     },

@@ -44,7 +44,6 @@ async def me(user: CurrentUser, db: DbSession) -> AuthMeOut:
             plan_tier=ws.plan_tier,
             role_in_workspace=role,
             created_at=ws.created_at,
-            session_ops_cap=ws.session_ops_cap,
         )
         for ws, role in workspaces
     ]
