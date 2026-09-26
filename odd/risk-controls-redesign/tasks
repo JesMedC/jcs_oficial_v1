@@ -2,8 +2,10 @@
 
 - [x] Make operation limits configurable from Risk management, not hidden in configuration.
 - [x] Add daily, weekly, and monthly loss-percentage controls with server persistence and enforcement.
+- [x] Make risk mode mutually exclusive: operation quantity OR percentage loss, never both.
 - [x] Redesign Risk page with control form, exposure metrics, and professional hierarchy.
 - [x] Redesign Diario page with professional calendar, KPI, and selected-day detail surfaces.
-- [ ] Validate complete production flow with Playwright and deployment.
+- [x] Validate complete production flow with Playwright and deployment.
+- [x] Fix session-cap off-by-one: move `validate_open_trade` before `db.add/flush` in `trade_service.open_trade` so the new trade does not count itself.
 
-Evidence: work-unit commit `f3f5344`; frontend typecheck/lint/build passed; focused Risk/Diario tests passed; backend Ruff and Alembic heads passed.
+Evidence: work-unit commit `f3f5344`; frontend typecheck/lint/build passed; focused Risk/Diario tests passed; backend Ruff and Alembic heads passed. Mutually exclusive risk mode validation passed with `pnpm typecheck`, `pnpm lint`, `pnpm build`, focused Riesgo/Diario/Disciplina tests (9 passed), backend Ruff, Alembic head `0021_workspace_risk_control_mode`, production migration, and production Playwright smoke. Session-cap off-by-one fix re-verified with a backend script (trades 1–4 OK, 5th rejected) and a production Playwright spec (1 test passed).
