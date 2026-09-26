@@ -398,8 +398,11 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
 
   return (
     <form
-      onSubmit={handleSubmit(handleSubmitClick, () => {
-        setValidationMessage('Revisá los campos marcados antes de crear la operación.');
+      onSubmit={handleSubmit(handleSubmitClick, (invalidFields) => {
+        const firstError = Object.values(invalidFields)[0] as { message?: string } | undefined;
+        setValidationMessage(
+          firstError?.message ?? 'Revisá los campos marcados antes de crear la operación.',
+        );
       })}
       className="flex flex-col gap-5"
       data-testid="new-trade-form"
