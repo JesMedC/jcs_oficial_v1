@@ -135,11 +135,11 @@ function SettingsIcon() {
 
 const NAV_ITEMS: ReadonlyArray<NavItem> = [
   { to: '/portal/dashboard', label: 'Dashboard', icon: <DashboardIcon />, end: true },
-  { to: '/portal/cuentas', label: 'Accounts', icon: <CuentasIcon />, showAdd: true },
-  { to: '/portal/operaciones', label: 'Operations', icon: <OperacionesIcon />, showAdd: true },
-  { to: '/portal/diario', label: 'Log', icon: <LogIcon /> },
+  { to: '/portal/cuentas', label: 'Cuentas', icon: <CuentasIcon />, showAdd: true },
+  { to: '/portal/operaciones', label: 'Operaciones', icon: <OperacionesIcon />, showAdd: true },
+  { to: '/portal/diario', label: 'Diario', icon: <LogIcon /> },
   { to: '/portal/playbook', label: 'Playbook', icon: <PlaybookIcon />, showAdd: true },
-  { to: '/portal/configuracion', label: 'Settings', icon: <SettingsIcon /> },
+  { to: '/portal/configuracion', label: 'Configuración', icon: <SettingsIcon /> },
 ];
 
 export interface SidebarNavProps {
@@ -148,7 +148,7 @@ export interface SidebarNavProps {
 
 export function SidebarNav({ isCollapsed }: SidebarNavProps) {
   return (
-    <nav className="flex-1 py-4 px-3 space-y-2 overflow-y-auto">
+    <nav className="flex-1 py-4 px-2.5 space-y-1.5 overflow-y-auto">
       {NAV_ITEMS.map((item) => (
         <NavLink
           key={item.to}
@@ -157,11 +157,12 @@ export function SidebarNav({ isCollapsed }: SidebarNavProps) {
           title={isCollapsed ? item.label : undefined}
           className={({ isActive }) =>
             [
-              'group relative flex items-center gap-3 px-3 py-2.5 rounded-lg',
-              'border transition-all duration-150 font-display uppercase tracking-[0.15em] text-xs',
+              'group relative flex items-center gap-3 px-3 py-2.5 rounded-xl',
+              'border transition-all duration-150 font-display uppercase tracking-[0.14em] text-[11px]',
+              'focus-visible:outline focus-visible:outline-2 focus-visible:outline-primary/70',
               isActive
-                ? 'border-primary bg-primary/15 text-primary shadow-[0_0_16px_rgba(0,212,216,0.45)] animate-jarvis-active-pulse'
-                : 'border-primary/30 text-text-secondary hover:border-primary/70 hover:text-primary hover:bg-primary/5',
+                ? 'border-primary bg-primary/15 text-primary shadow-[0_0_18px_rgba(0,212,216,0.38)] animate-jarvis-active-pulse'
+                : 'border-[var(--portal-border)] text-text-secondary bg-[var(--portal-surface-soft)] hover:border-primary/70 hover:text-primary hover:bg-primary/10',
               isCollapsed ? 'justify-center px-2' : '',
             ].join(' ')
           }

@@ -1,0 +1,7 @@
+# Risk preview in new trade flow tasks mirror
+
+Source: odd/tasks/risk-preview-ui.md
+
+- [x] Add pure risk preview component and calculations.
+- [x] Integrate professional risk panel into new trade drawer.
+- [x] Add focused tests and validate: 4 risk-preview tests pass; typecheck and lint pass. NewTradeForm discipline suite now passes: `pnpm exec vitest run src/features/trades/__tests__/NewTradeForm.discipline.test.tsx` (15 tests).

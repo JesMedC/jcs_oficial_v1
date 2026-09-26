@@ -19,7 +19,7 @@ validan con Pydantic y llaman al service.
 from __future__ import annotations
 
 import uuid
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -28,10 +28,10 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models import (
+    AccountMovement,
+    AccountMovementType,
     AuditLog,
     Trade,
-    TradeStatus,
-    TradeType,
     TradingAccount,
     TradingAccountType,
     User,
@@ -84,6 +84,28 @@ async def _emit_audit(
             previous_value=previous,
             new_value=new,
             correlation_id=correlation_id,
+        )
+    )
+    await db.flush()
+
+
+async def _add_account_movement(
+    db: AsyncSession,
+    *,
+    account_id: uuid.UUID,
+    movement_type: AccountMovementType,
+    amount: Decimal,
+    previous_balance: Decimal,
+    post_balance: Decimal,
+) -> None:
+    db.add(
+        AccountMovement(
+            account_id=account_id,
+            movement_type=movement_type,
+            amount=amount,
+            previous_balance=previous_balance,
+            post_balance=post_balance,
+            occurred_at=datetime.now(UTC),
         )
     )
     await db.flush()
@@ -218,6 +240,14 @@ async def fund_account(
     previous_balance = account.balance_usd
     account.balance_usd = previous_balance + amount
     new_balance = account.balance_usd
+    await _add_account_movement(
+        db,
+        account_id=account.id,
+        movement_type=AccountMovementType.DEPOSIT,
+        amount=amount,
+        previous_balance=previous_balance,
+        post_balance=new_balance,
+    )
     await _emit_audit(
         db,
         actor_user_id=user.id,
@@ -264,6 +294,14 @@ async def withdraw_account(
     previous_balance = account.balance_usd
     account.balance_usd = previous_balance - amount
     new_balance = account.balance_usd
+    await _add_account_movement(
+        db,
+        account_id=account.id,
+        movement_type=AccountMovementType.WITHDRAWAL,
+        amount=-amount,
+        previous_balance=previous_balance,
+        post_balance=new_balance,
+    )
     await _emit_audit(
         db,
         actor_user_id=user.id,
@@ -320,7 +358,7 @@ async def delete_account(
     # ANTES de marcar la cuenta. Una sola UPDATE masiva evita N round-
     # trips por trade (importante cuando una cuenta tiene cientos de
     # operaciones).
-    cascade_deleted_at = datetime.now(timezone.utc)
+    cascade_deleted_at = datetime.now(UTC)
     cascade_result = await db.execute(
         update(Trade)
         .where(
@@ -358,6 +396,37 @@ async def delete_account(
 
 
 # ---------- queries ----------
+async def list_account_movements(
+    db: AsyncSession,
+    *,
+    user_id: uuid.UUID,
+    account_id: uuid.UUID,
+    skip: int = 0,
+    limit: int = 50,
+) -> tuple[list[AccountMovement], int]:
+    """List immutable account movements newest-first after ownership check."""
+    await _get_owned_active_account(
+        db,
+        user_id=user_id,
+        account_id=account_id,
+    )
+    base = (
+        select(AccountMovement)
+        .where(AccountMovement.account_id == account_id)
+        .order_by(AccountMovement.occurred_at.desc(), AccountMovement.id.desc())
+        .offset(skip)
+        .limit(limit)
+    )
+    count_stmt = (
+        select(func.count())
+        .select_from(AccountMovement)
+        .where(AccountMovement.account_id == account_id)
+    )
+    rows = list((await db.execute(base)).scalars().all())
+    total = await db.scalar(count_stmt) or 0
+    return rows, int(total)
+
+
 async def list_user_accounts(
     db: AsyncSession,
     *,
@@ -416,5 +485,6 @@ __all__ = [
     "fund_account",
     "withdraw_account",
     "delete_account",
+    "list_account_movements",
     "list_user_accounts",
 ]

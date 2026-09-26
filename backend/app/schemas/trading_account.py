@@ -18,6 +18,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.models.account_movement import AccountMovementType
 from app.models.trading_account import TradingAccountType
 
 
@@ -63,6 +64,29 @@ class TradingAccountListOut(BaseModel):
     """Envelope paginado para ``GET /api/v1/accounts``."""
 
     items: list[TradingAccountOut]
+    total: int
+    skip: int
+    limit: int
+
+
+class AccountMovementOut(BaseModel):
+    """Single immutable account balance movement row."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: uuid.UUID
+    account_id: uuid.UUID
+    movement_type: AccountMovementType
+    amount: Decimal
+    previous_balance: Decimal
+    post_balance: Decimal
+    occurred_at: datetime
+
+
+class AccountMovementListOut(BaseModel):
+    """Paginated envelope for ``GET /api/v1/accounts/{id}/movements``."""
+
+    items: list[AccountMovementOut]
     total: int
     skip: int
     limit: int
@@ -120,6 +144,8 @@ __all__ = [
     "TradingAccountIn",
     "TradingAccountOut",
     "TradingAccountListOut",
+    "AccountMovementOut",
+    "AccountMovementListOut",
     "FundIn",
     "WithdrawIn",
     "DeleteIn",

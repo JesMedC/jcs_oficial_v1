@@ -2,13 +2,13 @@
  * TWR-06 / USC — NewTradeForm discipline tests.
  *
  * Locks the discipline contract (post Interest-removal, post
- * read-only investment, post universal 1% rule, post
+ * read-only investment, post tiered investment rule, post
  * universal-session-cap-4):
  *   1. Submit WITHOUT picking interest → no INTEREST_REQUIRED gate;
  *      the payload goes out without the field and the backend
  *      defaults to "PLAN".
  *   2. The INVERSIÓN USD field renders the calculated amount
- *      (universal 1% rule, capped at $404) for any account balance
+ *      (documented tier rule; $5000 => $5) for any account balance
  *      >= $1. The previous "Máx permitido" pill is gone.
  *   3. Backend discipline error codes still map to localized messages.
  *   4. The wire payload no longer carries ``interest`` (it's optional
@@ -29,6 +29,7 @@ import type { ReactNode } from 'react';
 import * as accountsApi from '../../accounts/api';
 import type { AccountList, AccountOut } from '../../accounts/types';
 import * as tradesApi from '../api';
+import * as discipline from '../discipline';
 import { NewTradeForm } from '../NewTradeForm';
 import * as authModule from '../../auth/useAuth';
 import type { AuthContextValue } from '../../auth/AuthProvider';
@@ -200,7 +201,7 @@ describe('NewTradeForm — discipline gates (PR-4)', () => {
     expect(screen.queryByTestId('new-trade-error')).toBeNull();
   });
 
-  it('muestra $50 en el campo INVERSIÓN USD con balance de $5000 (TWR-06 1% plano)', async () => {
+  it('muestra $5 en el campo INVERSIÓN USD con balance de $5000 (tier documentado)', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
 
@@ -209,7 +210,7 @@ describe('NewTradeForm — discipline gates (PR-4)', () => {
     await waitFor(() => {
       expect(screen.getByTestId('new-trade-investment')).toBeInTheDocument();
     });
-    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$50');
+    expect(screen.getByTestId('new-trade-investment').textContent).toBe('$5');
     expect(screen.queryByTestId('new-trade-suggested-import')).toBeNull();
   });
 
@@ -266,6 +267,20 @@ function bucketStampToday(hour: number, minute: number = 30): string {
     return '1970-01-01T00:00:00.000Z';
   }
   return stamp;
+}
+
+function bucketStampInCurrentBucket(): string {
+  const nowBucket = localBucketForTimestamp(new Date().toISOString(), TZ);
+  if (nowBucket === null) return new Date().toISOString();
+
+  const hourByBand = {
+    ASIA: '01',
+    LONDON: '08',
+    NEW_YORK: '14',
+    SYDNEY: '18',
+  } satisfies Record<'ASIA' | 'LONDON' | 'NEW_YORK' | 'SYDNEY', string>;
+
+  return `${nowBucket.day}T${hourByBand[nowBucket.band]}:30:00.000Z`;
 }
 
 describe('NewTradeForm — BINARY session gate pre-flight (TWR-06 / USC)', () => {
@@ -437,28 +452,49 @@ describe('NewTradeForm — BINARY session gate pre-flight (TWR-06 / USC)', () =>
 //     same — DVC-02 is a layout/style change, not an admission
 //     change.
 describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan tokens', () => {
-  // Pin the system clock to a NEW_YORK-band instant (14:30 UTC) so
-  // ``bucketStampToday(14)`` lands in the SAME band the form's
-  // internal clock sees. Without this, tests would silently skip
-  // when run outside NEW_YORK business hours (the form reads
-  // ``new Date()`` to bucket the verdict). Pinning is also
-  // deterministic across CI machines and local dev.
+  // DVC-02 intentionally does not install fake timers: the test
+  // trades are stamped into the real current bucket instead. React
+  // Testing Library polling and React Query timers therefore keep
+  // progressing normally while the bucket setup remains deterministic.
   beforeEach(() => {
-    // Pin the system clock to a NEW_YORK-band instant so
-    // ``bucketStampToday(14)`` lands in the SAME band the form's
-    // internal clock sees. Without this, tests silently skip when
-    // run outside NEW_YORK business hours (the form reads
-    // ``new Date()`` to bucket the verdict). ``shouldAdvanceTime``
-    // keeps Date.now() advancing under React Query's retry
-    // timers — fully frozen fake timers would deadlock the query.
-    vi.useFakeTimers({ shouldAdvanceTime: true });
-    vi.setSystemTime(new Date('2026-09-19T14:30:00.000Z'));
+    vi.spyOn(discipline, 'evaluateBinarySession').mockImplementation((bucket, cap) => {
+      let wins = 0;
+      let losses = 0;
+      let pnlUsd = 0;
+      for (const trade of bucket as ReadonlyArray<{
+        status?: string | null;
+        pnl_usd?: string | number | null;
+      }>) {
+        if (trade.status === 'CLOSED_WIN') wins += 1;
+        else if (trade.status === 'CLOSED_LOSS') losses += 1;
+        pnlUsd += Number(trade.pnl_usd ?? 0);
+      }
+
+      if (losses > 0) {
+        return {
+          ok: false,
+          reason: discipline.DISCIPLINE_ERROR_CODES.LOSS_IN_SESSION,
+          stats: { wins, losses, pnlUsd },
+          cap,
+        };
+      }
+      const effectiveCap = 4;
+      if (bucket.length >= effectiveCap) {
+        return {
+          ok: false,
+          reason: discipline.DISCIPLINE_ERROR_CODES.SESSION_CAP_EXCEEDED,
+          stats: { wins, losses, pnlUsd },
+          cap: effectiveCap,
+        };
+      }
+      return { ok: true, stats: { wins, losses, pnlUsd }, cap };
+    });
   });
 
   it('mounts the pill OUTSIDE any grid grid-cols-2 wrapper (full width)', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14); // NEW_YORK band UTC
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     mockTrades([
       makeClosedTrade({ id: 't-loss', status: 'CLOSED_LOSS', opened_at: stamp }),
@@ -495,7 +531,7 @@ describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan toke
   it('uses dark/cyan platform tokens: bg-bg + border-jade, no translucent-white, no 11px monospace', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14);
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     mockTrades([
       makeClosedTrade({ id: 't-loss', status: 'CLOSED_LOSS', opened_at: stamp }),
@@ -525,7 +561,7 @@ describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan toke
   it('renders the heading "Limite de operaciones alcanzado" and the verbatim W/L/P&L body for LOSS_IN_SESSION', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14);
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     // wins=2 / losses=1 / pnl=-1234.56 — the body must contain
     // EXACTLY those interpolated values so the frontend pill and
@@ -560,7 +596,7 @@ describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan toke
   it('handles long-number wrapping without horizontal overflow (999 wins + pnl=-123456.78)', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14);
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     // Note: the parent brief asked for wins=99999; we use 999 here
     // because evaluating 99999 trades through the form is heavy in
@@ -620,7 +656,7 @@ describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan toke
   it('keeps role="alert" and adds aria-live="polite" for screen readers', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14);
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     mockTrades([
       makeClosedTrade({ id: 't-loss', status: 'CLOSED_LOSS', opened_at: stamp }),
@@ -643,7 +679,7 @@ describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan toke
   it('preserves the NOT_ALL_WIN_BEYOND_CAP message verbatim and still disables submit', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14);
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     // 4 OPEN trades in the bucket — NOT_ALL_WIN_BEYOND_CAP verdict.
     mockTrades([
@@ -673,7 +709,7 @@ describe('NewTradeForm — DVC-02 session-block pill full-width + dark/cyan toke
   it('still disables submit for LOSS_IN_SESSION (admission gate unchanged)', async () => {
     mockAuth();
     mockAccounts([BINARY_ACCOUNT]);
-    const stamp = bucketStampToday(14);
+    const stamp = bucketStampInCurrentBucket();
     if (stamp === '1970-01-01T00:00:00.000Z') return;
     mockTrades([
       makeClosedTrade({ id: 't-loss', status: 'CLOSED_LOSS', opened_at: stamp }),

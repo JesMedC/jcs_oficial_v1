@@ -1,0 +1,110 @@
+Para estructurar esta plataforma bajo un modelo SaaS multi-tenant, la arquitectura ideal se apoya en un backend robusto (como Python), una base de datos relacional potente (PostgreSQL) para garantizar la integridad financiera, y una infraestructura en contenedores (Docker) para escalar cada servicio.
+
+El enfoque técnico debe tratar el sistema de trading no solo como un registro de datos, sino como un motor de conciliación financiera exacta.
+
+A continuación, la planificación técnica y lógica de implementación, módulo por módulo.
+
+1. Módulo de Cuentas y Core Financiero (La Base)
+Este módulo debe implementarse primero, ya que sostiene la integridad del capital del usuario. El diseño debe basarse en un sistema de libro mayor (ledger) inmutable.
+
+Estructura de Base de Datos (PostgreSQL):
+
+Tabla accounts: id, tenant_id (usuario), name, market_type (binarias, forex, crypto), current_balance.
+
+Tabla transactions (El Ledger): id, account_id, type (deposit, withdrawal, trade_margin, trade_profit, trade_return), amount (positivo o negativo), prev_balance, post_balance, timestamp (UTC-0).
+
+Lógica de Implementación (Backend):
+
+Transacciones Atómicas: Cada fondeo, retiro o trade debe ejecutarse dentro de una transacción de base de datos (BEGIN...COMMIT). Si el cálculo del post_balance falla o deja la cuenta sobregirada, se hace un ROLLBACK.
+
+Validación de Sobregiro: Antes de un retiro o de abrir un trade, el backend consulta el current_balance. Si monto > current_balance, la API rechaza la petición.
+
+Replicación: Para replicar cuentas, se crea un endpoint que duplique el registro en la tabla accounts y genere una transacción inicial de "fondeo virtual" copiando el balance exacto, pero marcando la cuenta con un flag is_replica = true.
+
+Eliminación Segura: Soft-delete. Al escribir "ELIMINAR", no se borra la data (para no romper métricas pasadas), sino que se cambia el estado de la cuenta a is_active = false y se oculta del frontend.
+
+2. Módulo de Operaciones (El Motor)
+Aquí es vital manejar la diferencia entre mercados sin crear tablas redundantes.
+
+Estructura de Base de Datos:
+
+Tabla trades: id, account_id, status (open, won, lost, tie), invested_amount, gross_pnl, net_pnl, open_time, close_time.
+
+Columna trade_metadata (tipo JSONB): Almacena los datos específicos del mercado. Para binarias guardará {"asset": "EUR/USD", "direction": "CALL", "payout": 78, "expiration_min": 5}, y para Forex {"asset": "XAU/USD", "lot_size": 0.01, "leverage": 100, "sl": 1950, "tp": 2000}.
+
+Lógica de Implementación:
+
+Flujo de Apertura: Se descuenta el importe del balance (creando un registro en el ledger trade_margin con valor negativo).
+
+Flujo de Cierre (Binarias):
+
+Ganada: El backend genera dos registros en el ledger vinculados al ID del trade: un trade_return (devuelve el importe invertido) y un trade_profit (abona la ganancia basada en el payout).
+
+Empate: Un solo registro trade_return por el valor del importe.
+
+Perdida: No hay movimiento de capital de retorno, solo se actualiza el estado del trade a lost.
+
+Gestión de Imágenes: Integrar un bucket de almacenamiento (ej. AWS S3). El frontend sube el screenshot directamente al bucket y envía solo la URL segura al backend para guardarla en el registro del trade.
+
+3. Módulo de Gestión de Riesgo (El Guardián)
+Debe operar como un middleware en el backend que intercepte cualquier intento de abrir una operación.
+
+Estructura de Base de Datos:
+
+Tabla risk_rules: account_id, max_daily_loss_pct, max_consecutive_losses, cooling_period_hours.
+
+Lógica de Implementación:
+
+Evaluación en Tiempo Real: Al recibir un request para abrir un trade, el sistema calcula el P&L cerrado del día en curso (desde las 00:00 UTC). Si la pérdida acumulada supera el max_daily_loss_pct, el backend responde con un HTTP 403.
+
+Regla del 1% (Truncado): La función en Python que autocalcula el importe debe usar math.floor() o un equivalente para truncar decimales hacia abajo. Si el balance es $134 y el riesgo es 1%, el importe será $1.34 (si el broker lo permite) o $1.00 cerrado. Nunca redondear hacia arriba.
+
+4. Módulo de Dashboard y KPIs (Análisis de Datos)
+El rendimiento de este módulo es crítico; procesar miles de trades en tiempo real ralentizará la aplicación.
+
+Implementación de Rendimiento:
+
+Utilizar Vistas Materializadas (Materialized Views) en PostgreSQL que se actualicen periódicamente, o implementar un sistema de caché (Redis) en el backend.
+
+Cálculo de Curvas: Un endpoint específico que devuelva un array de objetos [{fecha: "YYYY-MM-DD", balance: 1050}, ...] para alimentar los gráficos (ej. Recharts o Chart.js en el frontend).
+
+Métricas Estáticas: Winrate (trades_ganados / trades_totales * 100), Profit Factor (suma_ganancias / suma_perdidas), P&L Diario (% y monto).
+
+5. Módulo de Calendario P&L (Visualización Temporal)
+El calendario requiere estructurar los datos del mes en curso de forma indexada.
+
+Lógica de Implementación:
+
+El backend expone un endpoint /api/pnl/calendar?month=YYYY-MM&account_id=123.
+
+Este endpoint calcula el balance inicial del mes (buscando el primer balance registrado el día 1, o el primer depósito si es cuenta nueva).
+
+Devuelve un JSON estructurado por días: {"2026-09-01": {"pnl": +15.5, "balance": 1015.5, "trades_count": 3}, ...}.
+
+Frontend: El componente de grilla renderiza los días. Aplica tokens de diseño dinámicos: si el P&L es positivo, inyecta la clase CSS asociada al verde jade corporativo; si es negativo, aplica tonos rojizos. Al hacer clic, lanza una petición secundaria para listar las operaciones exactas de ese día.
+
+6. Módulo de Diario de Trading (Evaluación Cualitativa)
+Aquí se cruza la data dura con la psicología del usuario.
+
+Estructura de Base de Datos:
+
+Tablas de catálogo: tags (estrategias) y emotions (psicología).
+
+Tabla journal_entries: id, user_id, date, notes, rule_broken (boolean).
+
+Lógica de Implementación:
+
+Permitir vincular múltiples operaciones a una sola entrada de diario diario.
+
+Indicador de Salida de Plan: Un sistema de banderas (flags). Si el usuario marca rule_broken = true, el sistema contabiliza este evento y lo muestra en el Dashboard como un KPI negativo ("Días fuera de plan: 4 este mes").
+
+7. Módulo de Preferencias (Configuración del Entorno)
+Control de la experiencia de usuario y zona horaria.
+
+Lógica de Implementación:
+
+Zonas Horarias: Todas las consultas a la base de datos se hacen en UTC-0. El usuario define en sus preferencias su zona local (ej. America/Santiago). El backend envía los timestamps en formato ISO 8601 UTC (ej. 2026-09-26T14:30:00Z). El frontend intercepta estos datos y utiliza la zona horaria del usuario para renderizar la hora exacta en pantalla.
+
+Tematización: Almacenar la preferencia theme: 'light' | 'dark' en la base de datos y sincronizarla con el LocalStorage del navegador para evitar parpadeos visuales (FOUC) al recargar la aplicación.
+
+Gestión de Planes: Integración con una pasarela de pagos. Los webhooks de la pasarela actualizan el subscription_tier del usuario en la base de datos, desbloqueando instantáneamente límites de cuentas o características avanzadas.

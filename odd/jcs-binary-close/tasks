@@ -1,0 +1,7 @@
+# Binary trade close ledger settlement tasks mirror
+
+Source: odd/tasks/binary-close-ledger.md
+
+- [x] Extend movement types and migration.
+- [x] Integrate binary settlement movements into close_trade.
+- [x] Add focused tests and validate: 12 combined ledger/trade tests pass; scoped Ruff passes.

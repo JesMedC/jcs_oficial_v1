@@ -24,6 +24,7 @@ import { useCreateTrade } from './useCreateTrade';
 import { EmotionalTagsChips } from './EmotionalTagsChips';
 import { getAvailableInstruments } from './availableInstruments';
 import { InstrumentPicker } from './InstrumentPicker';
+import { RiskPreview } from './RiskPreview';
 import {
   DISCIPLINE_ERROR_MESSAGE,
   evaluateBinarySession,
@@ -159,6 +160,9 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
 
   const selectedType = watch('type');
   const watchedAccountId = watch('account_id');
+  const watchedLotSize = watch('lot_size');
+  const watchedEntryPrice = watch('entry_price');
+  const watchedStopLoss = watch('stop_loss');
 
   // Active account drives the calculated-investment display (REQ-DISC-002
   // / 003) and the predictive hard-block (REQ-DISC-005/006). The
@@ -626,6 +630,15 @@ export function NewTradeForm({ onSuccess, onError, prefill }: NewTradeFormProps)
           calculated amount (three-tier rule), so duplicating it in
           a pill would be redundant. The previous pill block lived
           here. */}
+
+      <RiskPreview
+        selectedType={selectedType}
+        accountBalance={accountBalance}
+        binaryInvestment={montoCalculado}
+        forexLotSize={watchedLotSize}
+        forexEntryPrice={watchedEntryPrice}
+        forexStopLoss={watchedStopLoss}
+      />
 
       {/* Optional analysis-image upload (REQ-TI-ADD-001). Presign →
           upload → bind public_url. The bound URL rides the payload

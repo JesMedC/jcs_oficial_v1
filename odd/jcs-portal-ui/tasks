@@ -1,0 +1,8 @@
+# Portal UI redesign tasks mirror
+
+Source: odd/tasks/portal-ui-redesign.md
+
+- [x] Refine portal design tokens and global surface/typography treatment.
+- [x] Refine authenticated navigation shell and responsive chrome.
+- [x] Refine dashboard information hierarchy and responsive layout.
+- [x] Run validation and record evidence: typecheck, lint, focused portal/dashboard tests (32 passed), and production build all pass.

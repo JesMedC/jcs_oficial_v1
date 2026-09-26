@@ -21,7 +21,7 @@
  * undefined and the page would short-circuit to the not-found view.
  */
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { HelmetProvider } from 'react-helmet-async';
@@ -29,6 +29,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 
 vi.mock('../../../features/accounts/api', () => ({
   getAccountById: vi.fn(),
+  listAccountMovementsApi: vi.fn(),
   fundAccountApi: vi.fn(),
   withdrawAccountApi: vi.fn(),
   deleteAccountApi: vi.fn(),
@@ -39,10 +40,11 @@ vi.mock('../../../features/accounts/api', () => ({
 import {
   fundAccountApi,
   getAccountById,
+  listAccountMovementsApi,
   withdrawAccountApi,
 } from '../../../features/accounts/api';
 import { CuentasDetailPage } from '../CuentasDetailPage';
-import type { AccountOut } from '../../../features/accounts/types';
+import type { AccountMovementOut, AccountOut } from '../../../features/accounts/types';
 
 const ACCOUNT_ID = 'acc-1';
 const BASE_ACCOUNT: AccountOut = {
@@ -58,6 +60,7 @@ const BASE_ACCOUNT: AccountOut = {
 };
 
 const mockedGet = getAccountById as unknown as ReturnType<typeof vi.fn>;
+const mockedMovements = listAccountMovementsApi as unknown as ReturnType<typeof vi.fn>;
 const mockedFund = fundAccountApi as unknown as ReturnType<typeof vi.fn>;
 const mockedWithdraw = withdrawAccountApi as unknown as ReturnType<typeof vi.fn>;
 // deleteAccountApi is intentionally not exercised here — the danger-tab
@@ -83,6 +86,7 @@ function renderAt(path: string) {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mockedMovements.mockResolvedValue({ items: [], total: 0, skip: 0, limit: 50 });
 });
 
 describe('CuentasDetailPage', () => {
@@ -182,7 +186,7 @@ describe('CuentasDetailPage', () => {
     if (!(amountInput instanceof HTMLInputElement)) {
       throw new Error('amount input not found');
     }
-    await user.type(amountInput, '500');
+    fireEvent.change(amountInput, { target: { value: '500' } });
 
     // Modal submit "Retirar" stays disabled because 500 > balance 100.
     const submit = document.querySelector(
@@ -240,6 +244,71 @@ describe('CuentasDetailPage', () => {
     await user.clear(confirmInput!);
     await user.type(confirmInput!, 'ELIMINAR');
     expect(modalSubmit!).toBeEnabled();
+  });
+
+  it('Operaciones tab renders newest-first movement rows with signed amounts and balances', async () => {
+    const older: AccountMovementOut = {
+      id: 'mov-old',
+      account_id: ACCOUNT_ID,
+      movement_type: 'WITHDRAWAL',
+      amount: '-25.00',
+      previous_balance: '150.00',
+      post_balance: '125.00',
+      occurred_at: '2026-08-15T10:00:00.000Z',
+    };
+    const newest: AccountMovementOut = {
+      id: 'mov-new',
+      account_id: ACCOUNT_ID,
+      movement_type: 'DEPOSIT',
+      amount: '50.00',
+      previous_balance: '100.00',
+      post_balance: '150.00',
+      occurred_at: '2026-08-16T12:30:00.000Z',
+    };
+    mockedGet.mockResolvedValueOnce(BASE_ACCOUNT);
+    mockedMovements.mockResolvedValueOnce({
+      items: [older, newest],
+      total: 2,
+      skip: 0,
+      limit: 50,
+    });
+
+    renderAt(`/portal/cuentas/${ACCOUNT_ID}?tab=operaciones`);
+
+    await screen.findByTestId('account-movement-row-mov-new');
+
+    const rows = screen.getAllByTestId(/account-movement-row-/);
+    expect(rows.map((row) => row.getAttribute('data-testid'))).toEqual([
+      'account-movement-row-mov-new',
+      'account-movement-row-mov-old',
+    ]);
+    expect(screen.getByText('Fondeo')).toBeInTheDocument();
+    expect(screen.getByText('Retiro')).toBeInTheDocument();
+    expect(screen.getByText('+$50.00')).toHaveClass('text-profit');
+    expect(screen.getByText('-$25.00')).toHaveClass('text-loss');
+    expect(screen.getAllByText('$100.00').length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByText('$150.00').length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('Operaciones tab renders the empty ledger state', async () => {
+    mockedGet.mockResolvedValueOnce(BASE_ACCOUNT);
+    mockedMovements.mockResolvedValueOnce({ items: [], total: 0, skip: 0, limit: 50 });
+
+    renderAt(`/portal/cuentas/${ACCOUNT_ID}?tab=operaciones`);
+
+    await screen.findByTestId('account-movements-empty');
+    expect(screen.getByText(/Sin movimientos todavía/)).toBeInTheDocument();
+  });
+
+  it('Operaciones tab renders the movement loading state', async () => {
+    mockedGet.mockResolvedValueOnce(BASE_ACCOUNT);
+    mockedMovements.mockReturnValueOnce(new Promise(() => undefined));
+
+    renderAt(`/portal/cuentas/${ACCOUNT_ID}?tab=operaciones`);
+
+    await waitFor(() => {
+      expect(screen.getByTestId('account-movements-loading')).toBeInTheDocument();
+    });
   });
 
   it('renders "Cuenta no encontrada" when API returns NOT_FOUND', async () => {

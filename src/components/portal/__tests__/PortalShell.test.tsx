@@ -84,16 +84,13 @@ describe('PortalShell', () => {
     expect(screen.getByText('JadeCapitalSuite')).toBeInTheDocument();
     expect(screen.getByText('USUARIO')).toBeInTheDocument();
 
-    // Nav labels (Spanish per mem #68). Seven items in final nav order:
-    // Dashboard, Accounts, Operations, Log, Scanner, Playbook, Settings
-    // (jarvis-ui-redesign T-11 polish — English labels per the reference).
+    // Nav labels stay in Spanish and follow the portal's six-item order.
     expect(screen.getByRole('link', { name: 'Dashboard' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Accounts' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Operations' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Log' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Scanner' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Cuentas' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Operaciones' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Diario' })).toBeInTheDocument();
     expect(screen.getByRole('link', { name: 'Playbook' })).toBeInTheDocument();
-    expect(screen.getByRole('link', { name: 'Settings' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Configuración' })).toBeInTheDocument();
 
     // Collapse toggle label (expanded state).
     expect(screen.getByRole('button', { name: /Ocultar menu/i })).toBeInTheDocument();
@@ -102,7 +99,7 @@ describe('PortalShell', () => {
   it('marks the active route via aria-current="page"', () => {
     renderAt('/portal/cuentas');
 
-    const active = screen.getByRole('link', { name: 'Accounts' });
+    const active = screen.getByRole('link', { name: 'Cuentas' });
     expect(active).toHaveAttribute('aria-current', 'page');
     expect(screen.getByRole('link', { name: 'Dashboard' })).not.toHaveAttribute(
       'aria-current',

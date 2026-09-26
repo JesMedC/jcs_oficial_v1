@@ -1,0 +1,7 @@
+# Ledger for account funding and withdrawals tasks mirror
+
+Source: odd/tasks/ledger-fund-withdrawal.md
+
+- [x] Add ledger model, enum, and migration.
+- [x] Integrate fund and withdraw ledger writes atomically.
+- [x] Add focused ledger tests and run backend validation: 3 tests passed; ruff passed.

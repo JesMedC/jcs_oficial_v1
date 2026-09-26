@@ -1,0 +1,7 @@
+# Read-only account ledger history tasks mirror
+
+Source: odd/tasks/ledger-history-endpoint.md
+
+- [x] Add movement response schemas and service query.
+- [x] Add authenticated movements endpoint.
+- [x] Add focused tests and validate: 5 ledger tests pass; Ruff passes.

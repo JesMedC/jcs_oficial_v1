@@ -47,9 +47,10 @@ export function PortalSidebar() {
         // chrome. `border-[var(--glass-border)]` replaces the
         // jade-border token: the glass surface implies a glass border.
         'shrink-0 sticky top-0 self-start h-dvh',
-        'bg-surface/40 backdrop-blur-md',
-        'border-r border-[var(--glass-border)]',
+        'bg-surface/40 bg-[var(--portal-surface)] backdrop-blur-md backdrop-blur-xl shadow-[var(--portal-shadow)]',
+        'border-r border-[var(--glass-border)] border-[var(--portal-border)]',
         'flex flex-col transition-[width] duration-200',
+        'max-md:w-16',
         isCollapsed ? 'w-16' : 'w-72',
       ].join(' ')}
       aria-label="Menu lateral del portal de usuario"

@@ -1,0 +1,7 @@
+# Forex trade close ledger settlement tasks mirror
+
+Source: odd/tasks/forex-close-ledger.md
+
+- [x] Update profit movement constraint and migration.
+- [x] Integrate forex settlement movements into close_trade.
+- [x] Add focused tests and validate: 16 combined ledger tests pass; scoped Ruff passes.

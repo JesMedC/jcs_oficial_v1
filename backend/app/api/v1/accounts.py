@@ -25,6 +25,8 @@ from app.api.deps import CurrentUser, DbSession
 from app.models.trading_account import TradingAccountType
 from app.schemas.envelope import ErrorCode
 from app.schemas.trading_account import (
+    AccountMovementListOut,
+    AccountMovementOut,
     DeleteIn,
     FundIn,
     TradingAccountIn,
@@ -37,6 +39,7 @@ from app.services.trading_account_service import (
     create_trading_account,
     delete_account,
     fund_account,
+    list_account_movements,
     list_user_accounts,
     withdraw_account,
 )
@@ -141,6 +144,33 @@ async def create_account(
     except TradingAccountError as exc:
         _raise_trading_account_error(exc)
     return TradingAccountOut.model_validate(account)
+
+
+@router.get("/{account_id}/movements", response_model=AccountMovementListOut)
+async def list_account_movements_endpoint(
+    account_id: uuid.UUID,
+    user: CurrentUser,
+    db: DbSession,
+    skip: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> AccountMovementListOut:
+    """List immutable balance movements for an owned active account."""
+    try:
+        rows, total = await list_account_movements(
+            db,
+            user_id=user.id,
+            account_id=account_id,
+            skip=skip,
+            limit=limit,
+        )
+    except TradingAccountError as exc:
+        _raise_trading_account_error(exc)
+    return AccountMovementListOut(
+        items=[AccountMovementOut.model_validate(r) for r in rows],
+        total=total,
+        skip=skip,
+        limit=limit,
+    )
 
 
 @router.post(

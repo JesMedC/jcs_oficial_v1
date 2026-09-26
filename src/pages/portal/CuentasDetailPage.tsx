@@ -38,8 +38,9 @@ import { FundWithdrawModal } from '../../components/portal/FundWithdrawModal';
 import { DeleteAccountDialog } from '../../components/portal/DeleteAccountDialog';
 import { WinrateBySessionCard } from '../../components/dashboard/WinrateBySessionCard';
 import { PageHeader } from '../../components/ui/PageHeader';
-import { useAccount } from '../../features/accounts/hooks';
+import { useAccount, useAccountMovements } from '../../features/accounts/hooks';
 import {
+  ACCOUNT_MOVEMENT_TYPE_LABEL,
   ACCOUNT_TYPE_BADGE,
   type AccountOut,
 } from '../../features/accounts/types';
@@ -66,6 +67,26 @@ function formatUsd(raw: string): string {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(n);
 }
 
+function formatSignedMovementAmount(raw: string): string {
+  const n = Number(raw);
+  if (!Number.isFinite(n)) return raw;
+  const abs = new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(
+    Math.abs(n),
+  );
+  if (n > 0) return `+${abs}`;
+  if (n < 0) return `-${abs}`;
+  return abs;
+}
+
+function formatLedgerTimestamp(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  return new Intl.DateTimeFormat('es-AR', {
+    dateStyle: 'medium',
+    timeStyle: 'short',
+  }).format(d);
+}
+
 function formatLongDate(iso: string): string {
   const d = new Date(iso);
   if (Number.isNaN(d.getTime())) return iso;
@@ -84,7 +105,9 @@ export function CuentasDetailPage() {
   const tabParam = searchParams.get('tab');
   const activeTab: TabId = isTabId(tabParam) ? tabParam : 'resumen';
 
-  const accountQuery = useAccount(accountId ?? '');
+  const resolvedAccountId = accountId ?? '';
+  const accountQuery = useAccount(resolvedAccountId);
+  const movementsQuery = useAccountMovements(resolvedAccountId);
   const account = accountQuery.data ?? null;
   const loading = accountQuery.isLoading;
   const queryError = accountQuery.error as ErrorEnvelope | null;
@@ -113,6 +136,7 @@ export function CuentasDetailPage() {
   const handleSuccess = (updated: AccountOut) => {
     queryClient.setQueryData(['account', updated.id], updated);
     queryClient.invalidateQueries({ queryKey: ['accounts'] });
+    queryClient.invalidateQueries({ queryKey: ['accountMovements', updated.id] });
     setFundOpen(false);
     setWithdrawOpen(false);
   };
@@ -213,7 +237,7 @@ export function CuentasDetailPage() {
               onWithdraw={() => setWithdrawOpen(true)}
             />
           ) : null}
-          {activeTab === 'operaciones' ? <OperacionesTab /> : null}
+          {activeTab === 'operaciones' ? <OperacionesTab query={movementsQuery} /> : null}
           {activeTab === 'peligro' ? (
             <ZonaPeligroTab account={account} onDelete={() => setDeleteOpen(true)} />
           ) : null}
@@ -361,16 +385,124 @@ function SaldoTab({ account, onFund, onWithdraw }: SaldoTabProps) {
   );
 }
 
-function OperacionesTab() {
+interface OperacionesTabProps {
+  readonly query: ReturnType<typeof useAccountMovements>;
+}
+
+function OperacionesTab({ query }: OperacionesTabProps) {
+  const movements = [...(query.data?.items ?? [])].sort((a, b) => {
+    const dateDelta = new Date(b.occurred_at).getTime() - new Date(a.occurred_at).getTime();
+    return dateDelta !== 0 ? dateDelta : b.id.localeCompare(a.id);
+  });
+
   return (
-    <GlassCard variant="default">
-      <h2 className="font-display uppercase tracking-wide text-base md:text-lg mb-4">
-        Operaciones
-      </h2>
-      <p className="text-text-secondary font-body text-sm md:text-base">
-        Próximamente — acá vas a ver las operaciones de esta cuenta (se habilita en el módulo de
-        Operaciones).
-      </p>
+    <GlassCard variant="default" className="overflow-hidden">
+      <div className="flex flex-col gap-2 md:flex-row md:items-start md:justify-between mb-5">
+        <div>
+          <h2 className="font-display uppercase tracking-wide text-base md:text-lg">
+            Libro de cuenta
+          </h2>
+          <p className="mt-1 text-text-secondary font-body text-sm">
+            Movimientos de capital y operaciones, ordenados del más reciente al más antiguo.
+          </p>
+        </div>
+        <span className="inline-flex w-fit rounded-full border border-primary/25 bg-primary/10 px-3 py-1 font-display text-[11px] uppercase tracking-widest text-primary">
+          {query.data?.total ?? movements.length} movimientos
+        </span>
+      </div>
+
+      {query.isLoading ? (
+        <div
+          className="rounded-xl border border-primary/15 bg-surface/40 p-6 text-text-secondary font-body text-sm"
+          data-testid="account-movements-loading"
+        >
+          Cargando movimientos...
+        </div>
+      ) : null}
+
+      {query.isError ? (
+        <div
+          className="rounded-xl border border-loss/35 bg-loss/10 p-5"
+          role="alert"
+          data-testid="account-movements-error"
+        >
+          <p className="font-display uppercase tracking-wide text-sm text-loss">
+            No pudimos cargar el libro
+          </p>
+          <p className="mt-1 font-body text-sm text-text-secondary">
+            Reintentá en unos segundos. Si persiste, conservá el código de error del banner.
+          </p>
+        </div>
+      ) : null}
+
+      {!query.isLoading && !query.isError && movements.length === 0 ? (
+        <div
+          className="rounded-xl border border-primary/15 bg-surface/40 p-8 text-center"
+          data-testid="account-movements-empty"
+        >
+          <p className="font-display uppercase tracking-wide text-sm text-text-primary">
+            Sin movimientos todavía
+          </p>
+          <p className="mt-2 font-body text-sm text-text-secondary">
+            Cuando fondees, retires o cierres operaciones, el historial va a aparecer acá.
+          </p>
+        </div>
+      ) : null}
+
+      {!query.isLoading && !query.isError && movements.length > 0 ? (
+        <div className="overflow-x-auto" data-testid="account-movements-table">
+          <table className="w-full min-w-[760px] border-separate border-spacing-0 font-body text-sm">
+            <thead>
+              <tr className="border-b border-primary/15 text-left font-display text-[10px] uppercase tracking-widest text-text-muted">
+                <th className="border-b border-primary/15 px-3 py-3">Fecha</th>
+                <th className="border-b border-primary/15 px-3 py-3">Movimiento</th>
+                <th className="border-b border-primary/15 px-3 py-3 text-right">Monto</th>
+                <th className="border-b border-primary/15 px-3 py-3 text-right">Balance previo</th>
+                <th className="border-b border-primary/15 px-3 py-3 text-center">→</th>
+                <th className="border-b border-primary/15 px-3 py-3 text-right">Balance final</th>
+              </tr>
+            </thead>
+            <tbody>
+              {movements.map((movement) => {
+                const amount = Number(movement.amount);
+                const amountTone = amount > 0
+                  ? 'text-profit'
+                  : amount < 0
+                    ? 'text-loss'
+                    : 'text-text-muted';
+                return (
+                  <tr
+                    key={movement.id}
+                    className="border-b border-primary/10 transition-colors hover:bg-primary/5"
+                    data-testid={`account-movement-row-${movement.id}`}
+                  >
+                    <td className="border-b border-primary/10 px-3 py-3 text-text-secondary whitespace-nowrap">
+                      {formatLedgerTimestamp(movement.occurred_at)}
+                    </td>
+                    <td className="border-b border-primary/10 px-3 py-3">
+                      <span className="font-display text-xs uppercase tracking-wide text-text-primary">
+                        {ACCOUNT_MOVEMENT_TYPE_LABEL[movement.movement_type]}
+                      </span>
+                    </td>
+                    <td className={`border-b border-primary/10 px-3 py-3 text-right font-mono font-semibold tabular-nums ${amountTone}`}>
+                      {formatSignedMovementAmount(movement.amount)}
+                    </td>
+                    <td className="border-b border-primary/10 px-3 py-3 text-right font-mono text-text-secondary tabular-nums">
+                      {formatUsd(movement.previous_balance)}
+                    </td>
+                    <td className="border-b border-primary/10 px-3 py-3 text-center text-primary/70">
+                      →
+                    </td>
+                    <td className="border-b border-primary/10 px-3 py-3 text-right font-mono text-text-primary tabular-nums">
+                      {formatUsd(movement.post_balance)}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
     </GlassCard>
   );
 }

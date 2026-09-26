@@ -38,7 +38,7 @@ from __future__ import annotations
 import math
 import statistics
 import uuid
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from decimal import Decimal
 from typing import Any
 
@@ -48,6 +48,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.models import (
+    AccountMovement,
+    AccountMovementType,
     AuditLog,
     BinaryDirection,
     ForexDirection,
@@ -57,7 +59,14 @@ from app.models import (
     TradingAccount,
     User,
 )
-from app.schemas.trade import EquityPoint, MetricsOut, RiskSummaryOut, SessionStatsOut, SessionTile, TradeCreateIn
+from app.schemas.trade import (
+    EquityPoint,
+    MetricsOut,
+    RiskSummaryOut,
+    SessionStatsOut,
+    SessionTile,
+    TradeCreateIn,
+)
 from app.services.discipline_engine import (
     DisciplineError,
     validate_open_trade,
@@ -130,6 +139,46 @@ async def _emit_audit(
         )
     )
     await db.flush()
+
+
+async def _add_account_movement(
+    db: AsyncSession,
+    *,
+    account_id: uuid.UUID,
+    movement_type: AccountMovementType,
+    amount: Decimal,
+    previous_balance: Decimal,
+    post_balance: Decimal,
+) -> None:
+    db.add(
+        AccountMovement(
+            account_id=account_id,
+            movement_type=movement_type,
+            amount=amount,
+            previous_balance=previous_balance,
+            post_balance=post_balance,
+            occurred_at=datetime.now(UTC),
+        )
+    )
+    await db.flush()
+
+
+async def _add_trade_margin_movement(
+    db: AsyncSession,
+    *,
+    account_id: uuid.UUID,
+    amount: Decimal,
+    previous_balance: Decimal,
+    post_balance: Decimal,
+) -> None:
+    await _add_account_movement(
+        db,
+        account_id=account_id,
+        movement_type=AccountMovementType.TRADE_MARGIN,
+        amount=-amount,
+        previous_balance=previous_balance,
+        post_balance=post_balance,
+    )
 
 
 # ---------- helpers ----------
@@ -555,6 +604,13 @@ async def open_trade(
 
     previous_balance = account.balance_usd
     account.balance_usd = previous_balance - deduct_amount
+    await _add_trade_margin_movement(
+        db,
+        account_id=account.id,
+        amount=deduct_amount,
+        previous_balance=previous_balance,
+        post_balance=account.balance_usd,
+    )
 
     # Snapshot para audit (sin enviar Decimal raw — str() para JSON).
     new_snapshot: dict[str, Any] = {
@@ -752,7 +808,7 @@ async def close_trade(
     # Mutamos el trade.
     trade.status = new_status
     trade.pnl_usd = pnl_usd
-    trade.closed_at = datetime.now(timezone.utc)
+    trade.closed_at = datetime.now(UTC)
     if r_multiple is not None:
         trade.r_multiple = r_multiple
     if post_trade_notes is not None:
@@ -782,6 +838,52 @@ async def close_trade(
         margin_returned = Decimal(str(trade.investment_usd)).quantize(_CENTS)
     trade.account.balance_usd = previous_balance + margin_returned + pnl_usd
     new_balance = trade.account.balance_usd
+
+    movement_previous_balance = previous_balance
+    if trade.type == TradeType.FOREX:
+        if margin_returned > _ZERO:
+            movement_post_balance = movement_previous_balance + margin_returned
+            await _add_account_movement(
+                db,
+                account_id=trade.account_id,
+                movement_type=AccountMovementType.TRADE_RETURN,
+                amount=margin_returned,
+                previous_balance=movement_previous_balance,
+                post_balance=movement_post_balance,
+            )
+            movement_previous_balance = movement_post_balance
+        if pnl_usd != _ZERO:
+            movement_post_balance = movement_previous_balance + pnl_usd
+            await _add_account_movement(
+                db,
+                account_id=trade.account_id,
+                movement_type=AccountMovementType.TRADE_PROFIT,
+                amount=pnl_usd,
+                previous_balance=movement_previous_balance,
+                post_balance=movement_post_balance,
+            )
+    elif pnl_usd >= _ZERO:
+        if margin_returned > _ZERO:
+            movement_post_balance = movement_previous_balance + margin_returned
+            await _add_account_movement(
+                db,
+                account_id=trade.account_id,
+                movement_type=AccountMovementType.TRADE_RETURN,
+                amount=margin_returned,
+                previous_balance=movement_previous_balance,
+                post_balance=movement_post_balance,
+            )
+            movement_previous_balance = movement_post_balance
+        if pnl_usd > _ZERO:
+            movement_post_balance = movement_previous_balance + pnl_usd
+            await _add_account_movement(
+                db,
+                account_id=trade.account_id,
+                movement_type=AccountMovementType.TRADE_PROFIT,
+                amount=pnl_usd,
+                previous_balance=movement_previous_balance,
+                post_balance=movement_post_balance,
+            )
 
     await _emit_audit(
         db,
@@ -975,7 +1077,7 @@ async def get_risk_summary(
         ) from exc
 
     today_start = datetime.combine(
-        date.today(), time.min, tzinfo=timezone.utc
+        date.today(), time.min, tzinfo=UTC
     )
 
     # Una sola round-trip: open_count + daily_pnl + wins_today +
@@ -1074,13 +1176,13 @@ def _day_bounds(
     segundo del backend.
     """
     start = (
-        datetime.combine(from_date, time.min, tzinfo=timezone.utc)
+        datetime.combine(from_date, time.min, tzinfo=UTC)
         if from_date is not None
         else None
     )
     end = (
         datetime.combine(
-            to_date + timedelta(days=1), time.min, tzinfo=timezone.utc
+            to_date + timedelta(days=1), time.min, tzinfo=UTC
         )
         if to_date is not None
         else None

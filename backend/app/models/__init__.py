@@ -1,8 +1,6 @@
 """SQLAlchemy 2.x typed models — exported via ``app.models``."""
-# NOTE: ``AccountMovement`` model was removed during the scanner-merge
-# (commit b86a341). The import was the only real reference left; remaining
-# mentions in services/ are docstrings only. Restore the canonical model
-# before reintroducing any ledger-backed feature.
+from app.db.base import Base
+from app.models.account_movement import AccountMovement, AccountMovementType
 from app.models.audit_log import AuditLog
 from app.models.page_view import PageView
 from app.models.payment import Payment, PaymentStatus
@@ -20,7 +18,6 @@ from app.models.trading_account import TradingAccount, TradingAccountType
 from app.models.user import User, UserRole
 from app.models.workspace import Workspace, WorkspacePlanTier
 from app.models.workspace_member import WorkspaceMember, WorkspaceMemberRole
-from app.db.base import Base
 
 __all__ = [
     "Base",
@@ -39,6 +36,8 @@ __all__ = [
     "Payment",
     "PaymentStatus",
     "PageView",
+    "AccountMovement",
+    "AccountMovementType",
     "TradingAccount",
     "TradingAccountType",
     "Trade",

@@ -1,0 +1,7 @@
+# Trade margin ledger entry on open tasks mirror
+
+Source: odd/tasks/trade-margin-ledger.md
+
+- [x] Extend movement type and migration.
+- [x] Integrate margin movement into trade opening.
+- [x] Add focused tests and validate: 8 ledger/trade-margin tests pass; scoped Ruff passes.

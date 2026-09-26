@@ -53,11 +53,7 @@ function LogoutIcon() {
   );
 }
 
-function buildDisplayName(user: {
-  first_name: string;
-  last_name: string;
-  email: string;
-}): string {
+function buildDisplayName(user: { first_name: string; last_name: string; email: string }): string {
   const full = `${user.first_name} ${user.last_name}`.trim();
   return full.length > 0 ? full : user.email;
 }
@@ -92,21 +88,20 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
   return (
     <div
       className={[
-        'border-t border-[var(--color-jade-border)] p-3 space-y-3',
+        'border-t border-[var(--portal-border)] p-3 space-y-3 bg-[var(--portal-surface-strong)]/70',
         isCollapsed ? 'flex flex-col items-center' : '',
       ].join(' ')}
     >
       {/* User identity card — bigger + with online dot + meta info */}
       {user && displayName ? (
         <div
-          className={[
-            'flex items-start gap-3',
-            isCollapsed ? 'justify-center flex-col' : '',
-          ].join(' ')}
+          className={['flex items-start gap-3', isCollapsed ? 'justify-center flex-col' : ''].join(
+            ' ',
+          )}
         >
           <div className="relative shrink-0">
             <div
-              className="inline-flex items-center justify-center w-10 h-10 rounded-full bg-[var(--color-jade-border)] border border-[var(--color-jade-border-line)] text-[var(--color-jade)] font-display uppercase text-sm"
+              className="inline-flex items-center justify-center w-10 h-10 rounded-xl bg-primary/10 border border-primary/40 text-[var(--color-jade)] font-display uppercase text-sm shadow-[0_0_18px_rgba(0,212,216,0.18)]"
               aria-hidden="true"
             >
               {initials(displayName)}
@@ -122,9 +117,7 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
               <span className="font-display uppercase tracking-wide text-text-primary text-xs truncate">
                 {displayName}
               </span>
-              <span className="font-mono text-[10px] text-text-muted truncate">
-                {email}
-              </span>
+              <span className="font-mono text-[10px] text-text-muted truncate">{email}</span>
               <span className="font-display uppercase tracking-[0.15em] text-[9px] text-primary mt-0.5">
                 {role} · {workspace}
               </span>
@@ -135,10 +128,9 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
 
       {/* Logout pill + collapse toggle in a row */}
       <div
-        className={[
-          'flex gap-2',
-          isCollapsed ? 'flex-col items-center' : 'items-stretch',
-        ].join(' ')}
+        className={['flex gap-2', isCollapsed ? 'flex-col items-center' : 'items-stretch'].join(
+          ' ',
+        )}
       >
         <button
           type="button"
@@ -147,9 +139,9 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
           aria-label="Cerrar sesion"
           className={[
             'flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md',
-            'border border-primary/60 text-primary bg-primary/10',
+            'border border-primary/60 text-primary bg-transparent',
             'font-display uppercase tracking-[0.15em] text-[10px]',
-            'hover:bg-primary/20 hover:shadow-glow-cyan transition-colors',
+            'hover:bg-primary/15 hover:shadow-glow-cyan transition-colors',
           ].join(' ')}
         >
           <LogoutIcon />
@@ -161,7 +153,7 @@ export function SidebarFooter({ isCollapsed }: SidebarFooterProps) {
           aria-label={isCollapsed ? 'Mostrar menu' : 'Ocultar menu'}
           className={[
             'inline-flex items-center justify-center gap-2 px-3 py-1.5 rounded-md',
-            'border border-primary/30 text-text-secondary bg-[var(--color-jade-border)]/40',
+            'border border-[var(--portal-border)] text-text-secondary bg-[var(--portal-surface-soft)]',
             'font-display uppercase tracking-[0.15em] text-[10px]',
             'hover:border-primary/70 hover:text-primary transition-colors',
             isCollapsed ? '' : '',

@@ -13,11 +13,14 @@ export function SidebarHeader({ isCollapsed }: SidebarHeaderProps) {
   return (
     <div
       className={[
-        'flex items-center gap-2 px-4 py-5 border-b border-[var(--color-jade-border)]',
+        'flex items-center gap-3 px-4 py-4 border-b border-[var(--portal-border)]',
+        'bg-[linear-gradient(135deg,var(--portal-surface-strong),transparent)]',
         isCollapsed ? 'justify-center' : '',
       ].join(' ')}
     >
-      <span className="inline-block w-2 h-2 rounded-full bg-primary shadow-[0_0_12px_var(--color-jade-glow)] shrink-0" /> {/* design-system-v1 (Wave 3b, T3b.1) — old-jade rgba swapped for neon jade rgba(0,255,157,*). */}
+      <span className="inline-flex w-9 h-9 items-center justify-center rounded-xl border border-primary/40 bg-primary/10 text-primary shadow-[0_0_18px_var(--color-jade-glow)] shrink-0 font-display text-xs">
+        JC
+      </span>
       {!isCollapsed ? (
         <div className="flex flex-col leading-tight min-w-0">
           {/*
@@ -28,12 +31,12 @@ export function SidebarHeader({ isCollapsed }: SidebarHeaderProps) {
            * shadow mirrors the H1 greeting on DashboardPage.
            */}
           <span
-            className="font-display uppercase tracking-[0.2em] text-text-primary text-xs truncate"
+            className="font-display uppercase tracking-[0.18em] text-text-primary text-xs truncate"
             style={{ textShadow: '0 0 8px rgba(0,212,216,0.35)' }}
           >
             JadeCapitalSuite
           </span>
-          <span className="font-display uppercase tracking-widest text-text-muted text-[9px] mt-0.5">
+          <span className="font-display uppercase tracking-widest text-text-muted text-[9px] mt-1">
             USUARIO
           </span>
         </div>

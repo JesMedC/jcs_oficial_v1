@@ -14,7 +14,13 @@
  */
 import { apiClient } from '../../lib/api/client';
 
-import type { AccountList, CreateAccountPayload, AccountOut } from './types';
+import type {
+  AccountList,
+  AccountMovementList,
+  CreateAccountPayload,
+  ListAccountMovementsParams,
+  AccountOut,
+} from './types';
 
 export async function listAccountsApi(
   params: { readonly skip?: number; readonly limit?: number } = {},
@@ -30,6 +36,16 @@ export async function createAccountApi(payload: CreateAccountPayload): Promise<A
 
 export async function getAccountById(id: string): Promise<AccountOut> {
   const { data } = await apiClient.get<AccountOut>(`/accounts/${id}`);
+  return data;
+}
+
+export async function listAccountMovementsApi(
+  accountId: string,
+  params: ListAccountMovementsParams = {},
+): Promise<AccountMovementList> {
+  const { data } = await apiClient.get<AccountMovementList>(`/accounts/${accountId}/movements`, {
+    params,
+  });
   return data;
 }
 

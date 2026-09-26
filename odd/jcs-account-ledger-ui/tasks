@@ -1,0 +1,7 @@
+# Account ledger history UI tasks mirror
+
+Source: odd/tasks/account-ledger-ui.md
+
+- [x] Add movement types, API wrapper, and query hook.
+- [x] Build professional account ledger panel.
+- [x] Add focused tests and validate: 11 Vitest tests pass; typecheck and lint pass.

@@ -29,7 +29,10 @@ import { JarvisWatermark } from '../dashboard/JarvisWatermark';
 
 export function PortalShell() {
   return (
-    <div className="relative min-h-dvh flex bg-[var(--color-bg)] text-[var(--color-jade-text-pri)]">
+    <div
+      data-portal-shell
+      className="relative min-h-dvh flex bg-[var(--color-bg)] text-[var(--color-jade-text-pri)] overflow-hidden"
+    >
       {/* JARVIS chrome backdrop — dim server room + grid pattern. */}
       <ServerRoomBackground />
 
@@ -44,13 +47,13 @@ export function PortalShell() {
 
       <div className="relative z-10 flex-1 flex flex-col min-w-0 overflow-x-auto">
         <PortalHeader />
-        <main className="flex-1 px-4 md:px-6 py-4 min-w-0">
+        <main className="flex-1 min-w-0 px-3 sm:px-4 lg:px-6 xl:px-8 py-3 sm:py-5 lg:py-6">
           <Outlet />
         </main>
       </div>
 
       {/* Theme toggle floating top-right of the content area. */}
-      <div className="fixed top-4 right-4 z-30">
+      <div className="fixed top-3 right-3 lg:top-4 lg:right-4 z-30">
         <ThemeToggle />
       </div>
       <NewTradeDrawer />
