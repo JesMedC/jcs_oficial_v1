@@ -43,6 +43,7 @@ const MENU: ReadonlyArray<MenuItem> = [
 export function FloatingActionButton() {
   const [open, setOpen] = useState(false);
   const openTradeDrawer = useNewTradeDrawer((s) => s.open);
+  const tradeDrawerOpen = useNewTradeDrawer((s) => s.isOpen);
   const requestQuick = useQuickAction((s) => s.request);
   const wrapperRef = useRef<HTMLDivElement | null>(null);
 
@@ -88,6 +89,11 @@ export function FloatingActionButton() {
         break;
     }
   };
+
+  // Keep the action launcher below the trade drawer. Leaving the FAB
+  // mounted above the dialog makes the plus button float over the form
+  // and can intercept clicks near the drawer footer.
+  if (tradeDrawerOpen) return null;
 
   return (
     <div
